@@ -1,0 +1,17 @@
+{
+  "id": "site3217",
+  "name": "ebut site3217 주문필터링/스캔 게이트",
+  "version": "0.1.0",
+  "description": "site3217main.jsp에 주문필터 툴바와 허용 스캔 게이트를 추가합니다.",
+  "entry": "scripts/site3217/main.js",
+  "dependencies": [
+    {
+      "id": "xlsx",
+      "version": "0.20.2",
+      "path": "vendor/xlsx.full.min.js"
+    }
+  ],
+  "checksum": "",
+  "updatedAt": "2026-03-21 00:00:00"
+}
+

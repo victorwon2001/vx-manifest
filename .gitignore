@@ -1,0 +1,6 @@
+.tm-cache/
+node_modules/
+*.log
+*.tmp
+dist/
+
