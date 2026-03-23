@@ -21,23 +21,23 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiContainer{position:fixed;top:12px;right:12px;width:min(648px,calc(100vw - 24px));min-width:460px;padding:0;z-index:9999;display:none;max-height:90vh;overflow:auto;resize:both;background:transparent}",
-    "#stockMoveGuiContainer.tm-ui-root{background:transparent}",
-    "#stockMoveGuiContainer .tm-stock-shell{padding:0;overflow:hidden;border:1px solid var(--tm-border);border-radius:18px;background:var(--tm-surface)}",
+    "#stockMoveGuiContainer{position:fixed;top:12px;right:12px;width:min(648px,calc(100vw - 24px));min-width:460px;padding:0;z-index:9999;display:none;max-height:90vh;overflow:auto;resize:both;background:var(--tm-surface);border:1px solid var(--tm-border);border-radius:20px;box-shadow:0 24px 48px rgba(45,52,53,.16)}",
+    "#stockMoveGuiContainer.tm-ui-root{background:var(--tm-surface)}",
+    "#stockMoveGuiContainer .tm-stock-shell{padding:0;overflow:hidden;border:0;border-radius:inherit;background:transparent;box-shadow:none}",
     "#stockMoveGuiContainer.running .tm-stock-shell{border-color:#d1e2da;background:var(--tm-surface)}",
     "#stockMoveGuiContainer.error .tm-stock-shell{border-color:#e2c3c1;background:var(--tm-surface)}",
-    "#stockMoveGuiContainer .tm-stock-body{display:grid;gap:10px;padding:0 14px 14px;background:var(--tm-surface)}",
+    "#stockMoveGuiContainer .tm-stock-body{display:grid;gap:12px;padding:0 16px 16px;background:transparent}",
     "#stockMoveGuiContainer .tm-stock-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}",
     "#stockMoveGuiContainer .tm-stock-head-copy{display:grid;gap:6px}",
     "#stockMoveGuiContainer .tm-stock-title{font-size:18px;font-weight:800}",
     "#stockMoveGuiContainer .tm-stock-head .close-btn{margin-left:auto}",
     "#stockMoveGuiContainer .tm-stock-input-card,#stockMoveGuiContainer .tm-stock-running-card,#stockMoveGuiContainer .tm-stock-report-card{margin:0;padding:12px}",
     "#stockMoveGuiContainer textarea{width:100%;height:132px;font-size:12.5px;font-family:Consolas,'Courier New',monospace}",
-    ".btn-start,.btn-stop,.btn-reset,.btn-close-report{width:100%}",
-    ".btn-start{margin-top:10px}",
-    ".btn-stop,.btn-reset{margin-top:6px}",
+    ".btn-start,.btn-stop,.btn-reset,.btn-close-report{width:100%;display:inline-flex;justify-content:center}",
+    ".tm-stock-action-row{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px;margin-top:10px}",
+    ".tm-stock-action-row--even{grid-template-columns:repeat(2,minmax(0,1fr))}",
     ".btn-close-report{margin-top:4px}",
-    "#stockMoveGuiLog{margin:0;max-height:168px;overflow-y:auto;line-height:1.6}",
+    "#stockMoveGuiLog{margin:0;max-height:168px;overflow-y:auto;line-height:1.6;padding:12px;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}",
     "#toggleStockMoveGuiBtn{position:fixed;top:12px;right:12px;z-index:10000;transition:right 0.2s}",
     ".status-text{text-align:left;font-weight:700;margin:0 0 10px;color:var(--tm-text);font-size:13px}",
     ".format-hint{font-size:12px;color:#4f5758;margin-bottom:10px;background:var(--tm-surface-alt);padding:10px 12px;border-radius:10px;border:1px solid var(--tm-border);line-height:1.6}",
@@ -599,7 +599,7 @@
       "<div class='tm-stock-head-copy'>",
       "<span class='tm-ui-kicker'>재고 이동</span>",
       "<div class='tm-stock-title tm-ui-title'>재고이동 자동화</div>",
-      "<p class='tm-ui-subtitle'>입력값을 검증한 뒤 목적지별 이동 묶음으로 처리합니다.</p>",
+      "<p class='tm-ui-subtitle'>입력값을 검증한 뒤 목적지별로 묶어 처리합니다.</p>",
       "</div>",
       "<button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button>",
       "</div>",
@@ -608,11 +608,10 @@
       "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>입력</div><div class='tm-ui-section-title'>이동 요청 붙여넣기</div></div><span class='tm-ui-inline-note'>탭 구분 형식</span></div>",
       "<div class='format-hint'><b>형식:</b> 기존로케이션 [탭] 상품코드 [탭] 이동수량 [탭] 이후로케이션<br><b>예시:</b> S35-02-2-A\tO8800244293273\t216\ts35-17-1-b<br><small>※ 재고 부족, 검색 실패 등은 건너뛰고 계속 진행됩니다.</small></div>",
       "<textarea id='moveDataInput' class='tm-ui-textarea' placeholder='S35-02-2-A\tO8800244293273\t216\ts35-17-1-b&#10;S35-04-3-B\tO8800244293273\t174\ts35-17-1-b'></textarea>",
-      "<button id='startMoveBtn' class='btn-start tm-ui-btn tm-ui-btn--success'>재고이동 시작 (API 검색 + 자동이동)</button>",
-      "<button id='resetAllBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button>",
+      "<div class='tm-stock-action-row'><button id='startMoveBtn' class='btn-start tm-ui-btn tm-ui-btn--success'>재고이동 시작</button><button id='resetAllBtn' class='btn-reset tm-ui-btn tm-ui-btn--secondary'>초기화</button></div>",
       "</div>",
       "<div id='validationArea' class='tm-stock-stage' style='display:none;'></div>",
-      "<div id='runningArea' class='tm-stock-running-card tm-ui-section' style='display:none;'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>실행 상태</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>처리 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
+      "<div id='runningArea' class='tm-stock-running-card tm-ui-section' style='display:none;'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>실행 상태</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>처리 중...</div><div class='tm-stock-action-row tm-stock-action-row--even'><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--secondary'>초기화</button></div></div>",
       "<div id='reportArea' class='tm-stock-stage' style='display:none;'></div>",
       "<div id='stockMoveGuiLog' class='tm-ui-log tm-stock-log'>준비됨. 데이터를 입력하고 시작 버튼을 클릭하세요.</div>",
       "</div>",
@@ -633,7 +632,7 @@
       "<div class='tm-stock-shell tm-ui-card'>",
       "<div class='tm-ui-panel-head tm-stock-head'><div class='tm-stock-head-copy'><span class='tm-ui-kicker'>실행 상태</span><div class='tm-stock-title tm-ui-title'>재고이동 처리 중</div><p class='tm-ui-subtitle'>편집 화면에서는 현재 실행 단계와 중지 제어만 노출합니다.</p></div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
       "<div class='tm-stock-body'>",
-      "<div id='runningArea' class='tm-stock-running-card tm-ui-section'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>실행 상태</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>데이터 입력 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
+      "<div id='runningArea' class='tm-stock-running-card tm-ui-section'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>실행 상태</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>데이터 입력 중...</div><div class='tm-stock-action-row tm-stock-action-row--even'><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--secondary'>초기화</button></div></div>",
       "<div id='stockMoveGuiLog' class='tm-ui-log tm-stock-log'></div>",
       "</div>",
       "</div>",
@@ -1106,7 +1105,7 @@
   return {
     id: MODULE_ID,
     name: MODULE_NAME,
-    version: "0.1.5",
+    version: "0.1.6",
     matches: MATCHES,
     run,
     start,
@@ -1124,6 +1123,7 @@
     buildEditGuiHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

@@ -204,4 +204,6 @@ test("popup html uses shared light admin root and component classes", () => {
   assert.match(html, /tm-ui-btn/);
   assert.match(html, /tm-ui-overlay/);
   assert.match(html, /tm-ui-modal/);
+  assert.match(html, /shipping-mode-badge/);
+  assert.match(html, /shipping-modal/);
 });
