@@ -14,8 +14,10 @@ function resolveRepoPath(candidates) {
 const loader = require(resolveRepoPath(["../loader/loader.user.js", "../client/loader.user.js"]));
 const releaseLib = require("../tools/release-lib.js");
 const remoteModule = require(resolveRepoPath(["../scripts/site3217/main.js", "../modules/module-a/main.js"]));
+const patternAnalyzerModule = require(resolveRepoPath(["../modules/pattern-analyzer/main.js"]));
 const registry = require(resolveRepoPath(["../registry/registry.json", "../config/registry.json"]));
 const remoteMeta = require(resolveRepoPath(["../scripts/site3217/meta.json", "../modules/module-a/meta.json"]));
+const patternAnalyzerMeta = require(resolveRepoPath(["../modules/pattern-analyzer/meta.json"]));
 
 test("matchUrlPattern handles trailing wildcard", () => {
   assert.equal(
@@ -191,6 +193,21 @@ test("registry and remote meta expose the requested display name", () => {
   assert.equal(remoteMeta.name, "송장출력(스캔) 필터링");
 });
 
+test("registry exposes the pattern analyzer module metadata", () => {
+  const script = registry.scripts.find((item) => item.id === "pattern-analyzer");
+
+  assert.ok(script);
+  assert.equal(script.name, "패턴분석기");
+  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/*"]);
+  assert.equal(script.metaPath, "modules/pattern-analyzer/meta.json");
+});
+
+test("pattern analyzer meta exposes the requested display name", () => {
+  assert.equal(patternAnalyzerMeta.id, "pattern-analyzer");
+  assert.equal(patternAnalyzerMeta.name, "패턴분석기");
+  assert.equal(patternAnalyzerMeta.entry, "modules/pattern-analyzer/main.js");
+});
+
 test("bumpVersion increments patch by default", () => {
   assert.equal(releaseLib.bumpVersion("0.1.0"), "0.1.1");
   assert.equal(releaseLib.bumpVersion("0.1.0", "minor"), "0.2.0");
@@ -213,4 +230,10 @@ test("remote module exports run contract", () => {
   assert.equal(remoteModule.version, "0.1.0");
   assert.equal(Array.isArray(remoteModule.matches), true);
   assert.equal(typeof remoteModule.run, "function");
+});
+
+test("pattern analyzer module exports run contract", () => {
+  assert.equal(patternAnalyzerModule.id, "pattern-analyzer");
+  assert.equal(Array.isArray(patternAnalyzerModule.matches), true);
+  assert.equal(typeof patternAnalyzerModule.run, "function");
 });
