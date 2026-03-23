@@ -1,7 +1,7 @@
 ﻿{
     "id":  "pattern-analyzer",
     "name":  "패턴분석기",
-    "version":  "0.1.3",
+    "version":  "0.1.4",
     "description":  "주문 패턴 분석 및 출고 도구",
     "entry":  "modules/pattern-analyzer/main.js",
     "dependencies":  [
@@ -17,5 +17,5 @@
                          }
                      ],
     "checksum":  "",
-    "updatedAt":  "2026-03-23 15:08:12"
+    "updatedAt":  "2026-03-23 16:44:45"
 }
