@@ -77,6 +77,59 @@ test("buildScriptStorageKeys keeps script cache names isolated", () => {
   assert.equal(keys.code, "tm-loader:v1:script:site3217:code");
 });
 
+test("formatSyncTime returns compact timestamp for valid iso values", () => {
+  assert.equal(loader.formatSyncTime("2026-03-23T08:11:12.000Z"), "2026-03-23 08:11");
+  assert.equal(loader.formatSyncTime(""), "-");
+});
+
+test("buildManagerRows merges registry, page match, cache and remote meta", () => {
+  const registry = {
+    scripts: [
+      {
+        id: "site3217",
+        name: "site3217",
+        enabledByDefault: true,
+        matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
+      },
+      {
+        id: "site9999",
+        name: "site9999",
+        enabledByDefault: false,
+        matches: ["https://example.com/*"],
+      },
+    ],
+  };
+
+  const rows = loader.buildManagerRows({
+    registry,
+    url: "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp?",
+    localStateById: {
+      site3217: {
+        enabledOverride: true,
+        meta: { version: "0.2.0", lastSyncedAt: "2026-03-23T08:11:12.000Z" },
+      },
+      site9999: {
+        enabledOverride: undefined,
+        meta: null,
+      },
+    },
+    remoteMetaById: {
+      site3217: { version: "0.2.1" },
+      site9999: { version: "1.0.0" },
+    },
+  });
+
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].id, "site3217");
+  assert.equal(rows[0].appliesHere, true);
+  assert.equal(rows[0].enabled, true);
+  assert.equal(rows[0].cachedVersion, "0.2.0");
+  assert.equal(rows[0].remoteVersion, "0.2.1");
+  assert.equal(rows[0].lastSyncedAtLabel, "2026-03-23 08:11");
+  assert.equal(rows[1].enabled, false);
+  assert.equal(rows[1].appliesHere, false);
+});
+
 test("bumpVersion increments patch by default", () => {
   assert.equal(releaseLib.bumpVersion("0.1.0"), "0.1.1");
   assert.equal(releaseLib.bumpVersion("0.1.0", "minor"), "0.2.0");
