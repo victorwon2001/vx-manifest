@@ -23,6 +23,8 @@ test("module-a toolbar html uses compact embedded shared ui classes", () => {
   assert.match(html, /tm-ui-btn/);
   assert.match(html, /tm-ui-input/);
   assert.match(html, /송장출력\(스캔\) 필터링/);
+  assert.match(html, /tm-module-a-batch-panel/);
+  assert.match(html, /차수 표/);
 });
 
 test("module-a modal html uses the shared overlay and modal contract", () => {

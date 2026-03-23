@@ -28,19 +28,20 @@
   };
 
   const LOCAL_STYLE_TEXT = [
-    "#" + PANEL_ID + "{position:fixed;top:14px;right:14px;z-index:99999;padding:10px;resize:both;overflow:auto;max-height:80vh;min-width:320px;width:min(520px,calc(100vw - 28px))}",
-    "#" + PANEL_ID + " .tm-import-panel{padding:0;overflow:hidden;border:1px solid var(--tm-border);border-radius:16px;background:var(--tm-surface)}",
-    "#" + PANEL_ID + " .tm-import-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end}",
-    "#" + PANEL_ID + " .tm-import-head-copy{display:grid;gap:8px}",
-    "#" + PANEL_ID + " .tm-import-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;margin:12px 14px 0;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}",
-    "#" + PANEL_ID + " .tm-import-status{margin-bottom:10px}",
-    "#" + PANEL_ID + " .tm-import-preview{margin:12px 14px 0;padding:14px 16px}",
+    "#" + PANEL_ID + "{position:fixed;top:12px;right:12px;z-index:99999;padding:8px;resize:both;overflow:auto;max-height:82vh;min-width:320px;width:min(456px,calc(100vw - 24px))}",
+    "#" + PANEL_ID + " .tm-import-panel{padding:0;overflow:hidden;border:1px solid var(--tm-border);border-radius:18px;background:var(--tm-surface)}",
+    "#" + PANEL_ID + " .tm-import-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}",
+    "#" + PANEL_ID + " .tm-import-head-copy{display:grid;gap:6px}",
+    "#" + PANEL_ID + " .tm-import-body{display:grid;gap:10px;padding:0 12px 12px;background:var(--tm-surface)}",
+    "#" + PANEL_ID + " .tm-import-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin:0;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}",
+    "#" + PANEL_ID + " .tm-import-status{margin:0}",
+    "#" + PANEL_ID + " .tm-import-preview{margin:0;padding:12px}",
     "#" + PANEL_ID + " .tm-import-preview-title{font-weight:800;margin:0}",
     "#" + PANEL_ID + " .tm-import-preview th:first-child,#" + PANEL_ID + " .tm-import-preview td:first-child{text-align:left}",
     "#" + PANEL_ID + " .tm-import-preview th:nth-child(2),#" + PANEL_ID + " .tm-import-preview td:nth-child(2){text-align:right}",
     "#" + PANEL_ID + " .tm-import-preview th:nth-child(3),#" + PANEL_ID + " .tm-import-preview td:nth-child(3){text-align:center}",
     "#" + PANEL_ID + " .tm-import-site-code{color:var(--tm-muted);font-size:11px}",
-    "#" + PANEL_ID + " .tm-import-log{margin:12px 14px 14px;max-height:180px;overflow:auto}",
+    "#" + PANEL_ID + " .tm-import-log{margin:0;max-height:148px;overflow:auto}",
     "#" + PANEL_ID + " .tm-import-log-item{margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(221,228,229,.18)}",
     "#" + PANEL_ID + " .tm-import-log-item:last-child{border-bottom:none}",
   ].join("");
@@ -380,7 +381,7 @@
     const checked = settings.autoYes ? "checked" : "";
     const rootAttrs = getModuleUi(root).buildRootAttributes({
       kind: "panel",
-      density: "normal",
+      density: "compact",
       className: "tm-import-panel",
     });
 
@@ -390,11 +391,12 @@
       "<div class='tm-import-head-copy'>",
       "<span class='tm-ui-kicker'>주문 연동</span>",
       "<div class='tm-ui-title'>연동데이터 불러오기</div>",
-      "<p class='tm-ui-subtitle'>판매처별 신규 주문을 스캔하고 실행 상태를 같은 패널 안에서 추적합니다.</p>",
+      "<p class='tm-ui-subtitle'>판매처별 신규 주문을 스캔하고 실행 상태를 같은 시트 안에서 추적합니다.</p>",
       "</div>",
       "<button id='ebut-ui-collapse' class='tm-ui-btn tm-ui-btn--secondary'>" + (collapsed ? "펼치기" : "축소") + "</button>",
       "</div>",
       "<div id='ebut-ui-body'" + (collapsed ? " style='display:none;'" : "") + ">",
+      "<div class='tm-import-body'>",
       "<div class='tm-import-actions tm-ui-statusbar'>",
       "<label class='tm-ui-label' style='display:flex;align-items:center;gap:8px;'>" +
         "<span><input type='checkbox' id='ebut-auto-yes' " + checked + "/> 확인창 자동 '예'</span>" +
@@ -403,9 +405,9 @@
       "<button id='ebut-run' class='tm-ui-btn tm-ui-btn--success'>시작</button>",
       "<button id='ebut-stop' class='tm-ui-btn tm-ui-btn--danger'>정지</button>",
       "</div>",
-      "<div id='ebut-status' class='tm-ui-message tm-import-status' style='display:none;margin:12px 14px 0;'><span id='ebut-status-text'>대기 중...</span></div>",
+      "<div id='ebut-status' class='tm-ui-message tm-import-status' style='display:none;'><span id='ebut-status-text'>대기 중...</span></div>",
       "<div id='ebut-preview-wrap' class='tm-ui-card tm-import-preview'>",
-      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>미리보기</div><div class='tm-import-preview-title tm-ui-section-title'>대상 목록</div><p class='tm-ui-section-subtitle'>신규주문수 기준으로 우선순위를 정렬합니다.</p></div><span class='tm-ui-inline-note'>신규주문수 &gt; 0</span></div>",
+      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>미리보기</div><div class='tm-import-preview-title tm-ui-section-title'>대상 목록</div><p class='tm-ui-section-subtitle'>신규주문수 기준으로 정렬합니다.</p></div><span class='tm-ui-inline-note'>신규주문수 &gt; 0</span></div>",
       "<table id='ebut-preview' class='tm-ui-table'><thead><tr>",
       "<th>판매처</th>",
       "<th>신규주문수</th>",
@@ -414,6 +416,7 @@
       "<div id='ebut-preview-empty' class='tm-ui-empty' style='display:none;'>대상이 없습니다. 화면의 '확인'으로 숫자를 갱신해 주세요.</div>",
       "</div>",
       "<div id='ebut-log' class='tm-ui-log tm-import-log'></div>",
+      "</div>",
       "</div>",
       "</div>",
     ].join("");

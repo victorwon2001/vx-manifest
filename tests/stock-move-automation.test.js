@@ -242,8 +242,9 @@ test("main gui html uses the shared panel and card classes", () => {
   const html = stockMoveAutomation.buildMainGuiHtml();
 
   assert.match(html, /class='tm-ui-root tm-ui-panel/);
-  assert.match(html, /data-tm-density='normal'/);
+  assert.match(html, /data-tm-density='compact'/);
   assert.match(html, /tm-ui-card/);
+  assert.match(html, /tm-stock-shell/);
   assert.match(html, /tm-ui-panel-head/);
   assert.match(html, /tm-ui-section-head/);
   assert.match(html, /tm-ui-textarea/);
@@ -255,6 +256,8 @@ test("edit gui html uses the shared panel and action classes", () => {
   const html = stockMoveAutomation.buildEditGuiHtml();
 
   assert.match(html, /class='tm-ui-root tm-ui-panel/);
+  assert.match(html, /data-tm-density='compact'/);
+  assert.match(html, /tm-stock-shell/);
   assert.match(html, /tm-ui-panel-head/);
   assert.match(html, /tm-ui-section-head/);
   assert.match(html, /tm-ui-btn tm-ui-btn--danger/);

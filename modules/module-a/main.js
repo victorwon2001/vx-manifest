@@ -595,7 +595,7 @@
     clearLiveSelectionState(state);
     state.filterModeEnabled = false;
     state.drawerOpen = false;
-    state.statusText = "필터링모드 OFF: 원래 페이지 스캔 모드";
+    state.statusText = "필터링 OFF: 기존 송장출력 스캔 모드";
     state.modalType = "";
     return state;
   }
@@ -708,22 +708,22 @@
       "#" + PANEL_ID + "-selected-list th{background:var(--tm-surface-alt);color:var(--tm-muted)}",
       "#" + PANEL_ID + "-selected-list tr:last-child td{border-bottom:0}",
       "#" + PANEL_ID + " .tm-chip{display:inline-block;padding:1px 6px;border:1px solid var(--tm-border);border-radius:999px;background:var(--tm-surface-alt);color:var(--tm-primary-strong)}",
-      "#" + PANEL_ID + "-drawer-row[hidden]{display:none !important}",
-      "#" + PANEL_ID + "-drawer{padding-top:6px}",
-      "#" + PANEL_ID + "-drawer .tm-status{margin-bottom:6px;padding:8px 10px;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface-alt);color:var(--tm-text)}",
-      "#" + PANEL_ID + "-drawer .tm-status-loading{background:var(--tm-surface-alt)}",
-      "#" + PANEL_ID + "-drawer .tm-status-error{background:#fbefee;border-color:#e2c3c1;color:var(--tm-danger)}",
-      "#" + PANEL_ID + "-drawer .tm-table-wrap{border:1px solid var(--tm-border);overflow:auto;background:var(--tm-surface);max-height:336px;border-radius:12px;box-shadow:none}",
-      "#" + PANEL_ID + "-drawer table{width:100%;border-collapse:collapse;table-layout:fixed}",
-      "#" + PANEL_ID + "-drawer th,#" + PANEL_ID + "-drawer td{padding:6px 7px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
-      "#" + PANEL_ID + "-drawer th{position:sticky;top:0;background:var(--tm-surface-alt);z-index:1;color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-drawer tr.tm-active-row{background:rgba(84,96,103,.05)}",
-      "#" + PANEL_ID + "-drawer .tm-select-button.tm-selected{font-weight:700;background:var(--tm-primary-strong);border-color:var(--tm-primary-strong);color:#fff}",
-      "#" + PANEL_ID + "-drawer .tm-empty{padding:18px 12px;text-align:center;color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-drawer .tm-bottom{display:block;margin-top:6px;padding:8px 10px;color:var(--tm-muted);line-height:1.5;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface)}",
-      "#" + PANEL_ID + "-drawer .tm-mini-card{display:inline;padding:0;border:0;background:transparent;color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-drawer .tm-mini-card::after{content:' | ';color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-drawer .tm-mini-card:last-child::after{content:''}",
+      "#" + PANEL_ID + "-batch-panel[hidden]{display:none !important}",
+      "#" + PANEL_ID + "-batch-panel{display:grid;gap:8px;padding:10px 12px}",
+      "#" + PANEL_ID + "-batch-panel .tm-status{padding:8px 10px;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface-alt);color:var(--tm-text)}",
+      "#" + PANEL_ID + "-batch-panel .tm-status-loading{background:var(--tm-surface-alt)}",
+      "#" + PANEL_ID + "-batch-panel .tm-status-error{background:#fbefee;border-color:#e2c3c1;color:var(--tm-danger)}",
+      "#" + PANEL_ID + "-batch-panel .tm-table-wrap{border:1px solid var(--tm-border);overflow:auto;background:var(--tm-surface);max-height:324px;border-radius:12px;box-shadow:none}",
+      "#" + PANEL_ID + "-batch-panel table{width:100%;border-collapse:collapse;table-layout:fixed}",
+      "#" + PANEL_ID + "-batch-panel th,#" + PANEL_ID + "-batch-panel td{padding:6px 7px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
+      "#" + PANEL_ID + "-batch-panel th{position:sticky;top:0;background:var(--tm-surface-alt);z-index:1;color:#4d5759}",
+      "#" + PANEL_ID + "-batch-panel tr.tm-active-row{background:rgba(84,96,103,.05)}",
+      "#" + PANEL_ID + "-batch-panel .tm-select-button.tm-selected{font-weight:700;background:var(--tm-primary-strong);border-color:var(--tm-primary-strong);color:#fff}",
+      "#" + PANEL_ID + "-batch-panel .tm-empty{padding:18px 12px;text-align:center;color:var(--tm-muted)}",
+      "#" + PANEL_ID + "-batch-panel .tm-bottom{display:block;padding:8px 10px;color:var(--tm-muted);line-height:1.5;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface)}",
+      "#" + PANEL_ID + "-batch-panel .tm-mini-card{display:inline;padding:0;border:0;background:transparent;color:var(--tm-muted)}",
+      "#" + PANEL_ID + "-batch-panel .tm-mini-card::after{content:' | ';color:var(--tm-muted)}",
+      "#" + PANEL_ID + "-batch-panel .tm-mini-card:last-child::after{content:''}",
       "#" + PANEL_ID + "-modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;z-index:2147483647}",
       "#" + PANEL_ID + "-modal-backdrop.tm-open{display:flex}",
       "#" + PANEL_ID + "-modal{width:min(980px,calc(100vw - 36px));max-height:calc(100vh - 36px);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);overflow:hidden}",
@@ -773,21 +773,17 @@
     style.textContent = css;
     doc.head.appendChild(style);
   }
-  function createDrawerRow(doc) {
-    const row = doc.createElement("tr");
-    row.id = PANEL_ID + "-drawer-row";
-
-    const th = doc.createElement("td");
-    th.className = "th";
-    th.innerHTML = "<b>주문필터</b>";
-
-    const td = doc.createElement("td");
-    td.className = "td";
-    td.colSpan = 3;
-
-    const wrap = doc.createElement("div");
-    wrap.id = PANEL_ID + "-drawer";
-    wrap.innerHTML = [
+  function buildBatchPanelHtml() {
+    return [
+      "<div class='tm-batch-panel tm-ui-section' id='" + PANEL_ID + "-batch-panel' hidden>",
+      "<div class='tm-ui-section-head'>",
+      "<div>",
+      "<div class='tm-ui-kicker'>차수 필터</div>",
+      "<div class='tm-ui-section-title'>차수 표</div>",
+      "<p class='tm-ui-section-subtitle'>필터링 ON 상태에서 기본으로 펼쳐지며, 선택 차수만 스캔 대상에 반영됩니다.</p>",
+      "</div>",
+      "<span class='tm-ui-inline-note'>자동 펼침</span>",
+      "</div>",
       "<div class='tm-status' id='" + PANEL_ID + "-status'></div>",
       "<div class='tm-table-wrap'>",
       "<table><thead><tr>",
@@ -801,12 +797,8 @@
       "</tr></thead><tbody id='" + PANEL_ID + "-rows'></tbody></table>",
       "</div>",
       "<div class='tm-bottom' id='" + PANEL_ID + "-summary'></div>",
+      "</div>",
     ].join("");
-
-    td.appendChild(wrap);
-    row.appendChild(th);
-    row.appendChild(td);
-    return row;
   }
   function buildToolbarHtml() {
     const rootAttrs = getModuleUi(root).buildRootAttributes({
@@ -819,15 +811,15 @@
       "<div class='tm-toolbar tm-ui-shell tm-ui-animate-in'>",
       "<div class='tm-ui-panel-head tm-ui-panel-head--compact tm-toolbar-hero'>",
       "<div>",
-      "<span class='tm-ui-kicker'>스캔 작업</span>",
+      "<span class='tm-ui-kicker'>송장출력 운영</span>",
       "<div class='tm-toolbar-title-row'>",
       "<span class='tm-toolbar-title tm-ui-title'>송장출력(스캔) 필터링</span>",
-      "<button type='button' id='" + PANEL_ID + "-mode-toggle' class='tm-mode-toggle tm-mode-off tm-ui-btn tm-ui-btn--secondary'>필터모드 OFF</button>",
+      "<button type='button' id='" + PANEL_ID + "-mode-toggle' class='tm-mode-toggle tm-mode-off tm-ui-btn tm-ui-btn--secondary'>필터링 OFF</button>",
       "</div>",
       "<p class='tm-toolbar-subtitle tm-ui-subtitle'>선택한 차수만 기준으로 스캔 흐름을 고정하고 누락을 줄입니다.</p>",
       "</div>",
       "<div class='tm-toolbar-hero-meta'>",
-      "<button type='button' id='" + PANEL_ID + "-toggle' class='tm-ui-btn tm-ui-btn--secondary'>차수목록 열기</button>",
+      "<button type='button' id='" + PANEL_ID + "-toggle' class='tm-ui-btn tm-ui-btn--secondary'>차수표 보기</button>",
       "<span class='tm-compact-status tm-ui-inline-note' id='" + PANEL_ID + "-compact'></span>",
       "</div>",
       "</div>",
@@ -848,6 +840,7 @@
       "<button type='button' id='" + PANEL_ID + "-selected-toggle' class='tm-ui-btn tm-ui-btn--secondary' hidden>선택차수 0건 보기</button>",
       "<div id='" + PANEL_ID + "-selected-list' hidden></div>",
       "</div>",
+      buildBatchPanelHtml(),
       "</div>",
       "</div>",
     ].join("");
@@ -880,47 +873,14 @@
 
     const inputRow = input.closest("tr");
     const inputCell = input.parentElement;
-    const tableBody = inputRow ? inputRow.parentElement : null;
-    if (!inputRow || !inputCell || !tableBody) throw new Error("스캔 입력 영역의 테이블 구조를 찾지 못했습니다.");
+    if (!inputRow || !inputCell) throw new Error("스캔 입력 영역의 테이블 구조를 찾지 못했습니다.");
 
     let toolbar = doc.getElementById(PANEL_ID);
     if (!toolbar) {
       toolbar = doc.createElement("div");
       toolbar.id = PANEL_ID;
       toolbar.innerHTML = buildToolbarHtml();
-      /*
-        "<div class='tm-toolbar'>",
-        "<div class='tm-toolbar-head'>",
-        "<button type='button' id='" + PANEL_ID + "-mode-toggle' class='tm-mode-toggle tm-mode-off'>필터링모드 OFF</button>",
-        "<button type='button' id='" + PANEL_ID + "-toggle'>차수목록 열기</button>",
-        "<span class='tm-compact-status' id='" + PANEL_ID + "-compact'></span>",
-        "</div>",
-        "<div class='tm-toolbar-controls' id='" + PANEL_ID + "-controls'>",
-        "<label class='tm-field'><span>조회일</span><input type='date' id='" + PANEL_ID + "-date'></label>",
-        "<button type='button' id='" + PANEL_ID + "-refresh'>조회</button>",
-        "<button type='button' id='" + PANEL_ID + "-clear'>선택 해제</button>",
-        "<span class='tm-mode' id='" + PANEL_ID + "-mode'></span>",
-        "</div>",
-        "<div class='tm-toolbar-actions'>",
-        "<button type='button' id='" + PANEL_ID + "-data' class='tm-button-strong'>데이터 0건</button>",
-        "<button type='button' id='" + PANEL_ID + "-history'>이전 로컬 기록</button>",
-        "</div>",
-        "</div>",
-        "<div class='tm-selection-line' id='" + PANEL_ID + "-selection-line'></div>",
-        "<div class='tm-selected-panel'>",
-        "<button type='button' id='" + PANEL_ID + "-selected-toggle' hidden>선택차수 0건 보기</button>",
-        "<div id='" + PANEL_ID + "-selected-list' hidden></div>",
-        "</div>",
-      ].join("");
-      */
       inputCell.insertBefore(toolbar, input);
-    }
-
-    let drawerRow = doc.getElementById(PANEL_ID + "-drawer-row");
-    if (!drawerRow) {
-      drawerRow = createDrawerRow(doc);
-      if (inputRow.nextSibling) tableBody.insertBefore(drawerRow, inputRow.nextSibling);
-      else tableBody.appendChild(drawerRow);
     }
 
     const backdrop = createModal(doc);
@@ -940,7 +900,7 @@
       selectionLine: doc.getElementById(PANEL_ID + "-selection-line"),
       selectedToggleButton: doc.getElementById(PANEL_ID + "-selected-toggle"),
       selectedList: doc.getElementById(PANEL_ID + "-selected-list"),
-      drawerRow,
+      batchPanel: doc.getElementById(PANEL_ID + "-batch-panel"),
       status: doc.getElementById(PANEL_ID + "-status"),
       rowsBody: doc.getElementById(PANEL_ID + "-rows"),
       summary: doc.getElementById(PANEL_ID + "-summary"),
@@ -1188,13 +1148,13 @@
   }
   function renderSelectionLine(state) {
     if (!state.filterModeEnabled) {
-      state.elements.selectionLine.innerHTML = "<span class='tm-selection-note'>필터링모드 OFF. 원래 페이지처럼 자유 스캔합니다.</span>";
+      state.elements.selectionLine.innerHTML = "<span class='tm-selection-note'>필터링 OFF. 기존 송장출력 스캔 흐름으로 동작합니다.</span>";
       return;
     }
 
     const selectedRows = getSelectedRows(state);
     if (!selectedRows.length) {
-      state.elements.selectionLine.innerHTML = "<span class='tm-selection-note'>필터링모드 ON. 차수를 선택하세요. 선택 전에는 스캔이 차단됩니다.</span>";
+      state.elements.selectionLine.innerHTML = "<span class='tm-selection-note'>필터링 ON. 차수를 선택해야 스캔이 통과됩니다.</span>";
       return;
     }
     state.elements.selectionLine.innerHTML = "<span class='tm-selection-note'>" + escapeHtml(buildSelectedSummaryText(selectedRows)) + "</span>";
@@ -1424,19 +1384,19 @@
 
     state.elements.dateInput.value = state.queryDate;
     state.elements.controls.hidden = !state.filterModeEnabled;
-    state.elements.drawerRow.hidden = !expanded;
+    state.elements.batchPanel.hidden = !expanded;
     state.elements.toggleButton.disabled = !state.filterModeEnabled;
-    state.elements.toggleButton.textContent = expanded ? "차수목록 닫기" : "차수목록 열기";
+    state.elements.toggleButton.textContent = expanded ? "차수표 접기" : "차수표 보기";
     state.elements.modeToggleButton.className = "tm-mode-toggle " + (state.filterModeEnabled ? "tm-mode-on" : "tm-mode-off");
-    state.elements.modeToggleButton.textContent = state.filterModeEnabled ? "필터링모드 ON" : "필터링모드 OFF";
+    state.elements.modeToggleButton.textContent = state.filterModeEnabled ? "필터링 ON" : "필터링 OFF";
     state.elements.modeToggleButton.setAttribute("aria-pressed", state.filterModeEnabled ? "true" : "false");
     state.elements.toggleButton.setAttribute("aria-pressed", expanded ? "true" : "false");
     state.elements.modeText.textContent = state.filterModeEnabled
-      ? ("게이트 ON: 선택 차수의 " + getModeLabel(mode) + "만 통과")
-      : "게이트 OFF: 원래 페이지 스캔";
+      ? ("선택 차수의 " + getModeLabel(mode) + "만 통과")
+      : "기존 송장출력 스캔 흐름";
     state.elements.compactStatus.textContent = state.filterModeEnabled
       ? (buildSelectedSummaryText(getSelectedRows(state)) + " / 데이터 " + aggregateCounts.total + "건")
-      : "일반 스캔 모드";
+      : "기존 송장출력 스캔";
     state.elements.clearButton.disabled = !state.selectedRowIds.length && !state.pendingDetailIds.size;
     state.elements.refreshButton.disabled = state.listLoading || state.pendingDetailIds.size > 0;
     state.elements.dateInput.disabled = state.listLoading || state.pendingDetailIds.size > 0;
@@ -1482,7 +1442,7 @@
     if (!state.filterModeEnabled) return;
     if (!state.selectedRowIds.length) {
       state.detailError = "";
-      state.statusText = "차수를 선택하세요. 필터링모드 ON 상태입니다.";
+      state.statusText = "차수를 선택하세요. 필터링 ON 상태입니다.";
       render(state);
       focusScanInput(state);
       event.preventDefault();
@@ -1536,7 +1496,7 @@
 
       state.filterModeEnabled = true;
       state.drawerOpen = true;
-      state.statusText = "필터링모드 ON. 차수를 선택하세요.";
+      state.statusText = "필터링 ON. 차수를 선택하세요.";
       render(state);
       focusScanInput(state);
       if (!state.rows.length) await refreshList(state, { keepSelection: false });
@@ -1637,7 +1597,7 @@
       listLoading: false,
       listError: "",
       detailError: "",
-      statusText: "필터링모드 OFF: 원래 페이지 스캔 모드",
+      statusText: "필터링 OFF: 기존 송장출력 스캔 모드",
       rows: [],
       selectedRowIds: [],
       detailByRowId: {},
@@ -1681,7 +1641,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.4",
+    version: "0.1.5",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1720,6 +1680,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

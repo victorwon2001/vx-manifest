@@ -23,6 +23,7 @@ test("shared module ui exposes fixed light admin tokens", () => {
 test("buildModuleUiCss contains the shared class contract and density variants", () => {
   const css = moduleUi.buildModuleUiCss();
 
+  assert.match(css, /fonts\.googleapis\.com/);
   assert.match(css, /\.tm-ui-root/);
   assert.match(css, /\.tm-ui-card/);
   assert.match(css, /\.tm-ui-panel-head/);
@@ -48,4 +49,11 @@ test("buildRootAttributes creates class and density attributes for module roots"
   assert.match(panelAttrs, /data-tm-density="normal"/);
   assert.match(embeddedAttrs, /class="tm-ui-root tm-ui-embedded"/);
   assert.match(embeddedAttrs, /data-tm-density="compact"/);
+});
+
+test("shared module ui exposes the external font import url", () => {
+  assert.equal(
+    moduleUi.FONT_IMPORT_URL,
+    "https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap"
+  );
 });
