@@ -237,3 +237,7 @@ test("pattern analyzer module exports run contract", () => {
   assert.equal(Array.isArray(patternAnalyzerModule.matches), true);
   assert.equal(typeof patternAnalyzerModule.run, "function");
 });
+
+test("pattern analyzer runtime version stays aligned with meta version", () => {
+  assert.equal(patternAnalyzerModule.version, patternAnalyzerMeta.version);
+});
