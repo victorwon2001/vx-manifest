@@ -173,7 +173,7 @@ test("buildManagerShellHtml uses the refreshed hero and summary layout", () => {
   assert.match(html, /tm-summary-grid/);
   assert.match(html, /tm-status-card/);
   assert.match(html, /tm-table-card/);
-  assert.match(html, /loaded surfaces/i);
+  assert.match(html, /로드 표면/);
 });
 
 test("public loader labels are neutralized", () => {
@@ -309,8 +309,8 @@ test("order import sync runtime version stays aligned with meta version", () => 
 
 test("shared module ui exports theme helpers", () => {
   assert.equal(typeof moduleUi.TOKENS, "object");
-  assert.equal(moduleUi.TOKENS.bg, "#f4f7fb");
-  assert.equal(moduleUi.TOKENS.primary, "#2563eb");
+  assert.equal(moduleUi.TOKENS.bg, "#f9f9f9");
+  assert.equal(moduleUi.TOKENS.primary, "#546067");
   assert.equal(typeof moduleUi.buildModuleUiCss, "function");
   assert.equal(typeof moduleUi.buildRootAttributes, "function");
   assert.equal(typeof moduleUi.ensureStyles, "function");

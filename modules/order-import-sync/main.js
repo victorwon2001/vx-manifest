@@ -28,11 +28,11 @@
   };
 
   const LOCAL_STYLE_TEXT = [
-    "#" + PANEL_ID + "{position:fixed;top:16px;right:16px;z-index:99999;padding:10px;resize:both;overflow:auto;max-height:80vh;min-width:320px;width:min(540px,calc(100vw - 32px))}",
-    "#" + PANEL_ID + " .tm-import-panel{padding:0;overflow:hidden}",
+    "#" + PANEL_ID + "{position:fixed;top:14px;right:14px;z-index:99999;padding:10px;resize:both;overflow:auto;max-height:80vh;min-width:320px;width:min(520px,calc(100vw - 28px))}",
+    "#" + PANEL_ID + " .tm-import-panel{padding:0;overflow:hidden;border:1px solid var(--tm-border);border-radius:16px;background:var(--tm-surface)}",
     "#" + PANEL_ID + " .tm-import-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end}",
     "#" + PANEL_ID + " .tm-import-head-copy{display:grid;gap:8px}",
-    "#" + PANEL_ID + " .tm-import-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;margin:12px 14px 0;border:1px solid rgba(219,227,239,.88);border-radius:12px;background:rgba(248,250,252,.88)}",
+    "#" + PANEL_ID + " .tm-import-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;margin:12px 14px 0;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}",
     "#" + PANEL_ID + " .tm-import-status{margin-bottom:10px}",
     "#" + PANEL_ID + " .tm-import-preview{margin:12px 14px 0;padding:14px 16px}",
     "#" + PANEL_ID + " .tm-import-preview-title{font-weight:800;margin:0}",
@@ -41,7 +41,7 @@
     "#" + PANEL_ID + " .tm-import-preview th:nth-child(3),#" + PANEL_ID + " .tm-import-preview td:nth-child(3){text-align:center}",
     "#" + PANEL_ID + " .tm-import-site-code{color:var(--tm-muted);font-size:11px}",
     "#" + PANEL_ID + " .tm-import-log{margin:12px 14px 14px;max-height:180px;overflow:auto}",
-    "#" + PANEL_ID + " .tm-import-log-item{margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(148,163,184,.18)}",
+    "#" + PANEL_ID + " .tm-import-log-item{margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(221,228,229,.18)}",
     "#" + PANEL_ID + " .tm-import-log-item:last-child{border-bottom:none}",
   ].join("");
 
@@ -388,7 +388,7 @@
       "<div " + rootAttrs.replace(/"/g, "'") + ">",
       "<div class='tm-ui-panel-head tm-ui-panel-head--compact tm-import-head'>",
       "<div class='tm-import-head-copy'>",
-      "<span class='tm-ui-kicker'>Sync Workflow</span>",
+      "<span class='tm-ui-kicker'>주문 연동</span>",
       "<div class='tm-ui-title'>연동데이터 불러오기</div>",
       "<p class='tm-ui-subtitle'>판매처별 신규 주문을 스캔하고 실행 상태를 같은 패널 안에서 추적합니다.</p>",
       "</div>",
@@ -405,7 +405,7 @@
       "</div>",
       "<div id='ebut-status' class='tm-ui-message tm-import-status' style='display:none;margin:12px 14px 0;'><span id='ebut-status-text'>대기 중...</span></div>",
       "<div id='ebut-preview-wrap' class='tm-ui-card tm-import-preview'>",
-      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>Preview Queue</div><div class='tm-import-preview-title tm-ui-section-title'>프리뷰</div><p class='tm-ui-section-subtitle'>신규주문수 기준으로 우선순위를 정렬합니다.</p></div><span class='tm-ui-inline-note'>신규주문수 &gt; 0</span></div>",
+      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>미리보기</div><div class='tm-import-preview-title tm-ui-section-title'>대상 목록</div><p class='tm-ui-section-subtitle'>신규주문수 기준으로 우선순위를 정렬합니다.</p></div><span class='tm-ui-inline-note'>신규주문수 &gt; 0</span></div>",
       "<table id='ebut-preview' class='tm-ui-table'><thead><tr>",
       "<th>판매처</th>",
       "<th>신규주문수</th>",
@@ -493,7 +493,7 @@
     const elements = ensurePanel(runtime);
     elements.status.style.display = "";
     elements.statusText.textContent = message;
-    elements.statusText.style.color = color || "#fff";
+    elements.statusText.style.color = color || "#455a64";
   }
 
   function updatePreviewStatus(runtime, siteCode, status, color) {
@@ -503,7 +503,7 @@
     const statusCell = row.querySelector(".ebut-status-cell");
     if (!statusCell) return;
     statusCell.textContent = status;
-    statusCell.style.color = color || "#fff";
+    statusCell.style.color = color || "#5a6061";
   }
 
   function log(runtime, message) {
@@ -579,7 +579,7 @@
       queue,
       results: {},
     });
-    log(runtime, "✅ 대상 스캔 완료: " + queue.length + "개 판매처");
+    log(runtime, "[완료] 대상 스캔 완료: " + queue.length + "개 판매처");
     return queue;
   }
 
@@ -671,16 +671,16 @@
     let lastLogAt = 0;
     const siteName = getQueueItemName(runtime, siteCode);
 
-    log(runtime, "⏳ [" + siteName + "] 주문수집 진행 중...");
-    updateStatus(runtime, "주문수집 중: " + siteName, "#ffeb3b");
-    updatePreviewStatus(runtime, siteCode, "수집중", "#ffeb3b");
+    log(runtime, "[대기] [" + siteName + "] 주문수집 진행 중...");
+    updateStatus(runtime, "주문수집 중: " + siteName, "#8b6b3f");
+    updatePreviewStatus(runtime, siteCode, "수집중", "#8b6b3f");
 
     while ((Date.now() - startedAt) < WAIT_RESULT_MS) {
       if (!readState(runtime).active) return null;
 
       if (isPageLoading(runtime)) {
         if ((Date.now() - lastLogAt) > 5000) {
-          log(runtime, "⏳ [" + siteName + "] 로딩 중... (" + Math.round((Date.now() - startedAt) / 1000) + "초)");
+          log(runtime, "[대기] [" + siteName + "] 로딩 중... (" + Math.round((Date.now() - startedAt) / 1000) + "초)");
           lastLogAt = Date.now();
         }
         await sleep(LOADING_CHECK_MS);
@@ -689,12 +689,12 @@
 
       const parsed = scanAllContextsForResultOnce(runtime);
       if (parsed && parsed.completed) {
-        log(runtime, "✅ [" + siteName + "] 결과 감지됨");
+        log(runtime, "[완료] [" + siteName + "] 결과 감지됨");
         return parsed;
       }
 
       if (checkOrderCountChanged(runtime, siteCode, originalCount)) {
-        log(runtime, "✅ [" + siteName + "] 주문수 변경 감지 (" + originalCount + " → 감소)");
+        log(runtime, "[완료] [" + siteName + "] 주문수 변경 감지 (" + originalCount + " → 감소)");
         await sleep(1000);
         return scanAllContextsForResultOnce(runtime) || {
           total: originalCount,
@@ -708,7 +708,7 @@
       await sleep(POLL_MS);
     }
 
-    log(runtime, "⚠️ [" + siteName + "] 결과 대기 시간 초과");
+    log(runtime, "[경고] [" + siteName + "] 결과 대기 시간 초과");
     return null;
   }
 
@@ -722,14 +722,14 @@
     }
 
     const summary = summarizeImportResults(resultsMap, state.queue || []);
-    updateStatus(runtime, "완료!", "#4CAF50");
+    updateStatus(runtime, "완료!", "#2f6b57");
 
     if (!summary.anyFail) {
-      runtime.win.alert("✅ 모든 판매처가 성공적으로 완료되었습니다!\n\n총 " + summary.totalSuccess + "건 등록 완료");
+      runtime.win.alert("모든 판매처 처리가 완료되었습니다.\n\n총 " + summary.totalSuccess + "건 등록 완료");
       return;
     }
 
-    runtime.win.alert("⚠️ 일부 실패가 있습니다.\n\n성공: " + summary.totalSuccess + "건, 실패: " + summary.totalFail + "건\n\n" + summary.lines.join("\n"));
+    runtime.win.alert("일부 실패가 있습니다.\n\n성공: " + summary.totalSuccess + "건, 실패: " + summary.totalFail + "건\n\n" + summary.lines.join("\n"));
   }
 
   async function runLoop(runtime) {
@@ -742,21 +742,21 @@
         applyAction(runtime, { type: "finish" });
         summarizeAndNotify(runtime);
         buildPreview(runtime, { resetState: true });
-        log(runtime, "🎉 모든 판매처 처리 완료");
+        log(runtime, "[완료] 모든 판매처 처리 완료");
         return;
       }
 
       const item = queue[index];
       applyAction(runtime, { type: "set-current", siteCode: item.siteCode });
-      updateStatus(runtime, "처리 중: " + item.name + " (" + (index + 1) + "/" + queue.length + ")", "#2196F3");
-      updatePreviewStatus(runtime, item.siteCode, "처리중", "#2196F3");
+      updateStatus(runtime, "처리 중: " + item.name + " (" + (index + 1) + "/" + queue.length + ")", "#455a64");
+      updatePreviewStatus(runtime, item.siteCode, "처리중", "#455a64");
 
       runtime.autoYesEnabled = runtime.storage.isAutoYes();
       patchIframeDialogs(runtime);
 
       if (!clickGetOrders(runtime, item.siteCode)) {
-        log(runtime, "⚠️ [" + item.name + "] '주문가져오기' 버튼을 찾지 못했습니다. 건너뜀");
-        updatePreviewStatus(runtime, item.siteCode, "스킵", "#ff9800");
+        log(runtime, "[경고] [" + item.name + "] '주문가져오기' 버튼을 찾지 못했습니다. 건너뜀");
+        updatePreviewStatus(runtime, item.siteCode, "스킵", "#8b6b3f");
         applyAction(runtime, {
           type: "timeout-site",
           siteCode: item.siteCode,
@@ -765,18 +765,18 @@
         continue;
       }
 
-      log(runtime, "📥 [" + item.name + "] '주문가져오기' 클릭됨 (주문수: " + item.count + ")");
+      log(runtime, "[시작] [" + item.name + "] '주문가져오기' 클릭됨 (주문수: " + item.count + ")");
       await sleep(500);
 
       const parsed = await waitForOrderCompletion(runtime, item.siteCode, item.count);
       if (parsed) {
         applyAction(runtime, { type: "complete-site", siteCode: item.siteCode, result: parsed });
         if ((parsed.fail || 0) === 0) {
-          log(runtime, "✅ [" + item.name + "] " + parsed.success + "/" + parsed.total + " 모두 성공");
-          updatePreviewStatus(runtime, item.siteCode, "✓ 완료", "#4CAF50");
+          log(runtime, "[완료] [" + item.name + "] " + parsed.success + "/" + parsed.total + " 모두 성공");
+          updatePreviewStatus(runtime, item.siteCode, "완료", "#2f6b57");
         } else {
-          log(runtime, "⚠️ [" + item.name + "] 성공 " + parsed.success + ", 실패 " + parsed.fail);
-          updatePreviewStatus(runtime, item.siteCode, "⚠ " + parsed.fail + "실패", "#f44336");
+          log(runtime, "[경고] [" + item.name + "] 성공 " + parsed.success + ", 실패 " + parsed.fail);
+          updatePreviewStatus(runtime, item.siteCode, parsed.fail + "건 실패", "#9f403d");
         }
       } else {
         applyAction(runtime, {
@@ -784,13 +784,13 @@
           siteCode: item.siteCode,
           result: { total: item.count, success: 0, fail: 0, details: [], timeout: true },
         });
-        log(runtime, "⚠️ [" + item.name + "] 결과 감지 실패 (다음 진행)");
-        updatePreviewStatus(runtime, item.siteCode, "?", "#ff9800");
+        log(runtime, "[경고] [" + item.name + "] 결과 감지 실패 (다음 진행)");
+        updatePreviewStatus(runtime, item.siteCode, "미확인", "#8b6b3f");
       }
 
       if (!readState(runtime).active) break;
       if ((index + 1) < queue.length) {
-        log(runtime, "⏳ " + (CLICK_GAP_MS / 1000) + "초 대기 후 다음 판매처...");
+        log(runtime, "[대기] " + (CLICK_GAP_MS / 1000) + "초 대기 후 다음 판매처...");
         await sleep(CLICK_GAP_MS);
       }
     }
@@ -801,7 +801,7 @@
   function start(runtime) {
     const state = readState(runtime);
     if (state.processing) {
-      log(runtime, "⚠️ 이미 처리 중입니다.");
+      log(runtime, "[경고] 이미 처리 중입니다.");
       return;
     }
 
@@ -809,17 +809,17 @@
       ? buildPreview(runtime, { resetState: true })
       : (state.queue || []);
     if (!queue.length) {
-      log(runtime, "❌ 대상이 없습니다. 프리뷰에서 먼저 확인해 주세요.");
+      log(runtime, "[안내] 대상이 없습니다. 프리뷰에서 먼저 확인해 주세요.");
       return;
     }
 
     applyAction(runtime, { type: "start", queue });
-    log(runtime, "🚀 자동화 시작: " + queue.length + "개 판매처");
-    updateStatus(runtime, "시작: " + queue.length + "개 판매처", "#4CAF50");
+    log(runtime, "[시작] 자동화 시작: " + queue.length + "개 판매처");
+    updateStatus(runtime, "시작: " + queue.length + "개 판매처", "#2f6b57");
 
     runLoop(runtime).catch((error) => {
       runtime.win.console.error("[EBUT] 오류:", error);
-      log(runtime, "❌ 오류 발생: " + error.message);
+      log(runtime, "[오류] 오류 발생: " + error.message);
       applyAction(runtime, { type: "stop" });
     });
   }
@@ -827,8 +827,8 @@
   function stop(runtime) {
     applyAction(runtime, { type: "stop" });
     buildPreview(runtime, { resetState: true });
-    updateStatus(runtime, "정지됨", "#f44336");
-    log(runtime, "⏹ 정지됨");
+    updateStatus(runtime, "정지됨", "#9f403d");
+    log(runtime, "[중지] 정지됨");
   }
 
   function patchDialogHost(targetWin, runtime) {
@@ -921,7 +921,7 @@
       runLoop(runtime).catch((error) => runtime.win.console.error(error));
     }
 
-    log(runtime, "✅ 스크립트 로드 완료 (v1.4)");
+    log(runtime, "[완료] 스크립트 로드 완료 (v1.4)");
   }
 
   function createRuntime(win, context) {

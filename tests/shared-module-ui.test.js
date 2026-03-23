@@ -5,18 +5,18 @@ const moduleUi = require("../shared/module-ui.js");
 
 test("shared module ui exposes fixed light admin tokens", () => {
   assert.deepEqual(moduleUi.TOKENS, {
-    bg: "#f4f7fb",
+    bg: "#f9f9f9",
     surface: "#ffffff",
-    surfaceAlt: "#f8fafc",
-    primary: "#2563eb",
-    primaryStrong: "#1d4ed8",
-    success: "#15803d",
-    warning: "#d97706",
-    danger: "#dc2626",
-    text: "#0f172a",
-    muted: "#64748b",
-    border: "#dbe3ef",
-    shadow: "0 12px 32px rgba(15,23,42,.12)",
+    surfaceAlt: "#f2f4f4",
+    primary: "#546067",
+    primaryStrong: "#455a64",
+    success: "#2f6b57",
+    warning: "#8b6b3f",
+    danger: "#9f403d",
+    text: "#2d3435",
+    muted: "#5a6061",
+    border: "#dde4e5",
+    shadow: "0 20px 40px rgba(45,52,53,.08)",
   });
 });
 

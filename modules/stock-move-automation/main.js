@@ -21,11 +21,11 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiContainer{position:fixed;top:10px;right:10px;width:760px;min-width:500px;padding:12px;z-index:9999;display:none;max-height:90vh;overflow-y:auto;resize:both}",
+    "#stockMoveGuiContainer{position:fixed;top:10px;right:10px;width:720px;min-width:500px;padding:10px;z-index:9999;display:none;max-height:90vh;overflow-y:auto;resize:both}",
     "#stockMoveGuiContainer.tm-ui-root{background:var(--tm-bg)}",
-    "#stockMoveGuiContainer .tm-stock-shell{padding:0;overflow:hidden}",
-    "#stockMoveGuiContainer.running .tm-stock-shell{border-color:#cde7d4;background:#edf9f0}",
-    "#stockMoveGuiContainer.error .tm-stock-shell{border-color:#f2cccc;background:#fef2f2}",
+    "#stockMoveGuiContainer .tm-stock-shell{padding:0;overflow:hidden;border:1px solid var(--tm-border);border-radius:16px;background:var(--tm-surface)}",
+    "#stockMoveGuiContainer.running .tm-stock-shell{border-color:#d1e2da;background:var(--tm-surface)}",
+    "#stockMoveGuiContainer.error .tm-stock-shell{border-color:#e2c3c1;background:var(--tm-surface)}",
     "#stockMoveGuiContainer .tm-stock-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end}",
     "#stockMoveGuiContainer .tm-stock-head-copy{display:grid;gap:8px}",
     "#stockMoveGuiContainer .tm-stock-title{font-size:18px;font-weight:800}",
@@ -36,23 +36,23 @@
     ".btn-stop{width:100%;margin-bottom:5px}",
     ".btn-reset{width:100%;font-size:12px;margin-bottom:5px}",
     ".btn-close-report{width:100%;margin-top:15px}",
-    "#stockMoveGuiLog{margin:12px 14px 14px;max-height:220px;overflow-y:auto;border:1px solid var(--tm-border);padding:10px;background-color:var(--tm-surface);line-height:1.5;border-radius:var(--tm-radius-sm)}",
+    "#stockMoveGuiLog{margin:12px 14px 14px;max-height:220px;overflow-y:auto;line-height:1.5}",
     "#toggleStockMoveGuiBtn{position:fixed;top:10px;right:10px;z-index:10000;transition:right 0.2s}",
-    ".status-text{text-align:left;font-weight:800;margin-bottom:10px;color:var(--tm-primary);font-size:14px}",
-    ".format-hint{font-size:11px;color:var(--tm-muted);margin-bottom:12px;background:#fff7ed;padding:10px;border-radius:10px;border:1px solid #f2dcc1;line-height:1.6}",
+    ".status-text{text-align:left;font-weight:800;margin-bottom:10px;color:var(--tm-primary-strong);font-size:14px}",
+    ".format-hint{font-size:11px;color:var(--tm-muted);margin-bottom:12px;background:var(--tm-surface-alt);padding:10px;border-radius:10px;border:1px solid var(--tm-border);line-height:1.6}",
     ".report-section{padding:10px;margin-top:10px}",
     ".report-stats{display:flex;gap:15px;margin-bottom:10px}",
-    ".stat-box{flex:1;text-align:center;padding:10px;border-radius:8px;border:1px solid var(--tm-border)}",
-    ".stat-box.success{background:#edf9f0;color:var(--tm-success)}",
-    ".stat-box.error{background:#fef2f2;color:var(--tm-danger)}",
-    ".stat-box.skip{background:#fff7ed;color:var(--tm-warning)}",
+    ".stat-box{flex:1;text-align:center;padding:10px;border-radius:10px;border:1px solid var(--tm-border);background:var(--tm-surface-alt)}",
+    ".stat-box.success{background:#edf5f1;color:var(--tm-success)}",
+    ".stat-box.error{background:#fbefee;color:var(--tm-danger)}",
+    ".stat-box.skip{background:#f7f0e8;color:var(--tm-warning)}",
     ".stat-num{font-size:24px;font-weight:bold}",
     ".error-list{max-height:150px;overflow-y:auto;font-size:11px}",
     ".error-item{padding:5px;border-bottom:1px solid var(--tm-border)}",
     ".error-item:last-child{border-bottom:none}",
     ".error-type{font-weight:bold;color:var(--tm-danger)}",
-    ".validation-section{background:var(--tm-surface);border:2px solid #f2dcc1;border-radius:10px;padding:15px;margin-top:10px}",
-    ".validation-section.has-errors{border-color:#f2cccc;background:#fffafb}",
+    ".validation-section{background:var(--tm-surface);border:1px solid var(--tm-border);border-radius:10px;padding:15px;margin-top:10px}",
+    ".validation-section.has-errors{border-color:#e2c3c1;background:#fbefee}",
     ".validation-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}",
     ".validation-table th{background:var(--tm-surface-alt);color:var(--tm-muted);padding:8px 6px;text-align:center;font-weight:600}",
     ".validation-table td{padding:8px 6px;border-bottom:1px solid var(--tm-border);vertical-align:middle;text-align:center}",
@@ -63,14 +63,14 @@
     ".validation-table .product-name{text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     ".validation-summary{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap}",
     ".summary-badge{padding:8px 16px;border-radius:999px;font-weight:600;font-size:12px;border:1px solid transparent}",
-    ".summary-badge.success{background:#edf9f0;color:var(--tm-success);border-color:#cde7d4}",
-    ".summary-badge.warning{background:#fff7ed;color:var(--tm-warning);border-color:#f2dcc1}",
-    ".summary-badge.danger{background:#fef2f2;color:var(--tm-danger);border-color:#f2cccc}",
+    ".summary-badge.success{background:#edf5f1;color:var(--tm-success);border-color:#d1e2da}",
+    ".summary-badge.warning{background:#f7f0e8;color:var(--tm-warning);border-color:#e3d4c0}",
+    ".summary-badge.danger{background:#fbefee;color:var(--tm-danger);border-color:#e2c3c1}",
     ".validation-buttons{display:flex;gap:8px;margin-top:15px}",
     ".validation-buttons button{flex:1}",
     ".btn-proceed{background:var(--tm-success);border-color:var(--tm-success)}",
-    ".btn-cancel{background:var(--tm-surface);color:var(--tm-primary);border-color:var(--tm-border)}",
-    ".spinner{display:inline-block;width:16px;height:16px;border:2px solid #dbe3ef;border-top:2px solid var(--tm-primary);border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}",
+    ".btn-cancel{background:var(--tm-surface);color:var(--tm-primary-strong);border-color:var(--tm-border)}",
+    ".spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--tm-border);border-top:2px solid var(--tm-primary-strong);border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}",
     "@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"
   ].join("");
 
@@ -594,21 +594,21 @@
       "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/"/g, "'") + ">",
       "<div class='tm-ui-panel-head tm-stock-head'>",
       "<div class='tm-stock-head-copy'>",
-      "<span class='tm-ui-kicker'>Move Queue</span>",
+      "<span class='tm-ui-kicker'>이동 작업</span>",
       "<div class='tm-stock-title tm-ui-title'>재고이동 자동화</div>",
       "<p class='tm-ui-subtitle'>입력값을 검증한 뒤 목적지별 이동 묶음으로 처리합니다.</p>",
       "</div>",
       "<button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button>",
       "</div>",
       "<div id='inputArea' class='tm-stock-input-card tm-ui-section'>",
-      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>Batch Input</div><div class='tm-ui-section-title'>이동 요청 붙여넣기</div></div><span class='tm-ui-inline-note'>탭 구분 형식</span></div>",
+      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>입력</div><div class='tm-ui-section-title'>이동 요청 붙여넣기</div></div><span class='tm-ui-inline-note'>탭 구분 형식</span></div>",
       "<div class='format-hint'><b>형식:</b> 기존로케이션 [탭] 상품코드 [탭] 이동수량 [탭] 이후로케이션<br><b>예시:</b> S35-02-2-A\tO8800244293273\t216\ts35-17-1-b<br><small>※ 재고 부족, 검색 실패 등은 건너뛰고 계속 진행됩니다.</small></div>",
       "<textarea id='moveDataInput' class='tm-ui-textarea' placeholder='S35-02-2-A\tO8800244293273\t216\ts35-17-1-b&#10;S35-04-3-B\tO8800244293273\t174\ts35-17-1-b'></textarea>",
       "<button id='startMoveBtn' class='btn-start tm-ui-btn tm-ui-btn--success'>재고이동 시작 (API 검색 + 자동이동)</button>",
       "<button id='resetAllBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button>",
       "</div>",
       "<div id='validationArea' style='display:none;'></div>",
-      "<div id='runningArea' class='tm-stock-running-card tm-ui-section' style='display:none;'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>Runtime</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>처리 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
+      "<div id='runningArea' class='tm-stock-running-card tm-ui-section' style='display:none;'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>실행 상태</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>처리 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
       "<div id='reportArea' style='display:none;'></div>",
       "<div id='stockMoveGuiLog' class='tm-ui-log'>준비됨. 데이터를 입력하고 시작 버튼을 클릭하세요.</div>",
       "</div>",
@@ -624,8 +624,8 @@
     });
     return [
       "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/"/g, "'") + ">",
-      "<div class='tm-ui-panel-head tm-stock-head'><div class='tm-stock-head-copy'><span class='tm-ui-kicker'>Runtime</span><div class='tm-stock-title tm-ui-title'>재고이동 처리 중</div><p class='tm-ui-subtitle'>편집 화면에서 현재 실행 단계와 중지 제어만 노출합니다.</p></div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
-      "<div id='runningArea' class='tm-stock-running-card tm-ui-section'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>Runtime</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>데이터 입력 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
+      "<div class='tm-ui-panel-head tm-stock-head'><div class='tm-stock-head-copy'><span class='tm-ui-kicker'>실행 상태</span><div class='tm-stock-title tm-ui-title'>재고이동 처리 중</div><p class='tm-ui-subtitle'>편집 화면에서 현재 실행 단계와 중지 제어만 노출합니다.</p></div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
+      "<div id='runningArea' class='tm-stock-running-card tm-ui-section'><div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>실행 상태</div><div class='tm-ui-section-title'>처리 상태</div></div></div><div class='status-text' id='statusText'>데이터 입력 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
       "<div id='stockMoveGuiLog' class='tm-ui-log'></div>",
       "</div>",
       "<button id='toggleStockMoveGuiBtn' class='tm-ui-btn tm-ui-btn--primary'>재고이동 도우미</button>",
@@ -711,16 +711,15 @@
     }).join("");
 
     const html = [
-      "<div class='report-section'>",
-      "<h4>📊 작업 완료 리포트</h4>",
+      "<div class='report-section tm-ui-section tm-ui-reveal'>",
+      "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>처리 결과</div><div class='tm-ui-section-title'>작업 리포트</div><p class='tm-ui-section-subtitle'>총 " + (stats.total || 0) + "건 중 " + (stats.success || 0) + "건 완료, " + (stats.skip || 0) + "건 건너뜀</p></div></div>",
       "<div class='report-stats'>",
       "<div class='stat-box success'><div class='stat-num'>" + (stats.success || 0) + "</div><div>성공</div></div>",
       "<div class='stat-box skip'><div class='stat-num'>" + (stats.skip || 0) + "</div><div>건너뜀</div></div>",
       "<div class='stat-box error'><div class='stat-num'>" + errors.length + "</div><div>오류</div></div>",
       "</div>",
-      "<div>총 " + (stats.total || 0) + "건 시도, " + (stats.success || 0) + "건 완료</div>",
-      errors.length ? "<h4 style='margin-top:15px;'>⚠️ 오류 상세 (" + errors.length + "건)</h4><div class='error-list'>" + errorListHtml + "</div>" : "<div style='color:green; margin-top:10px;'>✅ 모든 작업이 성공적으로 완료되었습니다!</div>",
-      "<button id='closeReportBtn' class='btn-close-report'>확인 (새 작업 시작)</button>",
+      errors.length ? "<div class='tm-ui-section-head' style='margin-top:14px;'><div><div class='tm-ui-kicker'>예외 내역</div><div class='tm-ui-section-title'>오류 상세</div></div><span class='tm-ui-inline-note'>" + errors.length + "건</span></div><div class='error-list tm-ui-scroll'>" + errorListHtml + "</div>" : "<div class='tm-ui-message' style='margin-top:10px;'>오류 없이 작업을 마쳤습니다.</div>",
+      "<button id='closeReportBtn' class='btn-close-report tm-ui-btn tm-ui-btn--primary'>확인 후 새 작업 시작</button>",
       "</div>",
     ].join("");
 
@@ -738,7 +737,7 @@
   function forceReset(state) {
     if (!state.win.confirm("정말 모든 작업 상태를 초기화하시겠습니까?\n\n큐, 로그, 에러 기록이 모두 삭제됩니다.")) return;
     clearRuntimeState(state, true);
-    state.win.alert("✅ 초기화 완료!");
+    state.win.alert("초기화가 완료되었습니다.");
     state.win.location.reload();
   }
 
@@ -798,10 +797,10 @@
 
   function buildValidSummary(validItems) {
     if (!validItems.length) return "";
-    if (validItems.length > 10) return "<div style='margin-top:10px;color:#28a745;'>✅ 처리 가능한 항목: " + validItems.length + "건</div>";
+    if (validItems.length > 10) return "<div style='margin-top:10px;color:var(--tm-success);'>처리 가능한 항목: " + validItems.length + "건</div>";
     return [
       "<details style='margin-top:10px;'>",
-      "<summary style='cursor:pointer;color:#28a745;font-weight:600;'>✅ 처리 가능한 항목 보기 (" + validItems.length + "건)</summary>",
+      "<summary style='cursor:pointer;color:var(--tm-success);font-weight:600;'>처리 가능한 항목 보기 (" + validItems.length + "건)</summary>",
       "<table class='validation-table' style='margin-top:8px;'><thead><tr><th>출발지</th><th>상품코드</th><th>상품명</th><th>목적지</th><th>이동</th><th>보유</th></tr></thead><tbody>",
       validItems.map((item) => "<tr><td class='location-cell'>" + escapeHtml(item.fromLoc) + "</td><td>" + escapeHtml(item.productCode) + "</td><td class='product-name' title='" + escapeHtml(item.productName) + "'>" + escapeHtml(item.productName) + "</td><td class='location-cell'>" + escapeHtml(item.toLoc) + "</td><td class='qty-cell'>" + Number(item.qty || 0).toLocaleString() + "</td><td class='qty-cell available'>" + Number(item.availableQty || 0).toLocaleString() + "</td></tr>").join(""),
       "</tbody></table></details>",
@@ -814,11 +813,11 @@
     const allFailed = validItems.length === 0;
     const html = [
       "<div class='validation-section " + (hasProblems ? "has-errors" : "") + "'>",
-      "<h4>" + (hasProblems ? "⚠️ 재고 검증 결과" : "✅ 재고 검증 완료") + "</h4>",
-      "<div class='validation-summary'><span class='summary-badge success'>✅ 처리 가능: " + validItems.length + "건</span>" + (hasProblems ? "<span class='summary-badge danger'>❌ 문제 발견: " + problemItems.length + "건</span>" : "") + "<span class='summary-badge " + (allFailed ? "danger" : "warning") + "'>📊 전체: " + allItems.length + "건</span></div>",
-      hasProblems ? "<h4 style='margin-top:15px;color:#dc3545;'>❌ 처리할 수 없는 항목 (" + problemItems.length + "건)</h4><div style='max-height:200px;overflow-y:auto;'>" + buildProblemTable(problemItems) + "</div>" : "",
+      "<h4>" + (hasProblems ? "재고 검증 결과" : "재고 검증 완료") + "</h4>",
+      "<div class='validation-summary'><span class='summary-badge success'>처리 가능: " + validItems.length + "건</span>" + (hasProblems ? "<span class='summary-badge danger'>문제 발견: " + problemItems.length + "건</span>" : "") + "<span class='summary-badge " + (allFailed ? "danger" : "warning") + "'>전체: " + allItems.length + "건</span></div>",
+      hasProblems ? "<h4 style='margin-top:15px;color:var(--tm-danger);'>처리할 수 없는 항목 (" + problemItems.length + "건)</h4><div style='max-height:200px;overflow-y:auto;'>" + buildProblemTable(problemItems) + "</div>" : "",
       buildValidSummary(validItems),
-      "<div class='validation-buttons'>" + (!allFailed ? "<button id='proceedBtn' class='btn-proceed'>" + (hasProblems ? "⚡ " + validItems.length + "건만 진행" : "🚀 " + validItems.length + "건 재고이동 시작") + "</button>" : "") + "<button id='cancelValidationBtn' class='btn-cancel'>" + (allFailed ? "↩️ 돌아가기" : "✖️ 취소") + "</button></div>",
+      "<div class='validation-buttons'>" + (!allFailed ? "<button id='proceedBtn' class='btn-proceed'>" + (hasProblems ? validItems.length + "건만 진행" : validItems.length + "건 재고이동 시작") + "</button>" : "") + "<button id='cancelValidationBtn' class='btn-cancel'>" + (allFailed ? "돌아가기" : "취소") + "</button></div>",
       "</div>",
     ].join("");
 
@@ -842,23 +841,23 @@
     $("#validationArea").hide();
     $("#runningArea").show();
     $("#" + MODULE_GUI_ID).addClass("running").removeClass("error");
-    addLog(state, "🚀 재고이동 시작: " + validItems.length + "건 (" + skipCount + "건 건너뜀)");
+    addLog(state, "[시작] 재고이동 시작: " + validItems.length + "건 (" + skipCount + "건 건너뜀)");
     const queue = groupItemsByTarget(validItems);
     state.storage.setJson(KEY_MOVE_QUEUE, queue);
-    addLog(state, "📋 " + queue.length + "개 목적지, 총 " + validItems.length + "건 처리 대기");
+    addLog(state, "[대기] " + queue.length + "개 목적지, 총 " + validItems.length + "건 처리 대기");
     processNextInQueue(state);
   }
 
   async function processDirectApiTask(state, task) {
     const grouped = groupTaskItemsBySource(task);
     const fromLocations = Object.keys(grouped);
-    addLog(state, "  📦 " + fromLocations.length + "개 출발지에서 총 " + task.seqs.length + "건 배치 처리");
+    addLog(state, "  배치 처리: " + fromLocations.length + "개 출발지, 총 " + task.seqs.length + "건");
 
     for (let index = 0; index < fromLocations.length; index += 1) {
       const fromLoc = fromLocations[index];
       const items = grouped[fromLoc];
       const totalQty = items.reduce((sum, item) => sum + (item.qty || 0), 0);
-      addLog(state, "  📤 [" + (index + 1) + "/" + fromLocations.length + "] " + fromLoc + " → " + task.toLoc + " (" + items.length + "건, " + totalQty + "개)");
+      addLog(state, "  처리중 [" + (index + 1) + "/" + fromLocations.length + "] " + fromLoc + " → " + task.toLoc + " (" + items.length + "건, " + totalQty + "개)");
       try {
         const seqsValue = items.map((item) => item.seq).join(",") + ",";
         const editUrl = getRequest(EDIT_PAGE_PATH);
@@ -866,7 +865,7 @@
         const pageHtml = await fetchPage(editUrl.toString());
         const formData = parseBatchFormDataFromHtml(pageHtml, task.toLoc, items);
         if (!formData) {
-          addLog(state, "    ❌ 도착 로케이션 [" + task.toLoc + "] 찾기 실패", true);
+          addLog(state, "    도착 로케이션 [" + task.toLoc + "] 찾기 실패", true);
           items.forEach((item) => {
             addError(state, "로케이션오류", item.info.fromLoc, item.info.productCode, task.toLoc, "도착 로케이션을 찾을 수 없음");
             updateStats(state, { type: "skip" });
@@ -875,17 +874,17 @@
         }
         const result = await saveBatchStock(formData);
         if (result.success) {
-          addLog(state, "    ✅ 성공: " + items.length + "건 완료 (" + result.message + ")");
+          addLog(state, "    완료: " + items.length + "건 처리 (" + result.message + ")");
           updateStats(state, { type: "success", count: items.length });
         } else {
-          addLog(state, "    ❌ 실패: " + result.message, true);
+          addLog(state, "    실패: " + result.message, true);
           items.forEach((item) => {
             addError(state, "저장실패", item.info.fromLoc, item.info.productCode, task.toLoc, result.message);
             updateStats(state, { type: "skip" });
           });
         }
       } catch (error) {
-        addLog(state, "    ❌ 오류: " + error.message, true);
+        addLog(state, "    오류: " + error.message, true);
         items.forEach((item) => {
           addError(state, "통신오류", item.info.fromLoc, item.info.productCode, task.toLoc, error.message);
           updateStats(state, { type: "skip" });
@@ -902,7 +901,7 @@
         const queue = state.storage.getJson(KEY_MOVE_QUEUE, []);
         if (!queue.length) {
           state.storage.setRunning(false);
-          addLog(state, "🏁 모든 작업 완료!");
+          addLog(state, "[완료] 모든 작업 완료");
           if (state.pageMode === "main") showFinalReport(state);
           break;
         }
@@ -910,7 +909,7 @@
         state.storage.setJson(KEY_MOVE_QUEUE, queue);
         const statusNode = state.doc.getElementById("statusText");
         if (statusNode) statusNode.textContent = "처리 중: " + current.toLoc;
-        addLog(state, "📂 처리 중: [" + current.toLoc + "] (" + current.seqs.length + "건)");
+        addLog(state, "[처리] [" + current.toLoc + "] (" + current.seqs.length + "건)");
         await processDirectApiTask(state, current);
       }
     } finally {
@@ -945,7 +944,7 @@
     const queue = state.storage.getJson(KEY_MOVE_QUEUE, []);
     if (!queue.length) {
       state.storage.setRunning(false);
-      addLog(state, "🏁 모든 작업 완료!");
+      addLog(state, "[완료] 모든 작업 완료");
     }
     state.win.setTimeout(() => {
       state.win.location.href = MAIN_RETURN_URL;
@@ -955,18 +954,18 @@
   function processEditPage(state) {
     const current = state.storage.getJson(KEY_CURRENT_TARGET, null);
     if (!current) {
-      addLog(state, "❌ 현재 작업 정보 없음", true);
+      addLog(state, "현재 작업 정보가 없습니다.", true);
       goToNextTask(state);
       return;
     }
 
-    addLog(state, "📝 [" + current.toLoc + "] 로케이션으로 이동 처리 시작");
+    addLog(state, "[입력] [" + current.toLoc + "] 로케이션으로 이동 처리 시작");
     const statusNode = state.doc.getElementById("statusText");
     if (statusNode) statusNode.textContent = "목적지: " + current.toLoc;
 
     const $select = state.$('select[name="INOUTSTOCK_LOCA"]');
     if (!setTargetLocation($select, current.toLoc)) {
-      addLog(state, "❌ 이후로케이션 [" + current.toLoc + "] 설정 실패", true);
+      addLog(state, "이후로케이션 [" + current.toLoc + "] 설정 실패", true);
       current.seqs.forEach((seq) => {
         const info = current.infoMap && current.infoMap[seq] || {};
         addError(state, "로케이션오류", info.fromLoc || "N/A", info.productCode || "N/A", current.toLoc, "목적지 로케이션을 찾을 수 없음");
@@ -994,19 +993,19 @@
       updateStats(state, { type: "success" });
     });
 
-    addLog(state, "📝 " + filledCount + "건 수량 입력 완료");
+    addLog(state, "[입력] " + filledCount + "건 수량 입력 완료");
     if (!filledCount) {
-      addLog(state, "⚠️ 입력할 항목이 없음", true);
+      addLog(state, "입력할 항목이 없습니다.", true);
       goToNextTask(state);
       return;
     }
 
-    addLog(state, "💾 저장 중...");
+    addLog(state, "[저장] 저장 중...");
     state.win.setTimeout(() => {
       executeGoSave(state.win);
       state.win.setTimeout(() => {
         const queue = state.storage.getJson(KEY_MOVE_QUEUE, []);
-        addLog(state, "✅ 저장 완료! (남은 작업: " + queue.length + "건)");
+        addLog(state, "저장 완료 (남은 작업: " + queue.length + "건)");
         goToNextTask(state);
       }, 3000);
     }, 500);
