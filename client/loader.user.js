@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name         tamp스크립트 GitHub 로더
-// @namespace    github.victor.tamp.loader
+// @name         VX Console
+// @namespace    github.victor.vx.console
 // @version      0.3.0
-// @description  GitHub 레지스트리 기반으로 현재 페이지 스크립트를 동기화하고 실행합니다.
+// @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
-// @updateURL    https://raw.githubusercontent.com/victorwon2001/tamp-scripts/main/loader/loader.user.js
-// @downloadURL  https://raw.githubusercontent.com/victorwon2001/tamp-scripts/main/loader/loader.user.js
-// @supportURL   https://github.com/victorwon2001/tamp-scripts
+// @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
+// @downloadURL  https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
+// @supportURL   https://github.com/victorwon2001/vx-manifest
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -31,11 +31,11 @@
   const LOADER_VERSION = "0.3.0";
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
-  const REPO_NAME = "tamp-scripts";
+  const REPO_NAME = "vx-manifest";
   const REPO_BRANCH = "main";
   const RAW_BASE_URL = "https://raw.githubusercontent.com/" + REPO_OWNER + "/" + REPO_NAME + "/" + REPO_BRANCH + "/";
-  const REGISTRY_URL = RAW_BASE_URL + "registry/registry.json";
-  const MANAGER_WINDOW_NAME = "tamp-script-loader-manager";
+  const REGISTRY_URL = RAW_BASE_URL + "config/registry.json";
+  const MANAGER_WINDOW_NAME = "vx-console-window";
   const MANAGER_ROOT_ID = "tm-loader-popup-root";
   const MANAGER_STYLE_ID = "tm-loader-popup-style";
 
@@ -279,7 +279,7 @@
 
   function notify(text) {
     if (typeof GM_notification === "function") {
-      GM_notification({ text, title: "tamp스크립트 로더", timeout: 3000 });
+      GM_notification({ text, title: "VX Console", timeout: 3000 });
     } else {
       console.log("[tamp-loader]", text);
     }
@@ -304,7 +304,7 @@
       "<head>",
       "<meta charset='utf-8'>",
       "<meta name='viewport' content='width=device-width, initial-scale=1'>",
-      "<title>tamp스크립트 로더</title>",
+      "<title>VX Console</title>",
       "</head>",
       "<body>",
       "<div id='" + MANAGER_ROOT_ID + "'></div>",
@@ -318,7 +318,7 @@
       "<div class='tm-manager'>",
       "<div class='tm-head'>",
       "<div class='tm-head-text'>",
-      "<h1>tamp스크립트 로더</h1>",
+      "<h1>VX Console</h1>",
       "<p id='tm-loader-manager-subtitle'>현재 페이지 기준 스크립트 상태를 확인합니다.</p>",
       "</div>",
       "<div class='tm-head-actions'>",
@@ -550,7 +550,7 @@
     const appliesCount = allRows.filter((row) => row.appliesHere).length;
     const enabledCount = allRows.filter((row) => row.enabled).length;
 
-    elements.doc.title = "tamp스크립트 로더";
+    elements.doc.title = "VX Console";
     elements.subtitle.textContent = state.url;
     elements.filterCurrent.className = state.managerFilterCurrentOnly ? "tm-filter-on" : "";
     elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지 적용만";
@@ -714,7 +714,7 @@
 
   function registerMenus(state) {
     if (typeof GM_registerMenuCommand !== "function") return;
-    GM_registerMenuCommand("tamp스크립트 로더 열기", function () {
+    GM_registerMenuCommand("VX Console 열기", function () {
       openManager(state);
     });
   }

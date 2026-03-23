@@ -1,9 +1,21 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const loader = require("../loader/loader.user.js");
+function resolveRepoPath(candidates) {
+  for (const candidate of candidates) {
+    const fullPath = path.resolve(__dirname, candidate);
+    if (fs.existsSync(fullPath)) return fullPath;
+  }
+  throw new Error("path not found: " + candidates.join(", "));
+}
+
+const loader = require(resolveRepoPath(["../loader/loader.user.js", "../client/loader.user.js"]));
 const releaseLib = require("../tools/release-lib.js");
-const site3217 = require("../scripts/site3217/main.js");
+const remoteModule = require(resolveRepoPath(["../scripts/site3217/main.js", "../modules/module-a/main.js"]));
+const registry = require(resolveRepoPath(["../registry/registry.json", "../config/registry.json"]));
+const remoteMeta = require(resolveRepoPath(["../scripts/site3217/meta.json", "../modules/module-a/meta.json"]));
 
 test("matchUrlPattern handles trailing wildcard", () => {
   assert.equal(
@@ -23,19 +35,19 @@ test("matchUrlPattern handles trailing wildcard", () => {
 });
 
 test("findMatchingScripts returns only current-page candidates", () => {
-  const registry = {
+  const sampleRegistry = {
     scripts: [
-      { id: "site3217", matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"] },
-      { id: "site320", matches: ["https://www.ebut3pl.co.kr/jsp/site/site320main.jsp*"] }
+      { id: "module-a", matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"] },
+      { id: "module-b", matches: ["https://www.ebut3pl.co.kr/jsp/site/site320main.jsp*"] }
     ]
   };
 
   const result = loader.findMatchingScripts(
-    registry,
+    sampleRegistry,
     "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp?"
   );
 
-  assert.deepEqual(result.map((item) => item.id), ["site3217"]);
+  assert.deepEqual(result.map((item) => item.id), ["module-a"]);
 });
 
 test("isScriptEnabled prefers per-PC override over default", () => {
@@ -70,11 +82,11 @@ test("shouldRefreshCache compares semantic versions and checksum", () => {
 });
 
 test("buildScriptStorageKeys keeps script cache names isolated", () => {
-  const keys = loader.buildScriptStorageKeys("site3217");
+  const keys = loader.buildScriptStorageKeys("module-a");
 
-  assert.equal(keys.enabled, "tm-loader:v1:script:site3217:enabled");
-  assert.equal(keys.meta, "tm-loader:v1:script:site3217:meta");
-  assert.equal(keys.code, "tm-loader:v1:script:site3217:code");
+  assert.equal(keys.enabled, "tm-loader:v1:script:module-a:enabled");
+  assert.equal(keys.meta, "tm-loader:v1:script:module-a:meta");
+  assert.equal(keys.code, "tm-loader:v1:script:module-a:code");
 });
 
 test("formatSyncTime returns compact timestamp for valid iso values", () => {
@@ -83,17 +95,17 @@ test("formatSyncTime returns compact timestamp for valid iso values", () => {
 });
 
 test("buildManagerRows merges registry, page match, cache and remote meta", () => {
-  const registry = {
+  const sampleRegistry = {
     scripts: [
       {
-        id: "site3217",
-        name: "site3217",
+        id: "module-a",
+        name: "workspace-a",
         enabledByDefault: true,
         matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
       },
       {
-        id: "site9999",
-        name: "site9999",
+        id: "module-z",
+        name: "workspace-z",
         enabledByDefault: false,
         matches: ["https://example.com/*"],
       },
@@ -101,26 +113,26 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
   };
 
   const rows = loader.buildManagerRows({
-    registry,
+    registry: sampleRegistry,
     url: "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp?",
     localStateById: {
-      site3217: {
+      "module-a": {
         enabledOverride: true,
         meta: { version: "0.2.0", lastSyncedAt: "2026-03-23T08:11:12.000Z" },
       },
-      site9999: {
+      "module-z": {
         enabledOverride: undefined,
         meta: null,
       },
     },
     remoteMetaById: {
-      site3217: { version: "0.2.1" },
-      site9999: { version: "1.0.0" },
+      "module-a": { version: "0.2.1" },
+      "module-z": { version: "1.0.0" },
     },
   });
 
   assert.equal(rows.length, 2);
-  assert.equal(rows[0].id, "site3217");
+  assert.equal(rows[0].id, "module-a");
   assert.equal(rows[0].appliesHere, true);
   assert.equal(rows[0].enabled, true);
   assert.equal(rows[0].cachedVersion, "0.2.0");
@@ -144,7 +156,34 @@ test("buildManagerDocumentHtml returns standalone popup shell", () => {
 
   assert.match(html, /<!doctype html>/i);
   assert.match(html, /tm-loader-popup-root/);
-  assert.match(html, /tamp스크립트 로더/);
+  assert.match(html, /vx console/i);
+});
+
+test("public loader labels are neutralized", () => {
+  const html = loader.buildManagerDocumentHtml();
+
+  assert.match(html, /vx console/i);
+  assert.doesNotMatch(html, /tamp-scripts|tamp.?스크립트|site3217|ebut/i);
+});
+
+test("loader points to neutral public repo paths", () => {
+  assert.match(loader.REGISTRY_URL, /vx-manifest/);
+  assert.match(loader.REGISTRY_URL, /config\/registry\.json/);
+  assert.doesNotMatch(loader.REGISTRY_URL, /tamp-scripts|registry\/registry/);
+});
+
+test("registry and remote meta avoid obvious public labels", () => {
+  const combined = [
+    registry.scripts[0].id,
+    registry.scripts[0].name,
+    registry.scripts[0].metaPath,
+    remoteMeta.id,
+    remoteMeta.name,
+    remoteMeta.description,
+    remoteMeta.entry,
+  ].join(" ");
+
+  assert.doesNotMatch(combined, /site3217|ebut/i);
 });
 
 test("bumpVersion increments patch by default", () => {
@@ -157,16 +196,16 @@ test("buildChangelogEntry writes Korean entry with date and version", () => {
   const entry = releaseLib.buildChangelogEntry({
     date: "2026-03-21",
     version: "0.1.1",
-    message: "site3217 로더 구조 이관"
+    message: "모듈 정리"
   });
 
   assert.match(entry, /## 2026-03-21/);
-  assert.match(entry, /- `0.1.1` site3217 로더 구조 이관/);
+  assert.match(entry, /- `0.1.1` 모듈 정리/);
 });
 
-test("site3217 remote module exports run contract", () => {
-  assert.equal(site3217.id, "site3217");
-  assert.equal(site3217.version, "0.1.0");
-  assert.equal(Array.isArray(site3217.matches), true);
-  assert.equal(typeof site3217.run, "function");
+test("remote module exports run contract", () => {
+  assert.equal(typeof remoteModule.id, "string");
+  assert.equal(remoteModule.version, "0.1.0");
+  assert.equal(Array.isArray(remoteModule.matches), true);
+  assert.equal(typeof remoteModule.run, "function");
 });

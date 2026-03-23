@@ -7,8 +7,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$metaPath = Join-Path $repoRoot ("scripts\" + $ScriptId + "\meta.json")
-$mainPath = Join-Path $repoRoot ("scripts\" + $ScriptId + "\main.js")
+$metaPath = Join-Path $repoRoot ("modules\" + $ScriptId + "\meta.json")
+$mainPath = Join-Path $repoRoot ("modules\" + $ScriptId + "\main.js")
 $changeLogPath = Join-Path $repoRoot "CHANGELOG.md"
 
 if (-not (Test-Path $metaPath)) {
@@ -52,4 +52,3 @@ git -C $repoRoot commit -m ("release: " + $ScriptId + " " + $nextVersion)
 git -C $repoRoot push
 
 Write-Output ("released " + $ScriptId + " " + $nextVersion)
-

@@ -4,11 +4,11 @@ module.exports = (function (root) {
   const PAGE_PATTERN = /\/jsp\/site\/site3217main\.jsp/i;
   const LIST_ENDPOINT = "/site/site320main_jdata";
   const XLS_ENDPOINT = "/util/ExlForm_DB3";
-  const PANEL_ID = "tm-ebut-site3217";
+  const PANEL_ID = "tm-module-a";
   const STYLE_ID = PANEL_ID + "-style";
-  const BEFORE_EVENT_NAME = "tm-site3217-before-scan";
-  const AFTER_EVENT_NAME = "tm-site3217-after-scan";
-  const BRIDGE_ATTRIBUTE = "data-tm-site3217-bridge";
+  const BEFORE_EVENT_NAME = "tm-module-a-before-scan";
+  const AFTER_EVENT_NAME = "tm-module-a-after-scan";
+  const BRIDGE_ATTRIBUTE = "data-tm-module-a-bridge";
   const HISTORY_STORAGE_KEY = PANEL_ID + "-history-v2";
   const HISTORY_KEEP_DAYS = 14;
   const RECENT_MISMATCH_LIMIT = 20;
@@ -627,13 +627,13 @@ module.exports = (function (root) {
       "var inputId=" + inputId + ";",
       "var bridgeAttribute=" + attr + ";",
       "var retryLimit=" + retryLimit + ";",
-      "if(window.__tmSite3217BridgeInstalled){return;}",
-      "window.__tmSite3217BridgeInstalled=true;",
+      "if(window.__tmModuleABridgeInstalled){return;}",
+      "window.__tmModuleABridgeInstalled=true;",
       "function setStatus(value){if(document&&document.documentElement){document.documentElement.setAttribute(bridgeAttribute,value);}}",
       "function getMode(){var checked=document.querySelector(\"input[name='SEARCH_TYPE']:checked\");return checked?checked.value:'ordlist_no1';}",
       "function wrap(){",
       "if(typeof window.KeyDown!=='function'){return false;}",
-      "if(window.KeyDown.__tmSite3217BridgeWrapped){setStatus('ready');return true;}",
+      "if(window.KeyDown.__tmModuleABridgeWrapped){setStatus('ready');return true;}",
       "var original=window.KeyDown;",
       "function wrapped(){",
       "var eventObject=window.event;",
@@ -645,8 +645,8 @@ module.exports = (function (root) {
       "var result=original.apply(this,arguments);",
       "document.dispatchEvent(new CustomEvent(afterEventName,{detail:detail}));",
       "return result;}",
-      "wrapped.__tmSite3217BridgeWrapped=true;",
-      "wrapped.__tmSite3217Original=original;",
+      "wrapped.__tmModuleABridgeWrapped=true;",
+      "wrapped.__tmModuleAOriginal=original;",
       "window.KeyDown=wrapped;",
       "setStatus('ready');",
       "return true;}",
@@ -1592,8 +1592,8 @@ module.exports = (function (root) {
     focusScanInput(state);
   }
   function start(win) {
-    if (!shouldRun(win) || win.__tmSite3217Started) return;
-    win.__tmSite3217Started = true;
+    if (!shouldRun(win) || win.__tmModuleAStarted) return;
+    win.__tmModuleAStarted = true;
 
     if (win.document.readyState === "loading") {
       win.document.addEventListener("DOMContentLoaded", function () {
@@ -1610,7 +1610,7 @@ module.exports = (function (root) {
   }
 
   return {
-    id: "site3217",
+    id: "module-a",
     version: "0.1.0",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,

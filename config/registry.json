@@ -2,14 +2,13 @@
   "version": 1,
   "scripts": [
     {
-      "id": "site3217",
-      "name": "ebut site3217 주문필터링/스캔 게이트",
+      "id": "module-a",
+      "name": "workspace-a",
       "enabledByDefault": true,
       "matches": [
         "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"
       ],
-      "metaPath": "scripts/site3217/meta.json"
+      "metaPath": "modules/module-a/meta.json"
     }
   ]
 }
-
