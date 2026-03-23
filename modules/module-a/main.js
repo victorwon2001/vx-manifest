@@ -677,6 +677,7 @@
       "#" + PANEL_ID + "{margin-bottom:4px;font-size:11px;color:var(--tm-text)}",
       "#" + PANEL_ID + " .tm-toolbar{display:grid;grid-template-columns:auto 1fr auto;align-items:end;gap:6px;padding:4px 0 2px;background:transparent;border:0}",
       "#" + PANEL_ID + " .tm-toolbar-head{display:flex;align-items:center;gap:4px;min-width:0}",
+      "#" + PANEL_ID + " .tm-toolbar-title{display:inline-flex;align-items:center;margin-right:6px;color:var(--tm-text);font-weight:700;white-space:nowrap}",
       "#" + PANEL_ID + " .tm-compact-status{color:var(--tm-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}",
       "#" + PANEL_ID + " .tm-toolbar-controls{display:flex;align-items:flex-end;gap:4px;flex-wrap:wrap;justify-content:flex-start}",
       "#" + PANEL_ID + " .tm-toolbar-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}",
@@ -813,6 +814,7 @@
       "<div " + rootAttrs.replace(/"/g, "'") + ">",
       "<div class='tm-toolbar tm-ui-toolbar'>",
       "<div class='tm-toolbar-head'>",
+      "<span class='tm-toolbar-title'>송장출력(스캔) 필터링</span>",
       "<button type='button' id='" + PANEL_ID + "-mode-toggle' class='tm-mode-toggle tm-mode-off tm-ui-btn tm-ui-btn--secondary'>필터모드 OFF</button>",
       "<button type='button' id='" + PANEL_ID + "-toggle' class='tm-ui-btn tm-ui-btn--secondary'>차수목록 열기</button>",
       "<span class='tm-compact-status' id='" + PANEL_ID + "-compact'></span>",
@@ -1665,7 +1667,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.1",
+    version: "0.1.2",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1704,4 +1706,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 

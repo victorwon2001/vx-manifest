@@ -1,7 +1,7 @@
 ﻿{
     "id":  "module-a",
     "name":  "송장출력(스캔) 필터링",
-    "version":  "0.1.1",
+    "version":  "0.1.2",
     "description":  "기본 작업 모듈",
     "entry":  "modules/module-a/main.js",
     "dependencies":  [
@@ -17,5 +17,5 @@
                          }
                      ],
     "checksum":  "",
-    "updatedAt":  "2026-03-23 15:07:56"
+    "updatedAt":  "2026-03-23 15:11:21"
 }
