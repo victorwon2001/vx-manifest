@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.3.0
+// @version      0.3.1
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -28,7 +28,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.3.0";
+  const LOADER_VERSION = "0.3.1";
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
   const REPO_NAME = "vx-manifest";
@@ -316,20 +316,32 @@
   function buildManagerShellHtml() {
     return [
       "<div class='tm-manager'>",
-      "<div class='tm-head'>",
-      "<div class='tm-head-text'>",
+      "<div class='tm-hero'>",
+      "<div class='tm-head-text tm-hero-copy'>",
+      "<span class='tm-eyebrow'>Script Workspace</span>",
       "<h1>VX Console</h1>",
-      "<p id='tm-loader-manager-subtitle'>현재 페이지 기준 스크립트 상태를 확인합니다.</p>",
+      "<p id='tm-loader-manager-subtitle'>현재 페이지 기준으로 로드 가능한 스크립트 상태를 확인합니다.</p>",
       "</div>",
       "<div class='tm-head-actions'>",
-      "<button type='button' id='tm-loader-filter-current'>현재 페이지 적용만</button>",
+      "<button type='button' id='tm-loader-filter-current'>현재 페이지만</button>",
       "<button type='button' id='tm-loader-sync-all' class='tm-primary'>전체 동기화</button>",
       "<button type='button' id='tm-loader-clear-all'>전체 캐시 삭제</button>",
       "<button type='button' id='tm-loader-close'>닫기</button>",
       "</div>",
       "</div>",
-      "<div class='tm-summary' id='tm-loader-summary'></div>",
+      "<div class='tm-summary-grid' id='tm-loader-summary'></div>",
+      "<div class='tm-status-card'>",
+      "<div class='tm-status-label'>동기화 상태</div>",
       "<div class='tm-status' id='tm-loader-status'></div>",
+      "</div>",
+      "<div class='tm-table-card'>",
+      "<div class='tm-table-head'>",
+      "<div>",
+      "<span class='tm-section-kicker'>Loaded Surfaces</span>",
+      "<h2>스크립트 구성</h2>",
+      "</div>",
+      "<div class='tm-section-note'>현재 페이지 적용 여부, 캐시 버전, 원격 메타 상태를 한 번에 확인합니다.</div>",
+      "</div>",
       "<div class='tm-table-wrap'>",
       "<table>",
       "<thead><tr>",
@@ -338,11 +350,12 @@
       "<th style='width:90px'>상태</th>",
       "<th style='width:104px'>캐시 버전</th>",
       "<th style='width:104px'>원격 버전</th>",
-      "<th style='width:132px'>최종 동기화</th>",
-      "<th style='width:220px'>액션</th>",
+      "<th style='width:132px'>마지막 동기화</th>",
+      "<th style='width:220px'>동작</th>",
       "</tr></thead>",
       "<tbody id='tm-loader-rows'></tbody>",
       "</table>",
+      "</div>",
       "</div>",
       "</div>",
     ].join("");
@@ -354,40 +367,52 @@
     const style = doc.createElement("style");
     style.id = MANAGER_STYLE_ID;
     style.textContent = [
-      "html,body{margin:0;padding:0;background:#eef2f6;color:#1f2933;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif}",
+      "html,body{margin:0;padding:0;background:radial-gradient(circle at top left,rgba(37,99,235,.14),transparent 30%),linear-gradient(180deg,#fbfdff 0%,#eef3f7 100%);color:#18212b;font-family:'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}",
       "#" + MANAGER_ROOT_ID + "{min-height:100vh;padding:24px;box-sizing:border-box}",
-      ".tm-manager{max-width:1180px;margin:0 auto;background:#fff;border:1px solid #d8dfe7;box-shadow:0 12px 36px rgba(15,23,42,0.12)}",
-      ".tm-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:18px 20px;border-bottom:1px solid #e5ebf0;background:linear-gradient(180deg,#fbfdff 0%,#f3f6f9 100%)}",
-      ".tm-head-text h1{margin:0;font-size:20px;line-height:1.2;color:#16202a}",
-      ".tm-head-text p{margin:6px 0 0;color:#617182;font-size:12px;line-height:1.5;word-break:break-all}",
-      ".tm-head-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
-      "button{height:31px;padding:0 12px;border:1px solid #c8d0d8;background:linear-gradient(180deg,#ffffff 0%,#edf1f5 100%);color:#20303f;cursor:pointer;font-size:12px;line-height:1;font-family:inherit}",
-      "button:hover{border-color:#aab5c0;background:linear-gradient(180deg,#ffffff 0%,#e6ecf2 100%)}",
-      "button:focus{outline:2px solid #7fa9d6;outline-offset:1px}",
-      "button:disabled{background:#f4f6f8;color:#94a0ad;border-color:#d7dde3;cursor:default}",
-      ".tm-primary{background:linear-gradient(180deg,#ffffff 0%,#dbe9f7 100%);border-color:#abc0d9;color:#204f81;font-weight:700}",
-      ".tm-filter-on{background:linear-gradient(180deg,#ffffff 0%,#e2eefb 100%);border-color:#9ebad7;color:#22507d;font-weight:700}",
-      ".tm-toggle-on{background:linear-gradient(180deg,#fcfffc 0%,#dcede1 100%);border-color:#9abf99;color:#265433;font-weight:700}",
-      ".tm-toggle-off{background:linear-gradient(180deg,#fffefe 0%,#efe6de 100%);border-color:#ccb79f;color:#7a5732}",
-      ".tm-summary{display:flex;gap:10px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid #e7edf2;background:#fbfcfd;color:#556576;font-size:12px}",
-      ".tm-summary strong{color:#16202a}",
-      ".tm-status{padding:10px 20px;border-bottom:1px solid #e7edf2;background:#f7f9fb;color:#556576;font-size:12px;min-height:18px}",
-      ".tm-table-wrap{overflow:auto;max-height:calc(100vh - 240px)}",
+      ".tm-manager{max-width:1240px;margin:0 auto;display:grid;gap:16px}",
+      ".tm-hero,.tm-status-card,.tm-table-card{background:linear-gradient(180deg,rgba(255,255,255,.99) 0%,rgba(247,250,252,.96) 100%);border:1px solid rgba(216,223,231,.92);border-radius:24px;box-shadow:0 22px 56px rgba(15,23,42,.12)}",
+      ".tm-hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;padding:28px 30px}",
+      ".tm-eyebrow{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(37,99,235,.08);color:#1d4ed8;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}",
+      ".tm-head-text h1{margin:10px 0 0;font-size:32px;line-height:1;font-weight:800;letter-spacing:-.04em;color:#111827}",
+      ".tm-head-text p{margin:10px 0 0;color:#64748b;font-size:13px;line-height:1.6;word-break:break-all;max-width:760px}",
+      ".tm-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}",
+      "button{height:34px;padding:0 14px;border:1px solid #d4dbe5;background:linear-gradient(180deg,#ffffff 0%,#eef2f7 100%);color:#20303f;border-radius:12px;cursor:pointer;font-size:12px;line-height:1;font-family:inherit;font-weight:700;box-shadow:0 8px 16px rgba(15,23,42,.06)}",
+      "button:hover{border-color:#b8c4d4;background:linear-gradient(180deg,#ffffff 0%,#e9eff6 100%)}",
+      "button:focus{outline:2px solid rgba(37,99,235,.26);outline-offset:2px}",
+      "button:disabled{background:#f4f6f8;color:#94a0ad;border-color:#d7dde3;cursor:default;box-shadow:none}",
+      ".tm-primary{background:linear-gradient(180deg,#3174ff 0%,#1d4ed8 100%);border-color:#1d4ed8;color:#fff}",
+      ".tm-filter-on{background:linear-gradient(180deg,#ffffff 0%,#e2eefb 100%);border-color:#9ebad7;color:#22507d}",
+      ".tm-toggle-on{background:linear-gradient(180deg,#f2fff6 0%,#dcede1 100%);border-color:#9abf99;color:#265433}",
+      ".tm-toggle-off{background:linear-gradient(180deg,#fffefe 0%,#f4ece5 100%);border-color:#ccb79f;color:#7a5732}",
+      ".tm-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}",
+      ".tm-summary-item{padding:16px 18px;border:1px solid rgba(216,223,231,.9);border-radius:18px;background:linear-gradient(180deg,#ffffff 0%,#f7fafc 100%);box-shadow:0 10px 24px rgba(15,23,42,.06)}",
+      ".tm-summary-label{display:block;color:#64748b;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}",
+      ".tm-summary-value{display:block;margin-top:8px;color:#111827;font-size:28px;line-height:1;font-weight:800;letter-spacing:-.04em}",
+      ".tm-summary-meta{display:block;margin-top:6px;color:#64748b;font-size:12px}",
+      ".tm-status-card{padding:16px 18px}",
+      ".tm-status-label{display:block;color:#64748b;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}",
+      ".tm-status{margin-top:8px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:16px;background:rgba(248,250,252,.84);color:#475569;font-size:13px;min-height:20px;line-height:1.6}",
+      ".tm-table-card{overflow:hidden}",
+      ".tm-table-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;padding:20px 22px 16px;border-bottom:1px solid #e7edf2;background:linear-gradient(180deg,#fbfdff 0%,#f5f8fb 100%)}",
+      ".tm-table-head h2{margin:8px 0 0;font-size:18px;line-height:1.1;color:#111827;letter-spacing:-.03em}",
+      ".tm-section-kicker{display:inline-flex;align-items:center;gap:6px;color:#1d4ed8;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}",
+      ".tm-section-note{color:#64748b;font-size:12px;line-height:1.5;max-width:320px;text-align:right}",
+      ".tm-table-wrap{overflow:auto;max-height:calc(100vh - 320px)}",
       "table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}",
-      "th,td{padding:10px 12px;border-bottom:1px solid #edf1f4;text-align:left;vertical-align:middle;word-break:break-word;font-size:12px}",
-      "th{position:sticky;top:0;background:#f4f7fa;color:#4a5868;z-index:1}",
+      "th,td{padding:12px 14px;border-bottom:1px solid #edf1f4;text-align:left;vertical-align:middle;word-break:break-word;font-size:12px}",
+      "th{position:sticky;top:0;background:#f7fafc;color:#4a5868;z-index:1;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}",
       "tr.tm-applies-row{background:#fbfdff}",
       "tr:hover td{background:#f9fbfd}",
-      ".tm-script-name{display:block;font-weight:700;color:#16202a}",
-      ".tm-script-id{display:block;margin-top:3px;color:#748293;font-size:11px}",
-      ".tm-script-desc{display:block;margin-top:4px;color:#607082;font-size:11px;line-height:1.45}",
-      ".tm-badge{display:inline-flex;align-items:center;padding:2px 6px;border:1px solid #cad3dc;background:#f5f7f9;color:#51606f;font-size:11px;font-weight:700}",
+      ".tm-script-name{display:block;font-weight:800;color:#111827;font-size:14px;letter-spacing:-.02em}",
+      ".tm-script-id{display:block;margin-top:4px;color:#748293;font-size:11px}",
+      ".tm-script-desc{display:block;margin-top:6px;color:#607082;font-size:11px;line-height:1.55}",
+      ".tm-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;border:1px solid #cad3dc;background:#f5f7f9;color:#51606f;font-size:11px;font-weight:800}",
       ".tm-badge-match{background:#edf5ff;border-color:#bfd1e5;color:#2e567f}",
       ".tm-badge-miss{background:#fafbfc;border-color:#d8dee5;color:#788494}",
       ".tm-badge-error{background:#fff4f2;border-color:#e1bbb4;color:#974a41}",
       ".tm-actions{display:flex;gap:6px;flex-wrap:wrap}",
-      ".tm-empty{padding:48px 16px;text-align:center;color:#718093}",
-      "@media (max-width: 980px){#" + MANAGER_ROOT_ID + "{padding:12px}.tm-head{padding:14px}.tm-summary,.tm-status{padding-left:14px;padding-right:14px}.tm-table-wrap{max-height:none}}",
+      ".tm-empty{padding:56px 16px;text-align:center;color:#718093}",
+      "@media (max-width:980px){#" + MANAGER_ROOT_ID + "{padding:12px}.tm-hero{padding:20px;align-items:flex-start;flex-direction:column}.tm-section-note{text-align:left;max-width:none}.tm-table-head{padding:16px;align-items:flex-start;flex-direction:column}.tm-table-wrap{max-height:none}}",
     ].join("\n");
     doc.head.appendChild(style);
   }
@@ -553,14 +578,14 @@
     elements.doc.title = "VX Console";
     elements.subtitle.textContent = state.url;
     elements.filterCurrent.className = state.managerFilterCurrentOnly ? "tm-filter-on" : "";
-    elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지 적용만";
+    elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지만";
     elements.syncAll.disabled = !!state.managerBusy;
     elements.clearAll.disabled = !!state.managerBusy;
     elements.summary.innerHTML = [
-      "<span>전체 <strong>" + totalCount + "</strong></span>",
-      "<span>현재 페이지 적용 <strong>" + appliesCount + "</strong></span>",
-      "<span>활성화 <strong>" + enabledCount + "</strong></span>",
-      "<span>로더 버전 <strong>" + LOADER_VERSION + "</strong></span>",
+      "<div class='tm-summary-item'><span class='tm-summary-label'>전체 스크립트</span><strong class='tm-summary-value'>" + totalCount + "</strong><span class='tm-summary-meta'>등록된 표면 수</span></div>",
+      "<div class='tm-summary-item'><span class='tm-summary-label'>현재 페이지 적용</span><strong class='tm-summary-value'>" + appliesCount + "</strong><span class='tm-summary-meta'>현재 URL 매칭 기준</span></div>",
+      "<div class='tm-summary-item'><span class='tm-summary-label'>활성화</span><strong class='tm-summary-value'>" + enabledCount + "</strong><span class='tm-summary-meta'>이 PC에서 ON 상태</span></div>",
+      "<div class='tm-summary-item'><span class='tm-summary-label'>로더 버전</span><strong class='tm-summary-value'>" + escapeHtml(LOADER_VERSION) + "</strong><span class='tm-summary-meta'>관리창과 로더 동기화 기준</span></div>",
     ].join("");
     elements.status.textContent = state.managerStatusText || state.registryError || "로더 상태를 불러왔습니다.";
 
@@ -577,15 +602,15 @@
       (row.description ? "<span class='tm-script-desc'>" + escapeHtml(row.description) + "</span>" : ""),
       "</td>",
       "<td>" + (row.appliesHere
-        ? "<span class='tm-badge tm-badge-match'>적용됨</span>"
-        : "<span class='tm-badge tm-badge-miss'>아님</span>") + "</td>",
+        ? "<span class='tm-badge tm-badge-match'>적용중</span>"
+        : "<span class='tm-badge tm-badge-miss'>대기</span>") + "</td>",
       "<td><button type='button' class='" + (row.enabled ? "tm-toggle-on" : "tm-toggle-off") + "' data-action='toggle' data-script-id='" + escapeHtml(row.id) + "'>" + (row.enabled ? "ON" : "OFF") + "</button></td>",
       "<td>" + escapeHtml(row.cachedVersion) + "</td>",
       "<td>" + (row.hasRemoteError
         ? "<span class='tm-badge tm-badge-error'>오류</span>"
         : escapeHtml(row.remoteVersion)) + "</td>",
       "<td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
-      "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시 삭제</button></div></td>",
+      "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">다시 동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시 삭제</button></div></td>",
       "</tr>",
     ].join("")).join("");
   }
@@ -787,6 +812,7 @@
     RAW_BASE_URL,
     bootstrap,
     buildManagerDocumentHtml,
+    buildManagerShellHtml,
     buildManagerRows,
     buildScriptStorageKeys,
     compareVersions,

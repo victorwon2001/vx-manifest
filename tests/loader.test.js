@@ -166,6 +166,16 @@ test("buildManagerDocumentHtml returns standalone popup shell", () => {
   assert.match(html, /vx console/i);
 });
 
+test("buildManagerShellHtml uses the refreshed hero and summary layout", () => {
+  const html = loader.buildManagerShellHtml();
+
+  assert.match(html, /tm-hero/);
+  assert.match(html, /tm-summary-grid/);
+  assert.match(html, /tm-status-card/);
+  assert.match(html, /tm-table-card/);
+  assert.match(html, /loaded surfaces/i);
+});
+
 test("public loader labels are neutralized", () => {
   const html = loader.buildManagerDocumentHtml();
 

@@ -188,7 +188,9 @@ test("panel html uses the shared panel, toolbar and table classes", () => {
 
   assert.match(html, /class='tm-ui-root tm-ui-panel/);
   assert.match(html, /data-tm-density='normal'/);
-  assert.match(html, /tm-ui-toolbar/);
+  assert.match(html, /tm-ui-panel-head/);
+  assert.match(html, /tm-ui-statusbar/);
+  assert.match(html, /tm-ui-section-head/);
   assert.match(html, /tm-ui-btn tm-ui-btn--success/);
   assert.match(html, /tm-ui-table/);
   assert.match(html, /tm-ui-log/);

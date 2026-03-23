@@ -25,12 +25,17 @@ test("buildModuleUiCss contains the shared class contract and density variants",
 
   assert.match(css, /\.tm-ui-root/);
   assert.match(css, /\.tm-ui-card/);
+  assert.match(css, /\.tm-ui-panel-head/);
+  assert.match(css, /\.tm-ui-section-head/);
+  assert.match(css, /\.tm-ui-statusbar/);
+  assert.match(css, /\.tm-ui-kpi/);
   assert.match(css, /\.tm-ui-btn/);
   assert.match(css, /\.tm-ui-btn--primary/);
   assert.match(css, /\.tm-ui-table/);
   assert.match(css, /\.tm-ui-badge--success/);
   assert.match(css, /\.tm-ui-modal/);
   assert.match(css, /\.tm-ui-log/);
+  assert.match(css, /@keyframes tm-ui-rise/);
   assert.match(css, /\[data-tm-density='compact'\]/);
   assert.match(css, /\[data-tm-density='normal'\]/);
 });

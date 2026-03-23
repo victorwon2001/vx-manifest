@@ -18,7 +18,8 @@ test("module-a toolbar html uses compact embedded shared ui classes", () => {
 
   assert.match(html, /tm-ui-root tm-ui-embedded/);
   assert.match(html, /data-tm-density=['"]compact['"]/);
-  assert.match(html, /tm-ui-toolbar/);
+  assert.match(html, /tm-ui-panel-head/);
+  assert.match(html, /tm-ui-kicker/);
   assert.match(html, /tm-ui-btn/);
   assert.match(html, /tm-ui-input/);
   assert.match(html, /송장출력\(스캔\) 필터링/);
