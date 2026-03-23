@@ -3,7 +3,7 @@
 
   const MODULE_ID = "order-import-sync";
   const MODULE_NAME = "연동데이터 불러오기";
-  const MODULE_VERSION = "0.1.4";
+  const MODULE_VERSION = "0.1.5";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site230main.jsp*"];
   const PAGE_PATTERN = /\/jsp\/site\/site230main\.jsp/i;
   const PANEL_ID = "ebut-ui-panel";
@@ -982,6 +982,7 @@
     buildPanelHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
