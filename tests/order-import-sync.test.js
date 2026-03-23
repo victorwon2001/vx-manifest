@@ -76,6 +76,30 @@ test("isResultTextCandidate recognizes result tables and completion messages", (
   assert.equal(orderImportSync.isResultTextCandidate("일반 안내 문구"), false);
 });
 
+test("shouldRefreshQueueFromLivePage refreshes only when idle", () => {
+  assert.equal(orderImportSync.shouldRefreshQueueFromLivePage({
+    active: false,
+    processing: false,
+  }), true);
+  assert.equal(orderImportSync.shouldRefreshQueueFromLivePage({
+    active: true,
+    processing: false,
+  }), false);
+  assert.equal(orderImportSync.shouldRefreshQueueFromLivePage({
+    active: false,
+    processing: true,
+  }), false);
+});
+
+test("buildDialogPatchScript targets page context and local storage toggle", () => {
+  const script = orderImportSync.buildDialogPatchScript("EBUT_UI_AUTOYES");
+
+  assert.match(script, /localStorage\.getItem\("EBUT_UI_AUTOYES"\)/);
+  assert.match(script, /window\.confirm = function/);
+  assert.match(script, /window\.alert = function/);
+  assert.match(script, /window\.prompt = function/);
+});
+
 test("reduceImportState tracks start, success, timeout and stop transitions", () => {
   let state = orderImportSync.reduceImportState(undefined, {
     type: "start",
@@ -150,6 +174,8 @@ test("module exports loader contract and order import helpers", () => {
   assert.equal(typeof orderImportSync.parseResultTableHtml, "function");
   assert.equal(typeof orderImportSync.hasOrderCountDecreased, "function");
   assert.equal(typeof orderImportSync.isResultTextCandidate, "function");
+  assert.equal(typeof orderImportSync.shouldRefreshQueueFromLivePage, "function");
+  assert.equal(typeof orderImportSync.buildDialogPatchScript, "function");
   assert.equal(typeof orderImportSync.reduceImportState, "function");
   assert.equal(typeof orderImportSync.summarizeImportResults, "function");
 });

@@ -10,6 +10,7 @@
   const PANEL_STYLE_ID = "ebut-ui-panel-style";
   const PANEL_RUNTIME_KEY = "__tmOrderImportSyncRuntime";
   const IFRAME_PATCH_KEY = "__tmOrderImportSyncIframePatched";
+  const PAGE_PATCH_SCRIPT_ID = "tm-order-import-sync-page-patch";
   const CLICK_GAP_MS = 3000;
   const WAIT_RESULT_MS = 120000;
   const POLL_MS = 300;
@@ -139,6 +140,38 @@
 
   function hasOrderCountDecreased(originalCount, currentCount) {
     return Number(currentCount) < Number(originalCount);
+  }
+
+  function shouldRefreshQueueFromLivePage(state) {
+    const current = state || {};
+    return !(current.active || current.processing);
+  }
+
+  function buildDialogPatchScript(storageKey) {
+    return [
+      "(function(){",
+      "if(window.__tmOrderImportSyncPagePatched)return;",
+      "window.__tmOrderImportSyncPagePatched=true;",
+      "function isAutoYesEnabled(){",
+      "try{return localStorage.getItem(\"" + storageKey + "\") !== \"0\";}catch(error){return true;}",
+      "}",
+      "var originalConfirm = window.confirm;",
+      "var originalAlert = window.alert;",
+      "var originalPrompt = window.prompt;",
+      "window.confirm = function(message){",
+      "if(isAutoYesEnabled()) return true;",
+      "return originalConfirm ? originalConfirm.call(window, message) : true;",
+      "};",
+      "window.alert = function(message){",
+      "if(isAutoYesEnabled()) return undefined;",
+      "return originalAlert ? originalAlert.call(window, message) : undefined;",
+      "};",
+      "window.prompt = function(message, defaultValue){",
+      "if(isAutoYesEnabled()) return defaultValue == null ? \"\" : defaultValue;",
+      "return originalPrompt ? originalPrompt.call(window, message, defaultValue) : (defaultValue == null ? \"\" : defaultValue);",
+      "};",
+      "})();",
+    ].join("");
   }
 
   function reduceImportState(state, action) {
@@ -312,6 +345,16 @@
     style.id = PANEL_STYLE_ID;
     style.textContent = STYLE_TEXT;
     (doc.head || doc.documentElement).appendChild(style);
+  }
+
+  function injectDialogPatch(doc, storageKey, suffix) {
+    if (!doc) return;
+    const scriptId = PAGE_PATCH_SCRIPT_ID + (suffix ? "-" + suffix : "");
+    if (doc.getElementById(scriptId)) return;
+    const script = doc.createElement("script");
+    script.id = scriptId;
+    script.textContent = buildDialogPatchScript(storageKey);
+    (doc.head || doc.documentElement || doc.body).appendChild(script);
   }
 
   function getElements(runtime) {
@@ -655,6 +698,7 @@
       if (index >= queue.length) {
         applyAction(runtime, { type: "finish" });
         summarizeAndNotify(runtime);
+        buildPreview(runtime, { resetState: true });
         log(runtime, "🎉 모든 판매처 처리 완료");
         return;
       }
@@ -718,8 +762,9 @@
       return;
     }
 
-    let queue = state.queue || [];
-    if (!queue.length) queue = buildPreview(runtime, { resetState: true });
+    let queue = shouldRefreshQueueFromLivePage(state)
+      ? buildPreview(runtime, { resetState: true })
+      : (state.queue || []);
     if (!queue.length) {
       log(runtime, "❌ 대상이 없습니다. 프리뷰에서 먼저 확인해 주세요.");
       return;
@@ -738,6 +783,7 @@
 
   function stop(runtime) {
     applyAction(runtime, { type: "stop" });
+    buildPreview(runtime, { resetState: true });
     updateStatus(runtime, "정지됨", "#f44336");
     log(runtime, "⏹ 정지됨");
   }
@@ -773,6 +819,8 @@
       try {
         const frameWin = iframe.contentWindow;
         if (!frameWin || frameWin[IFRAME_PATCH_KEY]) return;
+        const frameDoc = iframe.contentDocument || (frameWin && frameWin.document);
+        injectDialogPatch(frameDoc, STORAGE_KEYS.AUTOYES, "iframe");
         patchDialogHost(frameWin, runtime);
         frameWin[IFRAME_PATCH_KEY] = true;
       } catch (error) {
@@ -811,7 +859,7 @@
     patchIframeDialogs(runtime);
 
     const state = readState(runtime);
-    if (Array.isArray(state.queue) && state.queue.length) {
+    if (!shouldRefreshQueueFromLivePage(state) && Array.isArray(state.queue) && state.queue.length) {
       renderPreview(runtime, state.queue);
     } else {
       buildPreview(runtime, { resetState: true });
@@ -868,6 +916,7 @@
       return false;
     }
     const runtime = createRuntime(win, context);
+    injectDialogPatch(win.document, STORAGE_KEYS.AUTOYES, "main");
     patchDialogHost(win, runtime);
     scheduleBoot(runtime);
     return true;
@@ -883,8 +932,11 @@
     parseResultTableHtml,
     isResultTextCandidate,
     hasOrderCountDecreased,
+    shouldRefreshQueueFromLivePage,
+    buildDialogPatchScript,
     reduceImportState,
     summarizeImportResults,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
