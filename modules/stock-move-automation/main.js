@@ -1088,7 +1088,7 @@
   return {
     id: MODULE_ID,
     name: MODULE_NAME,
-    version: "0.1.1",
+    version: "0.1.2",
     matches: MATCHES,
     run,
     start,
@@ -1106,4 +1106,5 @@
     buildEditGuiHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
