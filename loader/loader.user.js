@@ -1,9 +1,12 @@
 // ==UserScript==
 // @name         tamp스크립트 GitHub 로더
 // @namespace    github.victor.tamp.loader
-// @version      0.1.0
+// @version      0.1.1
 // @description  GitHub 레지스트리에서 현재 페이지용 스크립트를 동기화하고 실행합니다.
 // @match        *://*/*
+// @updateURL    https://raw.githubusercontent.com/victorwon2001/tamp-scripts/main/loader/loader.user.js
+// @downloadURL  https://raw.githubusercontent.com/victorwon2001/tamp-scripts/main/loader/loader.user.js
+// @supportURL   https://github.com/victorwon2001/tamp-scripts
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -311,4 +314,3 @@
     shouldRefreshCache,
   };
 });
-
