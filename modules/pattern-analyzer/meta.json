@@ -6,6 +6,11 @@
     "entry":  "modules/pattern-analyzer/main.js",
     "dependencies":  [
                          {
+                             "id":  "module-ui",
+                             "version":  "0.1.0",
+                             "path":  "shared/module-ui.js"
+                         },
+                         {
                              "id":  "xlsx",
                              "version":  "0.20.2",
                              "path":  "vendor/xlsx.full.min.js"

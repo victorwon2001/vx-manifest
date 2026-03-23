@@ -237,3 +237,22 @@ test("remote module exports loader contract and stock move helpers", () => {
   assert.equal(typeof stockMoveAutomation.evaluateSaveResponse, "function");
   assert.equal(typeof stockMoveAutomation.detectPageMode, "function");
 });
+
+test("main gui html uses the shared panel and card classes", () => {
+  const html = stockMoveAutomation.buildMainGuiHtml();
+
+  assert.match(html, /class='tm-ui-root tm-ui-panel/);
+  assert.match(html, /data-tm-density='normal'/);
+  assert.match(html, /tm-ui-card/);
+  assert.match(html, /tm-ui-textarea/);
+  assert.match(html, /tm-ui-btn tm-ui-btn--success/);
+  assert.match(html, /tm-ui-log/);
+});
+
+test("edit gui html uses the shared panel and action classes", () => {
+  const html = stockMoveAutomation.buildEditGuiHtml();
+
+  assert.match(html, /class='tm-ui-root tm-ui-panel/);
+  assert.match(html, /tm-ui-btn tm-ui-btn--danger/);
+  assert.match(html, /tm-ui-log/);
+});

@@ -179,3 +179,17 @@ test("module exports loader contract and order import helpers", () => {
   assert.equal(typeof orderImportSync.reduceImportState, "function");
   assert.equal(typeof orderImportSync.summarizeImportResults, "function");
 });
+
+test("panel html uses the shared panel, toolbar and table classes", () => {
+  const html = orderImportSync.buildPanelHtml({
+    collapsed: false,
+    autoYes: true,
+  });
+
+  assert.match(html, /class='tm-ui-root tm-ui-panel/);
+  assert.match(html, /data-tm-density='normal'/);
+  assert.match(html, /tm-ui-toolbar/);
+  assert.match(html, /tm-ui-btn tm-ui-btn--success/);
+  assert.match(html, /tm-ui-table/);
+  assert.match(html, /tm-ui-log/);
+});

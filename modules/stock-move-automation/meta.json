@@ -6,6 +6,11 @@
     "entry":  "modules/stock-move-automation/main.js",
     "dependencies":  [
                          {
+                             "id":  "module-ui",
+                             "version":  "0.1.0",
+                             "path":  "shared/module-ui.js"
+                         },
+                         {
                              "id":  "jquery",
                              "version":  "3.6.0",
                              "path":  "vendor/jquery-3.6.0.min.js"

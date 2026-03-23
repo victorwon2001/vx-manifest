@@ -21,54 +21,71 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiContainer{position:fixed;top:10px;right:10px;width:750px;min-width:500px;background-color:#f8f9fa;border:2px solid #555;padding:15px;z-index:9999;box-shadow:0 5px 15px rgba(0,0,0,0.3);font-family:'Malgun Gothic',sans-serif;border-radius:8px;display:none;max-height:90vh;overflow-y:auto;resize:both}",
-    "#stockMoveGuiContainer.running{border-color:#28a745;background:#e8f5e9}",
-    "#stockMoveGuiContainer.error{border-color:#dc3545;background:#f8d7da}",
-    "#stockMoveGuiContainer h3{margin:0 0 10px 0;font-size:16px;border-bottom:2px solid #007bff;padding-bottom:5px;color:#333}",
-    "#stockMoveGuiContainer textarea{width:96%;height:150px;margin-bottom:10px;padding:8px;border:1px solid #ccc;font-size:12px;font-family:monospace}",
-    "#stockMoveGuiContainer button{padding:8px 12px;margin-right:5px;border:none;cursor:pointer;border-radius:4px;font-weight:bold;color:white}",
-    ".btn-start{background-color:#28a745;width:100%;margin-bottom:5px;font-size:14px}",
-    ".btn-stop{background-color:#dc3545;width:100%;margin-bottom:5px}",
-    ".btn-reset{background-color:#ff9800;width:100%;font-size:12px;margin-bottom:5px}",
-    ".btn-close-report{background-color:#6c757d;width:100%;margin-top:15px}",
-    ".close-btn{background-color:#6c757d;float:right;font-size:12px;padding:4px 8px}",
-    "#stockMoveGuiLog{margin-top:10px;font-size:11px;max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px;background-color:#fff;line-height:1.5}",
-    "#toggleStockMoveGuiBtn{position:fixed;top:10px;right:10px;padding:10px 15px;background-color:#007bff;color:white;border:none;cursor:pointer;z-index:10000;border-radius:4px;font-weight:bold;font-size:13px;transition:right 0.2s}",
-    ".status-text{text-align:center;font-weight:bold;margin-bottom:10px;color:#007bff;font-size:14px}",
-    ".format-hint{font-size:11px;color:#666;margin-bottom:8px;background:#fff3cd;padding:8px;border-radius:4px}",
-    ".report-section{background:#fff;border:1px solid #ddd;padding:10px;margin-top:10px;border-radius:4px}",
+    "#stockMoveGuiContainer{position:fixed;top:10px;right:10px;width:750px;min-width:500px;padding:15px;z-index:9999;display:none;max-height:90vh;overflow-y:auto;resize:both}",
+    "#stockMoveGuiContainer.tm-ui-root{background:var(--tm-bg)}",
+    "#stockMoveGuiContainer .tm-stock-shell{padding:14px}",
+    "#stockMoveGuiContainer.running .tm-stock-shell{border-color:#cde7d4;background:#edf9f0}",
+    "#stockMoveGuiContainer.error .tm-stock-shell{border-color:#f2cccc;background:#fef2f2}",
+    "#stockMoveGuiContainer .tm-stock-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}",
+    "#stockMoveGuiContainer .tm-stock-title{font-size:18px;font-weight:700}",
+    "#stockMoveGuiContainer .tm-stock-head .close-btn{margin-left:auto}",
+    "#stockMoveGuiContainer .tm-stock-input-card,#stockMoveGuiContainer .tm-stock-running-card,#stockMoveGuiContainer .tm-stock-report-card{padding:14px 16px}",
+    "#stockMoveGuiContainer textarea{width:100%;height:150px;font-size:12px;font-family:Consolas,'Courier New',monospace}",
+    ".btn-start{width:100%;margin-bottom:5px;font-size:14px}",
+    ".btn-stop{width:100%;margin-bottom:5px}",
+    ".btn-reset{width:100%;font-size:12px;margin-bottom:5px}",
+    ".btn-close-report{width:100%;margin-top:15px}",
+    "#stockMoveGuiLog{margin-top:10px;max-height:220px;overflow-y:auto;border:1px solid var(--tm-border);padding:8px;background-color:var(--tm-surface);line-height:1.5;border-radius:var(--tm-radius-sm)}",
+    "#toggleStockMoveGuiBtn{position:fixed;top:10px;right:10px;z-index:10000;transition:right 0.2s}",
+    ".status-text{text-align:center;font-weight:bold;margin-bottom:10px;color:var(--tm-primary);font-size:14px}",
+    ".format-hint{font-size:11px;color:var(--tm-muted);margin-bottom:8px;background:#fff7ed;padding:8px;border-radius:8px;border:1px solid #f2dcc1}",
+    ".report-section{padding:10px;margin-top:10px}",
     ".report-stats{display:flex;gap:15px;margin-bottom:10px}",
-    ".stat-box{flex:1;text-align:center;padding:10px;border-radius:4px}",
-    ".stat-box.success{background:#d4edda;color:#155724}",
-    ".stat-box.error{background:#f8d7da;color:#721c24}",
-    ".stat-box.skip{background:#fff3cd;color:#856404}",
+    ".stat-box{flex:1;text-align:center;padding:10px;border-radius:8px;border:1px solid var(--tm-border)}",
+    ".stat-box.success{background:#edf9f0;color:var(--tm-success)}",
+    ".stat-box.error{background:#fef2f2;color:var(--tm-danger)}",
+    ".stat-box.skip{background:#fff7ed;color:var(--tm-warning)}",
     ".stat-num{font-size:24px;font-weight:bold}",
     ".error-list{max-height:150px;overflow-y:auto;font-size:11px}",
-    ".error-item{padding:5px;border-bottom:1px solid #eee}",
+    ".error-item{padding:5px;border-bottom:1px solid var(--tm-border)}",
     ".error-item:last-child{border-bottom:none}",
-    ".error-type{font-weight:bold;color:#dc3545}",
-    ".validation-section{background:#fff;border:2px solid #ffc107;border-radius:8px;padding:15px;margin-top:10px}",
-    ".validation-section.has-errors{border-color:#dc3545;background:#fff5f5}",
+    ".error-type{font-weight:bold;color:var(--tm-danger)}",
+    ".validation-section{background:var(--tm-surface);border:2px solid #f2dcc1;border-radius:10px;padding:15px;margin-top:10px}",
+    ".validation-section.has-errors{border-color:#f2cccc;background:#fffafb}",
     ".validation-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}",
-    ".validation-table th{background:#343a40;color:white;padding:8px 6px;text-align:center;font-weight:600}",
-    ".validation-table td{padding:8px 6px;border-bottom:1px solid #dee2e6;vertical-align:middle;text-align:center}",
+    ".validation-table th{background:var(--tm-surface-alt);color:var(--tm-muted);padding:8px 6px;text-align:center;font-weight:600}",
+    ".validation-table td{padding:8px 6px;border-bottom:1px solid var(--tm-border);vertical-align:middle;text-align:center}",
     ".validation-table .qty-cell{text-align:right;font-family:monospace}",
-    ".validation-table .shortage{color:#dc3545;font-weight:bold}",
-    ".validation-table .available{color:#28a745}",
+    ".validation-table .shortage{color:var(--tm-danger);font-weight:bold}",
+    ".validation-table .available{color:var(--tm-success)}",
     ".validation-table .location-cell{font-family:monospace;text-transform:uppercase}",
     ".validation-table .product-name{text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     ".validation-summary{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap}",
-    ".summary-badge{padding:8px 16px;border-radius:20px;font-weight:600;font-size:12px}",
-    ".summary-badge.success{background:#d4edda;color:#155724}",
-    ".summary-badge.warning{background:#fff3cd;color:#856404}",
-    ".summary-badge.danger{background:#f8d7da;color:#721c24}",
+    ".summary-badge{padding:8px 16px;border-radius:999px;font-weight:600;font-size:12px;border:1px solid transparent}",
+    ".summary-badge.success{background:#edf9f0;color:var(--tm-success);border-color:#cde7d4}",
+    ".summary-badge.warning{background:#fff7ed;color:var(--tm-warning);border-color:#f2dcc1}",
+    ".summary-badge.danger{background:#fef2f2;color:var(--tm-danger);border-color:#f2cccc}",
     ".validation-buttons{display:flex;gap:8px;margin-top:15px}",
     ".validation-buttons button{flex:1}",
-    ".btn-proceed{background:#28a745}",
-    ".btn-cancel{background:#6c757d}",
-    ".spinner{display:inline-block;width:16px;height:16px;border:2px solid #f3f3f3;border-top:2px solid #007bff;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}",
+    ".btn-proceed{background:var(--tm-success);border-color:var(--tm-success)}",
+    ".btn-cancel{background:var(--tm-surface);color:var(--tm-primary);border-color:var(--tm-border)}",
+    ".spinner{display:inline-block;width:16px;height:16px;border:2px solid #dbe3ef;border-top:2px solid var(--tm-primary);border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}",
     "@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"
   ].join("");
+
+  function getModuleUi(win) {
+    const scope = win || root;
+    const shared = scope && scope.__tmModuleUi;
+    if (shared && typeof shared.ensureStyles === "function") return shared;
+    return {
+      ensureStyles() {},
+      buildRootAttributes(options) {
+        const density = options && options.density === "compact" ? "compact" : "normal";
+        const extra = options && options.className ? " " + options.className : "";
+        return 'class="tm-ui-root tm-ui-panel' + extra + '" data-tm-density="' + density + '"';
+      },
+    };
+  }
 
   function safeTrim(value) {
     return String(value == null ? "" : value).trim();
@@ -481,6 +498,7 @@
   }
 
   function ensureStyles(win) {
+    getModuleUi(win).ensureStyles(win.document);
     if (win.document.getElementById(MODULE_STYLE_ID)) return;
     const style = win.document.createElement("style");
     style.id = MODULE_STYLE_ID;
@@ -566,32 +584,42 @@
   }
 
   function buildMainGuiHtml() {
+    const rootAttrs = getModuleUi(root).buildRootAttributes({
+      kind: "panel",
+      density: "normal",
+      className: "tm-stock-shell tm-ui-card",
+    });
     return [
-      "<div id='stockMoveGuiContainer'>",
-      "<h3>📦 재고이동 자동화 <button id='closeGuiBtn' class='close-btn'>×</button></h3>",
-      "<div id='inputArea'>",
+      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/"/g, "'") + ">",
+      "<div class='tm-stock-head'><div class='tm-stock-title'>재고이동 자동화</div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
+      "<div id='inputArea' class='tm-stock-input-card'>",
       "<div class='format-hint'><b>형식:</b> 기존로케이션 [탭] 상품코드 [탭] 이동수량 [탭] 이후로케이션<br><b>예시:</b> S35-02-2-A\tO8800244293273\t216\ts35-17-1-b<br><small>※ 재고 부족, 검색 실패 등은 건너뛰고 계속 진행됩니다.</small></div>",
-      "<textarea id='moveDataInput' placeholder='S35-02-2-A\tO8800244293273\t216\ts35-17-1-b&#10;S35-04-3-B\tO8800244293273\t174\ts35-17-1-b'></textarea>",
-      "<button id='startMoveBtn' class='btn-start'>🚀 재고이동 시작 (API 검색 + 자동이동)</button>",
-      "<button id='resetAllBtn' class='btn-reset'>🔄 강제 초기화</button>",
+      "<textarea id='moveDataInput' class='tm-ui-textarea' placeholder='S35-02-2-A\tO8800244293273\t216\ts35-17-1-b&#10;S35-04-3-B\tO8800244293273\t174\ts35-17-1-b'></textarea>",
+      "<button id='startMoveBtn' class='btn-start tm-ui-btn tm-ui-btn--success'>재고이동 시작 (API 검색 + 자동이동)</button>",
+      "<button id='resetAllBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button>",
       "</div>",
       "<div id='validationArea' style='display:none;'></div>",
-      "<div id='runningArea' style='display:none;'><div class='status-text' id='statusText'>처리 중...</div><button id='stopBtn' class='btn-stop'>⏹ 강제 중지</button><button id='resetBtn' class='btn-reset'>🔄 강제 초기화</button></div>",
+      "<div id='runningArea' class='tm-stock-running-card' style='display:none;'><div class='status-text' id='statusText'>처리 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
       "<div id='reportArea' style='display:none;'></div>",
-      "<div id='stockMoveGuiLog'>준비됨. 데이터를 입력하고 시작 버튼을 클릭하세요.</div>",
+      "<div id='stockMoveGuiLog' class='tm-ui-log'>준비됨. 데이터를 입력하고 시작 버튼을 클릭하세요.</div>",
       "</div>",
-      "<button id='toggleStockMoveGuiBtn'>📦 재고이동 도우미</button>",
+      "<button id='toggleStockMoveGuiBtn' class='tm-ui-btn tm-ui-btn--primary'>재고이동 도우미</button>",
     ].join("");
   }
 
   function buildEditGuiHtml() {
+    const rootAttrs = getModuleUi(root).buildRootAttributes({
+      kind: "panel",
+      density: "normal",
+      className: "tm-stock-shell tm-ui-card",
+    });
     return [
-      "<div id='stockMoveGuiContainer'>",
-      "<h3>📦 재고이동 처리 중 <button id='closeGuiBtn' class='close-btn'>×</button></h3>",
-      "<div id='runningArea'><div class='status-text' id='statusText'>데이터 입력 중...</div><button id='stopBtn' class='btn-stop'>⏹ 강제 중지</button><button id='resetBtn' class='btn-reset'>🔄 강제 초기화</button></div>",
-      "<div id='stockMoveGuiLog'></div>",
+      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/"/g, "'") + ">",
+      "<div class='tm-stock-head'><div class='tm-stock-title'>재고이동 처리 중</div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
+      "<div id='runningArea' class='tm-stock-running-card'><div class='status-text' id='statusText'>데이터 입력 중...</div><button id='stopBtn' class='btn-stop tm-ui-btn tm-ui-btn--danger'>강제 중지</button><button id='resetBtn' class='btn-reset tm-ui-btn tm-ui-btn--warning'>강제 초기화</button></div>",
+      "<div id='stockMoveGuiLog' class='tm-ui-log'></div>",
       "</div>",
-      "<button id='toggleStockMoveGuiBtn'>📦 재고이동 도우미</button>",
+      "<button id='toggleStockMoveGuiBtn' class='tm-ui-btn tm-ui-btn--primary'>재고이동 도우미</button>",
     ].join("");
   }
 
@@ -1074,6 +1102,8 @@
     buildBatchSavePayload,
     evaluateSaveResponse,
     reduceRunStats,
+    buildMainGuiHtml,
+    buildEditGuiHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 

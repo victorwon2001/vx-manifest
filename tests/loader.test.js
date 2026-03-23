@@ -17,6 +17,7 @@ const remoteModule = require(resolveRepoPath(["../scripts/site3217/main.js", "..
 const patternAnalyzerModule = require(resolveRepoPath(["../modules/pattern-analyzer/main.js"]));
 const stockMoveAutomationModule = require(resolveRepoPath(["../modules/stock-move-automation/main.js"]));
 const orderImportSyncModule = require(resolveRepoPath(["../modules/order-import-sync/main.js"]));
+const moduleUi = require(resolveRepoPath(["../shared/module-ui.js"]));
 const registry = require(resolveRepoPath(["../registry/registry.json", "../config/registry.json"]));
 const remoteMeta = require(resolveRepoPath(["../scripts/site3217/meta.json", "../modules/module-a/meta.json"]));
 const patternAnalyzerMeta = require(resolveRepoPath(["../modules/pattern-analyzer/meta.json"]));
@@ -294,4 +295,21 @@ test("order import sync module exports run contract", () => {
 
 test("order import sync runtime version stays aligned with meta version", () => {
   assert.equal(orderImportSyncModule.version, orderImportSyncMeta.version);
+});
+
+test("shared module ui exports theme helpers", () => {
+  assert.equal(typeof moduleUi.TOKENS, "object");
+  assert.equal(moduleUi.TOKENS.bg, "#f4f7fb");
+  assert.equal(moduleUi.TOKENS.primary, "#2563eb");
+  assert.equal(typeof moduleUi.buildModuleUiCss, "function");
+  assert.equal(typeof moduleUi.buildRootAttributes, "function");
+  assert.equal(typeof moduleUi.ensureStyles, "function");
+});
+
+test("all module meta files depend on the shared module ui asset", () => {
+  [remoteMeta, patternAnalyzerMeta, stockMoveAutomationMeta, orderImportSyncMeta].forEach((meta) => {
+    const dependency = (meta.dependencies || []).find((item) => item.id === "module-ui");
+    assert.ok(dependency, meta.id + " missing module-ui dependency");
+    assert.equal(dependency.path, "shared/module-ui.js");
+  });
 });

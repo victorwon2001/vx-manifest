@@ -27,12 +27,37 @@
     PROCESSING: "EBUT_UI_PROCESSING",
   };
 
-  const STYLE_TEXT = [
-    "#" + PANEL_ID + "{position:fixed;top:16px;right:16px;z-index:99999;background:rgba(0,0,0,0.9);color:#fff;padding:8px 10px;border-radius:10px;font-size:12px;line-height:1.45;box-shadow:0 8px 18px rgba(0,0,0,0.35);resize:both;overflow:auto;max-height:80vh;min-width:280px}",
-    "#" + PANEL_ID + " button{border:none;border-radius:4px}",
-    "#" + PANEL_ID + " table{width:100%;border-collapse:collapse}",
-    "#" + PANEL_ID + " input[type='checkbox']{vertical-align:middle}",
+  const LOCAL_STYLE_TEXT = [
+    "#" + PANEL_ID + "{position:fixed;top:16px;right:16px;z-index:99999;padding:10px;resize:both;overflow:auto;max-height:80vh;min-width:320px;width:min(520px,calc(100vw - 32px))}",
+    "#" + PANEL_ID + " .tm-import-panel{padding:12px}",
+    "#" + PANEL_ID + " .tm-ui-toolbar{padding:10px 12px;margin-bottom:10px;justify-content:space-between}",
+    "#" + PANEL_ID + " .tm-import-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}",
+    "#" + PANEL_ID + " .tm-import-status{margin-bottom:10px}",
+    "#" + PANEL_ID + " .tm-import-preview{padding:10px 12px}",
+    "#" + PANEL_ID + " .tm-import-preview-title{font-weight:700;margin-bottom:8px}",
+    "#" + PANEL_ID + " .tm-import-preview th:first-child,#" + PANEL_ID + " .tm-import-preview td:first-child{text-align:left}",
+    "#" + PANEL_ID + " .tm-import-preview th:nth-child(2),#" + PANEL_ID + " .tm-import-preview td:nth-child(2){text-align:right}",
+    "#" + PANEL_ID + " .tm-import-preview th:nth-child(3),#" + PANEL_ID + " .tm-import-preview td:nth-child(3){text-align:center}",
+    "#" + PANEL_ID + " .tm-import-site-code{color:var(--tm-muted);font-size:11px}",
+    "#" + PANEL_ID + " .tm-import-log{margin-top:10px;max-height:180px;overflow:auto}",
+    "#" + PANEL_ID + " .tm-import-log-item{margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(148,163,184,.18)}",
+    "#" + PANEL_ID + " .tm-import-log-item:last-child{border-bottom:none}",
   ].join("");
+
+  function getModuleUi(win) {
+    const scope = win || root;
+    const shared = scope && scope.__tmModuleUi;
+    if (shared && typeof shared.ensureStyles === "function") return shared;
+    return {
+      ensureStyles() {},
+      buildRootAttributes(options) {
+        const kind = options && options.kind === "popup" ? "tm-ui-popup" : (options && options.kind === "embedded" ? "tm-ui-embedded" : "tm-ui-panel");
+        const density = options && options.density === "compact" ? "compact" : "normal";
+        const extra = options && options.className ? " " + options.className : "";
+        return 'class="tm-ui-root ' + kind + extra + '" data-tm-density="' + density + '"';
+      },
+    };
+  }
 
   function safeTrim(value) {
     return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
@@ -340,11 +365,53 @@
   }
 
   function ensureStyle(doc) {
+    getModuleUi(doc.defaultView || root).ensureStyles(doc);
     if (doc.getElementById(PANEL_STYLE_ID)) return;
     const style = doc.createElement("style");
     style.id = PANEL_STYLE_ID;
-    style.textContent = STYLE_TEXT;
+    style.textContent = LOCAL_STYLE_TEXT;
     (doc.head || doc.documentElement).appendChild(style);
+  }
+
+  function buildPanelHtml(options) {
+    const settings = options || {};
+    const collapsed = !!settings.collapsed;
+    const checked = settings.autoYes ? "checked" : "";
+    const rootAttrs = getModuleUi(root).buildRootAttributes({
+      kind: "panel",
+      density: "normal",
+      className: "tm-import-panel",
+    });
+
+    return [
+      "<div " + rootAttrs.replace(/"/g, "'") + ">",
+      "<div class='tm-ui-toolbar'>",
+      "<div style='font-weight:700;font-size:14px;'>연동데이터 불러오기</div>",
+      "<button id='ebut-ui-collapse' class='tm-ui-btn tm-ui-btn--secondary' style='margin-left:auto;'>" + (collapsed ? "펼치기" : "축소") + "</button>",
+      "</div>",
+      "<div id='ebut-ui-body'" + (collapsed ? " style='display:none;'" : "") + ">",
+      "<div class='tm-import-actions'>",
+      "<label class='tm-ui-label' style='display:flex;align-items:center;gap:8px;'>" +
+        "<span><input type='checkbox' id='ebut-auto-yes' " + checked + "/> 확인창 자동 '예'</span>" +
+      "</label>",
+      "<button id='ebut-scan' class='tm-ui-btn tm-ui-btn--secondary'>대상 스캔</button>",
+      "<button id='ebut-run' class='tm-ui-btn tm-ui-btn--success'>시작</button>",
+      "<button id='ebut-stop' class='tm-ui-btn tm-ui-btn--danger'>정지</button>",
+      "</div>",
+      "<div id='ebut-status' class='tm-ui-message tm-import-status' style='display:none;'><span id='ebut-status-text'>대기 중...</span></div>",
+      "<div id='ebut-preview-wrap' class='tm-ui-card tm-import-preview'>",
+      "<div class='tm-import-preview-title'>프리뷰 (신규주문수 > 0)</div>",
+      "<table id='ebut-preview' class='tm-ui-table'><thead><tr>",
+      "<th>판매처</th>",
+      "<th>신규주문수</th>",
+      "<th>상태</th>",
+      "</tr></thead><tbody></tbody></table>",
+      "<div id='ebut-preview-empty' class='tm-ui-empty' style='display:none;'>대상이 없습니다. 화면의 '확인'으로 숫자를 갱신해 주세요.</div>",
+      "</div>",
+      "<div id='ebut-log' class='tm-ui-log tm-import-log'></div>",
+      "</div>",
+      "</div>",
+    ].join("");
   }
 
   function injectDialogPatch(doc, storageKey, suffix) {
@@ -378,34 +445,10 @@
       doc.body.appendChild(panel);
     }
 
-    const collapsed = runtime.storage.isCollapsed();
-    const checked = runtime.storage.isAutoYes() ? "checked" : "";
-
-    panel.innerHTML = [
-      "<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'>",
-      "<div style='font-weight:bold;font-size:13px;'>📦 연동데이터 불러오기</div>",
-      "<button id='ebut-ui-collapse' style='margin-left:auto;padding:2px 6px;cursor:pointer;'>" + (collapsed ? "펼치기" : "축소") + "</button>",
-      "</div>",
-      "<div id='ebut-ui-body'" + (collapsed ? " style='display:none;'" : "") + ">",
-      "<div style='margin-bottom:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;'>",
-      "<label style='cursor:pointer;'><input type='checkbox' id='ebut-auto-yes' " + checked + "/> 확인창 자동 '예'</label>",
-      "<button id='ebut-scan' style='padding:4px 8px;cursor:pointer;'>🔍 대상 스캔</button>",
-      "<button id='ebut-run' style='padding:4px 8px;cursor:pointer;background:#4CAF50;color:white;'>▶ 시작</button>",
-      "<button id='ebut-stop' style='padding:4px 8px;cursor:pointer;background:#f44336;color:white;'>⏹ 정지</button>",
-      "</div>",
-      "<div id='ebut-status' style='background:rgba(255,255,255,0.1);padding:6px 8px;border-radius:6px;margin-bottom:8px;display:none;'><span id='ebut-status-text'>대기 중...</span></div>",
-      "<div id='ebut-preview-wrap' style='background:rgba(255,255,255,0.06);border-radius:8px;padding:8px;'>",
-      "<div style='font-weight:bold;margin-bottom:6px;'>📋 프리뷰 (신규주문수 > 0)</div>",
-      "<table id='ebut-preview'><thead><tr>",
-      "<th style='text-align:left;padding:4px;border-bottom:1px solid rgba(255,255,255,0.15);'>판매처</th>",
-      "<th style='text-align:right;padding:4px;border-bottom:1px solid rgba(255,255,255,0.15);'>신규주문수</th>",
-      "<th style='text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.15);'>상태</th>",
-      "</tr></thead><tbody></tbody></table>",
-      "<div id='ebut-preview-empty' style='color:#ddd;padding:6px 2px;display:none;'>대상이 없습니다. 화면의 '확인'으로 숫자를 갱신해 주세요.</div>",
-      "</div>",
-      "<div id='ebut-log' style='margin-top:8px;'></div>",
-      "</div>",
-    ].join("");
+    panel.innerHTML = buildPanelHtml({
+      collapsed: runtime.storage.isCollapsed(),
+      autoYes: runtime.storage.isAutoYes(),
+    });
 
     const elements = {
       panel,
@@ -461,12 +504,7 @@
   function log(runtime, message) {
     runtime.win.console.log("[EBUT]", message);
     const elements = ensurePanel(runtime);
-    elements.log.innerHTML = "<div style='margin-bottom:2px;'>" + escapeHtml(new Date().toLocaleTimeString()) + " - " + escapeHtml(message) + "</div>" + elements.log.innerHTML;
-    elements.log.style.maxHeight = "160px";
-    elements.log.style.overflow = "auto";
-    elements.log.style.background = "rgba(255,255,255,0.06)";
-    elements.log.style.padding = "6px";
-    elements.log.style.borderRadius = "6px";
+    elements.log.innerHTML = "<div class='tm-import-log-item'>" + escapeHtml(new Date().toLocaleTimeString()) + " - " + escapeHtml(message) + "</div>" + elements.log.innerHTML;
   }
 
   function renderPreview(runtime, queue) {
@@ -484,12 +522,12 @@
       const tr = runtime.doc.createElement("tr");
       tr.dataset.sitecode = item.siteCode;
       tr.innerHTML = [
-        "<td style='padding:4px;border-bottom:1px dashed rgba(255,255,255,0.12);'>",
+        "<td>",
         escapeHtml(item.name),
-        " <span style='opacity:0.6;font-size:11px;'>(" + escapeHtml(item.siteCode) + ")</span>",
+        " <span class='tm-import-site-code'>(" + escapeHtml(item.siteCode) + ")</span>",
         "</td>",
-        "<td style='padding:4px;border-bottom:1px dashed rgba(255,255,255,0.12);text-align:right;font-weight:bold;'>" + escapeHtml(item.count) + "</td>",
-        "<td class='ebut-status-cell' style='padding:4px;border-bottom:1px dashed rgba(255,255,255,0.12);text-align:center;font-size:11px;'>대기</td>",
+        "<td data-tm-align='right'><strong>" + escapeHtml(item.count) + "</strong></td>",
+        "<td class='ebut-status-cell'>대기</td>",
       ].join("");
       elements.previewBody.appendChild(tr);
     });
@@ -936,6 +974,7 @@
     buildDialogPatchScript,
     reduceImportState,
     summarizeImportResults,
+    buildPanelHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 

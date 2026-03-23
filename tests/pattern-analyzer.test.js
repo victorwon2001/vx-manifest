@@ -191,3 +191,15 @@ test("remote module exports loader contract and named helpers", () => {
   assert.equal(typeof analyzer.buildBatchUrl, "function");
   assert.equal(typeof analyzer.buildOrderUrl, "function");
 });
+
+test("popup html uses shared light admin root and component classes", () => {
+  const html = analyzer.createPopupHtml();
+
+  assert.match(html, /class='tm-ui-root tm-ui-popup'/);
+  assert.match(html, /data-tm-density='normal'/);
+  assert.match(html, /tm-ui-card/);
+  assert.match(html, /tm-ui-table/);
+  assert.match(html, /tm-ui-btn/);
+  assert.match(html, /tm-ui-overlay/);
+  assert.match(html, /tm-ui-modal/);
+});

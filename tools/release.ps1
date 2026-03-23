@@ -10,12 +10,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $metaPath = Join-Path $repoRoot ("modules\" + $ScriptId + "\meta.json")
 $mainPath = Join-Path $repoRoot ("modules\" + $ScriptId + "\main.js")
 $changeLogPath = Join-Path $repoRoot "CHANGELOG.md"
+$changeLogHeader = "# 변경 이력"
 
 if (-not (Test-Path $metaPath)) {
   throw "meta.json not found: $metaPath"
 }
 
-$meta = Get-Content -Path $metaPath -Encoding UTF8 | ConvertFrom-Json
+$meta = Get-Content -Path $metaPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $currentVersion = [string]$meta.version
 $nextVersion = node -e "const lib=require('./tools/release-lib.js'); process.stdout.write(lib.bumpVersion('$currentVersion', '$Level'))" 2>$null
 
@@ -39,11 +40,12 @@ if (-not $entry) {
   throw "failed to build changelog entry"
 }
 
-$existing = if (Test-Path $changeLogPath) { Get-Content -Path $changeLogPath -Raw -Encoding UTF8 } else { "# 변경 이력`n`n" }
-$updatedChangeLog = if ($existing -match '^# 변경 이력') {
-  "# 변경 이력`n`n" + $entry + ($existing -replace '^# 변경 이력\s*', '')
+$existing = if (Test-Path $changeLogPath) { Get-Content -Path $changeLogPath -Raw -Encoding UTF8 } else { $changeLogHeader + "`n`n" }
+$normalizedExisting = $existing -replace '^\uFEFF', ''
+$updatedChangeLog = if ($normalizedExisting -match '^# 변경 이력') {
+  $changeLogHeader + "`n`n" + $entry + ($normalizedExisting -replace '^# 변경 이력\s*', '')
 } else {
-  "# 변경 이력`n`n" + $entry + $existing
+  $changeLogHeader + "`n`n" + $entry + $normalizedExisting
 }
 Set-Content -Path $changeLogPath -Value $updatedChangeLog -Encoding UTF8
 
