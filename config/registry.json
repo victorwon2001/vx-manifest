@@ -9,6 +9,15 @@
         "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"
       ],
       "metaPath": "modules/module-a/meta.json"
+    },
+    {
+      "id": "pattern-analyzer",
+      "name": "패턴분석기",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/*"
+      ],
+      "metaPath": "modules/pattern-analyzer/meta.json"
     }
   ]
 }
