@@ -186,6 +186,11 @@ test("registry and remote meta avoid obvious public labels", () => {
   assert.doesNotMatch(combined, /site3217|ebut/i);
 });
 
+test("registry and remote meta expose the requested display name", () => {
+  assert.equal(registry.scripts[0].name, "송장출력(스캔) 필터링");
+  assert.equal(remoteMeta.name, "송장출력(스캔) 필터링");
+});
+
 test("bumpVersion increments patch by default", () => {
   assert.equal(releaseLib.bumpVersion("0.1.0"), "0.1.1");
   assert.equal(releaseLib.bumpVersion("0.1.0", "minor"), "0.2.0");

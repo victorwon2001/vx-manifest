@@ -3,7 +3,7 @@
   "scripts": [
     {
       "id": "module-a",
-      "name": "workspace-a",
+      "name": "송장출력(스캔) 필터링",
       "enabledByDefault": true,
       "matches": [
         "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"

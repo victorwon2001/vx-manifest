@@ -1,6 +1,6 @@
 {
   "id": "module-a",
-  "name": "workspace-a",
+  "name": "송장출력(스캔) 필터링",
   "version": "0.1.0",
   "description": "기본 작업 모듈",
   "entry": "modules/module-a/main.js",
