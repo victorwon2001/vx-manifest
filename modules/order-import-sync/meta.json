@@ -1,7 +1,7 @@
 ﻿{
     "id":  "order-import-sync",
     "name":  "연동데이터 불러오기",
-    "version":  "0.1.6",
+    "version":  "0.1.7",
     "description":  "주문가져오기 자동화 도구",
     "entry":  "modules/order-import-sync/main.js",
     "dependencies":  [
@@ -12,5 +12,5 @@
                          }
                      ],
     "checksum":  "",
-    "updatedAt":  "2026-03-23 17:05:09"
+    "updatedAt":  "2026-03-23 17:52:19"
 }
