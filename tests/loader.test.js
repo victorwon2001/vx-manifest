@@ -16,10 +16,12 @@ const releaseLib = require("../tools/release-lib.js");
 const remoteModule = require(resolveRepoPath(["../scripts/site3217/main.js", "../modules/module-a/main.js"]));
 const patternAnalyzerModule = require(resolveRepoPath(["../modules/pattern-analyzer/main.js"]));
 const stockMoveAutomationModule = require(resolveRepoPath(["../modules/stock-move-automation/main.js"]));
+const orderImportSyncModule = require(resolveRepoPath(["../modules/order-import-sync/main.js"]));
 const registry = require(resolveRepoPath(["../registry/registry.json", "../config/registry.json"]));
 const remoteMeta = require(resolveRepoPath(["../scripts/site3217/meta.json", "../modules/module-a/meta.json"]));
 const patternAnalyzerMeta = require(resolveRepoPath(["../modules/pattern-analyzer/meta.json"]));
 const stockMoveAutomationMeta = require(resolveRepoPath(["../modules/stock-move-automation/meta.json"]));
+const orderImportSyncMeta = require(resolveRepoPath(["../modules/order-import-sync/meta.json"]));
 
 test("matchUrlPattern handles trailing wildcard", () => {
   assert.equal(
@@ -225,6 +227,21 @@ test("stock move automation meta exposes the requested display name", () => {
   assert.equal(stockMoveAutomationMeta.entry, "modules/stock-move-automation/main.js");
 });
 
+test("registry exposes the order import sync module metadata", () => {
+  const script = registry.scripts.find((item) => item.id === "order-import-sync");
+
+  assert.ok(script);
+  assert.equal(script.name, "연동데이터 불러오기");
+  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/jsp/site/site230main.jsp*"]);
+  assert.equal(script.metaPath, "modules/order-import-sync/meta.json");
+});
+
+test("order import sync meta exposes the requested display name", () => {
+  assert.equal(orderImportSyncMeta.id, "order-import-sync");
+  assert.equal(orderImportSyncMeta.name, "연동데이터 불러오기");
+  assert.equal(orderImportSyncMeta.entry, "modules/order-import-sync/main.js");
+});
+
 test("bumpVersion increments patch by default", () => {
   assert.equal(releaseLib.bumpVersion("0.1.0"), "0.1.1");
   assert.equal(releaseLib.bumpVersion("0.1.0", "minor"), "0.2.0");
@@ -267,4 +284,14 @@ test("stock move automation module exports run contract", () => {
 
 test("stock move automation runtime version stays aligned with meta version", () => {
   assert.equal(stockMoveAutomationModule.version, stockMoveAutomationMeta.version);
+});
+
+test("order import sync module exports run contract", () => {
+  assert.equal(orderImportSyncModule.id, "order-import-sync");
+  assert.equal(Array.isArray(orderImportSyncModule.matches), true);
+  assert.equal(typeof orderImportSyncModule.run, "function");
+});
+
+test("order import sync runtime version stays aligned with meta version", () => {
+  assert.equal(orderImportSyncModule.version, orderImportSyncMeta.version);
 });

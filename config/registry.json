@@ -27,6 +27,15 @@
         "https://www.ebut3pl.co.kr/*"
       ],
       "metaPath": "modules/stock-move-automation/meta.json"
+    },
+    {
+      "id": "order-import-sync",
+      "name": "연동데이터 불러오기",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/jsp/site/site230main.jsp*"
+      ],
+      "metaPath": "modules/order-import-sync/meta.json"
     }
   ]
 }
