@@ -18,6 +18,15 @@
         "https://www.ebut3pl.co.kr/*"
       ],
       "metaPath": "modules/pattern-analyzer/meta.json"
+    },
+    {
+      "id": "stock-move-automation",
+      "name": "재고이동 자동화",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/*"
+      ],
+      "metaPath": "modules/stock-move-automation/meta.json"
     }
   ]
 }

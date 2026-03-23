@@ -1,0 +1,16 @@
+﻿{
+    "id":  "stock-move-automation",
+    "name":  "재고이동 자동화",
+    "version":  "0.1.1",
+    "description":  "재고이동 검증 및 자동화 도구",
+    "entry":  "modules/stock-move-automation/main.js",
+    "dependencies":  [
+                         {
+                             "id":  "jquery",
+                             "version":  "3.6.0",
+                             "path":  "vendor/jquery-3.6.0.min.js"
+                         }
+                     ],
+    "checksum":  "",
+    "updatedAt":  "2026-03-23 12:36:57"
+}
