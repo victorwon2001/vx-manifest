@@ -262,7 +262,7 @@ test("buildChangelogEntry writes Korean entry with date and version", () => {
 
 test("remote module exports run contract", () => {
   assert.equal(typeof remoteModule.id, "string");
-  assert.equal(remoteModule.version, "0.1.0");
+  assert.equal(remoteModule.version, remoteMeta.version);
   assert.equal(Array.isArray(remoteModule.matches), true);
   assert.equal(typeof remoteModule.run, "function");
 });

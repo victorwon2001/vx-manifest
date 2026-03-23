@@ -30,7 +30,11 @@ $meta | ConvertTo-Json -Depth 10 | Set-Content -Path $metaPath -Encoding UTF8
 
 if (Test-Path $mainPath) {
   $mainText = Get-Content -Path $mainPath -Raw -Encoding UTF8
-  $mainText = [regex]::Replace($mainText, 'version:\s*"[^"]+"', 'version: "' + $nextVersion + '"', 1)
+  if ($mainText -match 'const\s+MODULE_VERSION\s*=\s*"[^"]+"') {
+    $mainText = [regex]::Replace($mainText, 'const\s+MODULE_VERSION\s*=\s*"[^"]+"', 'const MODULE_VERSION = "' + $nextVersion + '"', 1)
+  } else {
+    $mainText = [regex]::Replace($mainText, 'version:\s*"[^"]+"', 'version: "' + $nextVersion + '"', 1)
+  }
   Set-Content -Path $mainPath -Value $mainText -Encoding UTF8
 }
 
