@@ -130,6 +130,23 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
   assert.equal(rows[1].appliesHere, false);
 });
 
+test("getManagerWindowFeatures builds popup sizing string", () => {
+  const features = loader.getManagerWindowFeatures();
+
+  assert.match(features, /width=1160/);
+  assert.match(features, /height=860/);
+  assert.match(features, /resizable=yes/);
+  assert.match(features, /scrollbars=yes/);
+});
+
+test("buildManagerDocumentHtml returns standalone popup shell", () => {
+  const html = loader.buildManagerDocumentHtml();
+
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /tm-loader-popup-root/);
+  assert.match(html, /tamp스크립트 로더/);
+});
+
 test("bumpVersion increments patch by default", () => {
   assert.equal(releaseLib.bumpVersion("0.1.0"), "0.1.1");
   assert.equal(releaseLib.bumpVersion("0.1.0", "minor"), "0.2.0");

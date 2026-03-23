@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         tamp스크립트 GitHub 로더
 // @namespace    github.victor.tamp.loader
-// @version      0.2.0
-// @description  GitHub 레지스트리에서 현재 페이지용 스크립트를 동기화하고 실행합니다.
+// @version      0.3.0
+// @description  GitHub 레지스트리 기반으로 현재 페이지 스크립트를 동기화하고 실행합니다.
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/tamp-scripts/main/loader/loader.user.js
 // @downloadURL  https://raw.githubusercontent.com/victorwon2001/tamp-scripts/main/loader/loader.user.js
@@ -28,15 +28,16 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
+  const LOADER_VERSION = "0.3.0";
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
   const REPO_NAME = "tamp-scripts";
   const REPO_BRANCH = "main";
   const RAW_BASE_URL = "https://raw.githubusercontent.com/" + REPO_OWNER + "/" + REPO_NAME + "/" + REPO_BRANCH + "/";
   const REGISTRY_URL = RAW_BASE_URL + "registry/registry.json";
-  const MANAGER_STYLE_ID = "tm-loader-manager-style";
-  const MANAGER_BACKDROP_ID = "tm-loader-manager-backdrop";
-  const MANAGER_MODAL_ID = "tm-loader-manager-modal";
+  const MANAGER_WINDOW_NAME = "tamp-script-loader-manager";
+  const MANAGER_ROOT_ID = "tm-loader-popup-root";
+  const MANAGER_STYLE_ID = "tm-loader-popup-style";
 
   function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -86,9 +87,9 @@
   function compareVersions(left, right) {
     const a = parseVersion(left);
     const b = parseVersion(right);
-    for (let i = 0; i < 3; i += 1) {
-      if (a[i] > b[i]) return 1;
-      if (a[i] < b[i]) return -1;
+    for (let index = 0; index < 3; index += 1) {
+      if (a[index] > b[index]) return 1;
+      if (a[index] < b[index]) return -1;
     }
     return 0;
   }
@@ -139,6 +140,7 @@
     const url = options.url || "";
     const localStateById = options.localStateById || {};
     const remoteMetaById = options.remoteMetaById || {};
+
     const rows = (registry.scripts || []).map((script) => {
       const localState = localStateById[script.id] || {};
       const localMeta = localState.meta || null;
@@ -148,6 +150,7 @@
       return {
         id: script.id,
         name: script.name || script.id,
+        description: script.description || "",
         appliesHere,
         enabled: isScriptEnabled(script, localState.enabledOverride),
         cachedVersion: localMeta && localMeta.version ? localMeta.version : "-",
@@ -220,8 +223,7 @@
 
   async function loadCachedOrRemoteAsset(scriptId, suffix, remoteVersion, url, evaluator, context) {
     const key = STORAGE_PREFIX + ":asset:" + scriptId + ":" + suffix;
-    const cached = getValue(key, null);
-    const cachedPayload = cached ? JSON.parse(cached) : null;
+    const cachedPayload = safeJsonParse(getValue(key, null), null);
     let code = cachedPayload && cachedPayload.code;
 
     if (!cachedPayload || cachedPayload.version !== remoteVersion) {
@@ -234,9 +236,8 @@
 
   async function loadScriptCode(script, meta) {
     const keys = buildScriptStorageKeys(script.id);
-    const cachedMetaRaw = getValue(keys.meta, null);
+    const cachedMeta = safeJsonParse(getValue(keys.meta, null), null);
     const cachedCode = getValue(keys.code, null);
-    const cachedMeta = cachedMetaRaw ? JSON.parse(cachedMetaRaw) : null;
     const nextMeta = {
       version: meta.version,
       checksum: meta.checksum || "",
@@ -256,8 +257,8 @@
   }
 
   async function runScript(script, meta, context) {
-    const deps = Array.isArray(meta.dependencies) ? meta.dependencies : [];
-    for (const dependency of deps) {
+    const dependencies = Array.isArray(meta.dependencies) ? meta.dependencies : [];
+    for (const dependency of dependencies) {
       await loadCachedOrRemoteAsset(
         script.id,
         dependency.id,
@@ -284,120 +285,152 @@
     }
   }
 
+  function getManagerWindowFeatures() {
+    return [
+      "popup=yes",
+      "width=1160",
+      "height=860",
+      "left=120",
+      "top=80",
+      "resizable=yes",
+      "scrollbars=yes",
+    ].join(",");
+  }
+
+  function buildManagerDocumentHtml() {
+    return [
+      "<!doctype html>",
+      "<html lang='ko'>",
+      "<head>",
+      "<meta charset='utf-8'>",
+      "<meta name='viewport' content='width=device-width, initial-scale=1'>",
+      "<title>tamp스크립트 로더</title>",
+      "</head>",
+      "<body>",
+      "<div id='" + MANAGER_ROOT_ID + "'></div>",
+      "</body>",
+      "</html>",
+    ].join("");
+  }
+
+  function buildManagerShellHtml() {
+    return [
+      "<div class='tm-manager'>",
+      "<div class='tm-head'>",
+      "<div class='tm-head-text'>",
+      "<h1>tamp스크립트 로더</h1>",
+      "<p id='tm-loader-manager-subtitle'>현재 페이지 기준 스크립트 상태를 확인합니다.</p>",
+      "</div>",
+      "<div class='tm-head-actions'>",
+      "<button type='button' id='tm-loader-filter-current'>현재 페이지 적용만</button>",
+      "<button type='button' id='tm-loader-sync-all' class='tm-primary'>전체 동기화</button>",
+      "<button type='button' id='tm-loader-clear-all'>전체 캐시 삭제</button>",
+      "<button type='button' id='tm-loader-close'>닫기</button>",
+      "</div>",
+      "</div>",
+      "<div class='tm-summary' id='tm-loader-summary'></div>",
+      "<div class='tm-status' id='tm-loader-status'></div>",
+      "<div class='tm-table-wrap'>",
+      "<table>",
+      "<thead><tr>",
+      "<th style='width:280px'>스크립트</th>",
+      "<th style='width:96px'>현재 페이지</th>",
+      "<th style='width:90px'>상태</th>",
+      "<th style='width:104px'>캐시 버전</th>",
+      "<th style='width:104px'>원격 버전</th>",
+      "<th style='width:132px'>최종 동기화</th>",
+      "<th style='width:220px'>액션</th>",
+      "</tr></thead>",
+      "<tbody id='tm-loader-rows'></tbody>",
+      "</table>",
+      "</div>",
+      "</div>",
+    ].join("");
+  }
+
   function applyManagerStyles(doc) {
     if (doc.getElementById(MANAGER_STYLE_ID)) return;
 
-    const css = [
-      "#" + MANAGER_BACKDROP_ID + "{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,0.38);z-index:2147483647}",
-      "#" + MANAGER_BACKDROP_ID + ".tm-open{display:flex}",
-      "#" + MANAGER_MODAL_ID + "{width:min(1100px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);border:1px solid #cfd6de;background:#ffffff;color:#1f2933;box-shadow:0 18px 50px rgba(15,23,42,0.18);overflow:hidden}",
-      "#" + MANAGER_MODAL_ID + " .tm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 18px;border-bottom:1px solid #e5e9ef;background:#f7f9fb}",
-      "#" + MANAGER_MODAL_ID + " .tm-head h2{margin:0;font-size:18px;line-height:1.2;color:#17212b}",
-      "#" + MANAGER_MODAL_ID + " .tm-head p{margin:4px 0 0;color:#667281;font-size:12px;line-height:1.5}",
-      "#" + MANAGER_MODAL_ID + " .tm-head-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
-      "#" + MANAGER_MODAL_ID + " button{height:30px;padding:0 10px;border:1px solid #c4ccd5;background:linear-gradient(#ffffff,#eef2f5);color:#24313d;cursor:pointer;font-size:12px}",
-      "#" + MANAGER_MODAL_ID + " button:hover{border-color:#aab4bf;background:linear-gradient(#ffffff,#e8edf2)}",
-      "#" + MANAGER_MODAL_ID + " button:disabled{background:#f3f5f7;color:#95a0ad;cursor:default}",
-      "#" + MANAGER_MODAL_ID + " .tm-primary{background:linear-gradient(#fdfefe,#e3eefb);border-color:#aac1de;color:#1f4f84;font-weight:700}",
-      "#" + MANAGER_MODAL_ID + " .tm-toggle-on{background:linear-gradient(#f8fff9,#deefd9);border-color:#9bc08f;color:#285933;font-weight:700}",
-      "#" + MANAGER_MODAL_ID + " .tm-toggle-off{background:linear-gradient(#fffdfa,#efe7dc);border-color:#cdb79d;color:#7a5831}",
-      "#" + MANAGER_MODAL_ID + " .tm-filter-on{background:linear-gradient(#f8fbff,#e0eaf7);border-color:#aac1de;color:#25507f}",
-      "#" + MANAGER_MODAL_ID + " .tm-summary{display:flex;gap:10px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid #e8edf2;background:#fcfdfe;color:#51606f;font-size:12px}",
-      "#" + MANAGER_MODAL_ID + " .tm-summary strong{color:#17212b}",
-      "#" + MANAGER_MODAL_ID + " .tm-status{padding:8px 18px;border-bottom:1px solid #e8edf2;background:#f9fbfc;color:#566576;font-size:12px;min-height:18px}",
-      "#" + MANAGER_MODAL_ID + " .tm-table-wrap{overflow:auto;background:#fff}",
-      "#" + MANAGER_MODAL_ID + " table{width:100%;border-collapse:collapse;table-layout:fixed}",
-      "#" + MANAGER_MODAL_ID + " th,#" + MANAGER_MODAL_ID + " td{padding:9px 10px;border-bottom:1px solid #edf1f4;text-align:left;vertical-align:middle;word-break:break-word;font-size:12px}",
-      "#" + MANAGER_MODAL_ID + " th{position:sticky;top:0;background:#f4f7fa;color:#4a5868;z-index:1}",
-      "#" + MANAGER_MODAL_ID + " tr.tm-applies-row{background:#fbfdff}",
-      "#" + MANAGER_MODAL_ID + " .tm-script-name{font-weight:700;color:#17212b}",
-      "#" + MANAGER_MODAL_ID + " .tm-script-id{display:block;margin-top:3px;color:#728092;font-size:11px}",
-      "#" + MANAGER_MODAL_ID + " .tm-badge{display:inline-flex;align-items:center;padding:2px 6px;border:1px solid #cad3dc;background:#f5f7f9;color:#51606f;font-size:11px;font-weight:700}",
-      "#" + MANAGER_MODAL_ID + " .tm-badge.tm-badge-match{background:#eef5ff;border-color:#bfd0e6;color:#2e557f}",
-      "#" + MANAGER_MODAL_ID + " .tm-badge.tm-badge-miss{background:#fafbfc;border-color:#d8dee5;color:#788494}",
-      "#" + MANAGER_MODAL_ID + " .tm-badge.tm-badge-error{background:#fff3f1;border-color:#e3bcb6;color:#9a4c43}",
-      "#" + MANAGER_MODAL_ID + " .tm-actions{display:flex;gap:6px;flex-wrap:wrap}",
-      "#" + MANAGER_MODAL_ID + " .tm-empty{padding:40px 16px;text-align:center;color:#718093}",
-      "@media (max-width: 980px){#" + MANAGER_MODAL_ID + "{width:min(100vw,calc(100vw - 12px));max-height:calc(100vh - 12px)}#" + MANAGER_MODAL_ID + " .tm-head{padding:14px}#" + MANAGER_MODAL_ID + " .tm-summary{padding:10px 14px}#" + MANAGER_MODAL_ID + " .tm-status{padding:8px 14px}}",
+    const style = doc.createElement("style");
+    style.id = MANAGER_STYLE_ID;
+    style.textContent = [
+      "html,body{margin:0;padding:0;background:#eef2f6;color:#1f2933;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif}",
+      "#" + MANAGER_ROOT_ID + "{min-height:100vh;padding:24px;box-sizing:border-box}",
+      ".tm-manager{max-width:1180px;margin:0 auto;background:#fff;border:1px solid #d8dfe7;box-shadow:0 12px 36px rgba(15,23,42,0.12)}",
+      ".tm-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:18px 20px;border-bottom:1px solid #e5ebf0;background:linear-gradient(180deg,#fbfdff 0%,#f3f6f9 100%)}",
+      ".tm-head-text h1{margin:0;font-size:20px;line-height:1.2;color:#16202a}",
+      ".tm-head-text p{margin:6px 0 0;color:#617182;font-size:12px;line-height:1.5;word-break:break-all}",
+      ".tm-head-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
+      "button{height:31px;padding:0 12px;border:1px solid #c8d0d8;background:linear-gradient(180deg,#ffffff 0%,#edf1f5 100%);color:#20303f;cursor:pointer;font-size:12px;line-height:1;font-family:inherit}",
+      "button:hover{border-color:#aab5c0;background:linear-gradient(180deg,#ffffff 0%,#e6ecf2 100%)}",
+      "button:focus{outline:2px solid #7fa9d6;outline-offset:1px}",
+      "button:disabled{background:#f4f6f8;color:#94a0ad;border-color:#d7dde3;cursor:default}",
+      ".tm-primary{background:linear-gradient(180deg,#ffffff 0%,#dbe9f7 100%);border-color:#abc0d9;color:#204f81;font-weight:700}",
+      ".tm-filter-on{background:linear-gradient(180deg,#ffffff 0%,#e2eefb 100%);border-color:#9ebad7;color:#22507d;font-weight:700}",
+      ".tm-toggle-on{background:linear-gradient(180deg,#fcfffc 0%,#dcede1 100%);border-color:#9abf99;color:#265433;font-weight:700}",
+      ".tm-toggle-off{background:linear-gradient(180deg,#fffefe 0%,#efe6de 100%);border-color:#ccb79f;color:#7a5732}",
+      ".tm-summary{display:flex;gap:10px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid #e7edf2;background:#fbfcfd;color:#556576;font-size:12px}",
+      ".tm-summary strong{color:#16202a}",
+      ".tm-status{padding:10px 20px;border-bottom:1px solid #e7edf2;background:#f7f9fb;color:#556576;font-size:12px;min-height:18px}",
+      ".tm-table-wrap{overflow:auto;max-height:calc(100vh - 240px)}",
+      "table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}",
+      "th,td{padding:10px 12px;border-bottom:1px solid #edf1f4;text-align:left;vertical-align:middle;word-break:break-word;font-size:12px}",
+      "th{position:sticky;top:0;background:#f4f7fa;color:#4a5868;z-index:1}",
+      "tr.tm-applies-row{background:#fbfdff}",
+      "tr:hover td{background:#f9fbfd}",
+      ".tm-script-name{display:block;font-weight:700;color:#16202a}",
+      ".tm-script-id{display:block;margin-top:3px;color:#748293;font-size:11px}",
+      ".tm-script-desc{display:block;margin-top:4px;color:#607082;font-size:11px;line-height:1.45}",
+      ".tm-badge{display:inline-flex;align-items:center;padding:2px 6px;border:1px solid #cad3dc;background:#f5f7f9;color:#51606f;font-size:11px;font-weight:700}",
+      ".tm-badge-match{background:#edf5ff;border-color:#bfd1e5;color:#2e567f}",
+      ".tm-badge-miss{background:#fafbfc;border-color:#d8dee5;color:#788494}",
+      ".tm-badge-error{background:#fff4f2;border-color:#e1bbb4;color:#974a41}",
+      ".tm-actions{display:flex;gap:6px;flex-wrap:wrap}",
+      ".tm-empty{padding:48px 16px;text-align:center;color:#718093}",
+      "@media (max-width: 980px){#" + MANAGER_ROOT_ID + "{padding:12px}.tm-head{padding:14px}.tm-summary,.tm-status{padding-left:14px;padding-right:14px}.tm-table-wrap{max-height:none}}",
     ].join("\n");
-
-    if (typeof GM_addStyle === "function") GM_addStyle(css);
-    const styleMarker = doc.createElement("meta");
-    styleMarker.id = MANAGER_STYLE_ID;
-    doc.head.appendChild(styleMarker);
+    doc.head.appendChild(style);
   }
 
-  function ensureManagerUi(state) {
-    if (state.managerElements) return state.managerElements;
+  function isManagerOpen(state) {
+    return !!(state.managerWindow && !state.managerWindow.closed);
+  }
 
-    const doc = state.doc;
-    applyManagerStyles(doc);
+  function disposeManagerRefs(state) {
+    state.managerOpen = false;
+    state.managerWindow = null;
+    state.managerDocument = null;
+    state.managerElements = null;
+  }
 
-    let backdrop = doc.getElementById(MANAGER_BACKDROP_ID);
-    if (!backdrop) {
-      backdrop = doc.createElement("div");
-      backdrop.id = MANAGER_BACKDROP_ID;
-      backdrop.innerHTML = [
-        "<div id='" + MANAGER_MODAL_ID + "' role='dialog' aria-modal='true'>",
-        "<div class='tm-head'>",
-        "<div><h2>tamp스크립트 로더</h2><p id='tm-loader-manager-subtitle'></p></div>",
-        "<div class='tm-head-actions'>",
-        "<button type='button' id='tm-loader-filter-current'>현재 페이지만</button>",
-        "<button type='button' id='tm-loader-sync-all' class='tm-primary'>전체 동기화</button>",
-        "<button type='button' id='tm-loader-clear-all'>전체 캐시 삭제</button>",
-        "<button type='button' id='tm-loader-close'>닫기</button>",
-        "</div>",
-        "</div>",
-        "<div class='tm-summary' id='tm-loader-summary'></div>",
-        "<div class='tm-status' id='tm-loader-status'></div>",
-        "<div class='tm-table-wrap'>",
-        "<table>",
-        "<thead><tr>",
-        "<th style='width:220px'>스크립트</th>",
-        "<th style='width:88px'>현재 페이지</th>",
-        "<th style='width:88px'>상태</th>",
-        "<th style='width:90px'>캐시 버전</th>",
-        "<th style='width:90px'>원격 버전</th>",
-        "<th style='width:120px'>최종 동기화</th>",
-        "<th style='width:210px'>액션</th>",
-        "</tr></thead>",
-        "<tbody id='tm-loader-rows'></tbody>",
-        "</table>",
-        "</div>",
-        "</div>",
-      ].join("");
-      doc.body.appendChild(backdrop);
-    }
+  function bootstrapManagerDocument(doc) {
+    if (doc.getElementById(MANAGER_ROOT_ID)) return;
+    doc.open();
+    doc.write(buildManagerDocumentHtml());
+    doc.close();
+  }
 
-    const elements = {
-      backdrop,
-      subtitle: doc.getElementById("tm-loader-manager-subtitle"),
-      summary: doc.getElementById("tm-loader-summary"),
-      status: doc.getElementById("tm-loader-status"),
-      rows: doc.getElementById("tm-loader-rows"),
-      close: doc.getElementById("tm-loader-close"),
-      filterCurrent: doc.getElementById("tm-loader-filter-current"),
-      syncAll: doc.getElementById("tm-loader-sync-all"),
-      clearAll: doc.getElementById("tm-loader-clear-all"),
-    };
+  function bindManagerEvents(state, elements, popup) {
+    if (elements.bound) return;
 
-    backdrop.addEventListener("click", function (event) {
-      if (event.target === backdrop) closeManager(state);
-    });
     elements.close.addEventListener("click", function () {
       closeManager(state);
     });
+
     elements.filterCurrent.addEventListener("click", function () {
       state.managerFilterCurrentOnly = !state.managerFilterCurrentOnly;
       renderManager(state);
     });
+
     elements.syncAll.addEventListener("click", function () {
       syncScripts(state);
     });
+
     elements.clearAll.addEventListener("click", function () {
       clearAllCaches(state);
     });
-    backdrop.addEventListener("click", function (event) {
+
+    elements.root.addEventListener("click", function (event) {
       const button = event.target.closest("button[data-action]");
       if (!button) return;
       const action = button.getAttribute("data-action");
@@ -406,12 +439,87 @@
       if (action === "sync") syncScripts(state, [scriptId]);
       if (action === "clear") clearScriptCaches(state, [scriptId]);
     });
-    doc.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && state.managerOpen) closeManager(state);
+
+    popup.addEventListener("beforeunload", function () {
+      disposeManagerRefs(state);
     });
 
-    state.managerElements = elements;
-    return elements;
+    docAddKeyListener(elements.doc, state);
+    elements.bound = true;
+  }
+
+  function docAddKeyListener(doc, state) {
+    if (doc.__tmLoaderEscBound) return;
+    doc.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeManager(state);
+    });
+    doc.__tmLoaderEscBound = true;
+  }
+
+  function openPopupWindow(state) {
+    let popup = null;
+
+    try {
+      popup = state.win.open("about:blank", MANAGER_WINDOW_NAME, getManagerWindowFeatures());
+    } catch (error) {
+      popup = null;
+    }
+
+    if (!popup) {
+      notify("관리 창이 차단되었습니다. 팝업 차단을 해제해 주세요.");
+      return null;
+    }
+
+    try {
+      bootstrapManagerDocument(popup.document);
+    } catch (error) {
+      const fallbackName = MANAGER_WINDOW_NAME + "-" + Date.now();
+      popup = state.win.open("about:blank", fallbackName, getManagerWindowFeatures());
+      if (!popup) {
+        notify("관리 창을 열지 못했습니다.");
+        return null;
+      }
+      bootstrapManagerDocument(popup.document);
+    }
+
+    state.managerWindow = popup;
+    state.managerDocument = popup.document;
+    state.managerOpen = true;
+    popup.focus();
+    return popup;
+  }
+
+  function ensureManagerUi(state) {
+    const popup = isManagerOpen(state) ? state.managerWindow : openPopupWindow(state);
+    if (!popup) return null;
+
+    const doc = popup.document;
+    bootstrapManagerDocument(doc);
+    applyManagerStyles(doc);
+
+    const root = doc.getElementById(MANAGER_ROOT_ID);
+    if (!root) return null;
+
+    if (!state.managerElements || state.managerElements.doc !== doc) {
+      root.innerHTML = buildManagerShellHtml();
+      const elements = {
+        doc,
+        root,
+        subtitle: doc.getElementById("tm-loader-manager-subtitle"),
+        summary: doc.getElementById("tm-loader-summary"),
+        status: doc.getElementById("tm-loader-status"),
+        rows: doc.getElementById("tm-loader-rows"),
+        close: doc.getElementById("tm-loader-close"),
+        filterCurrent: doc.getElementById("tm-loader-filter-current"),
+        syncAll: doc.getElementById("tm-loader-sync-all"),
+        clearAll: doc.getElementById("tm-loader-clear-all"),
+        bound: false,
+      };
+      bindManagerEvents(state, elements, popup);
+      state.managerElements = elements;
+    }
+
+    return state.managerElements;
   }
 
   function readLocalStateMap(registry) {
@@ -424,42 +532,37 @@
   }
 
   function renderManager(state) {
+    if (!isManagerOpen(state)) return;
+
     const elements = ensureManagerUi(state);
+    if (!elements) return;
+
     const registry = state.registry || { scripts: [] };
     const localStateById = readLocalStateMap(registry);
-    const rows = buildManagerRows({
+    const allRows = buildManagerRows({
       registry,
       url: state.url,
       localStateById,
       remoteMetaById: state.remoteMetaById,
-    }).filter((row) => !state.managerFilterCurrentOnly || row.appliesHere);
+    });
+    const rows = allRows.filter((row) => !state.managerFilterCurrentOnly || row.appliesHere);
+    const totalCount = allRows.length;
+    const appliesCount = allRows.filter((row) => row.appliesHere).length;
+    const enabledCount = allRows.filter((row) => row.enabled).length;
 
-    const totalCount = (registry.scripts || []).length;
-    const appliesCount = buildManagerRows({
-      registry,
-      url: state.url,
-      localStateById,
-      remoteMetaById: state.remoteMetaById,
-    }).filter((row) => row.appliesHere).length;
-    const enabledCount = buildManagerRows({
-      registry,
-      url: state.url,
-      localStateById,
-      remoteMetaById: state.remoteMetaById,
-    }).filter((row) => row.enabled).length;
-
+    elements.doc.title = "tamp스크립트 로더";
     elements.subtitle.textContent = state.url;
     elements.filterCurrent.className = state.managerFilterCurrentOnly ? "tm-filter-on" : "";
-    elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지만";
+    elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지 적용만";
     elements.syncAll.disabled = !!state.managerBusy;
     elements.clearAll.disabled = !!state.managerBusy;
     elements.summary.innerHTML = [
       "<span>전체 <strong>" + totalCount + "</strong></span>",
       "<span>현재 페이지 적용 <strong>" + appliesCount + "</strong></span>",
       "<span>활성화 <strong>" + enabledCount + "</strong></span>",
-      "<span>로더 버전 <strong>0.2.0</strong></span>",
+      "<span>로더 버전 <strong>" + LOADER_VERSION + "</strong></span>",
     ].join("");
-    elements.status.textContent = state.managerStatusText || (state.registryError || "로더 상태를 불러왔습니다.");
+    elements.status.textContent = state.managerStatusText || state.registryError || "로더 상태를 불러왔습니다.";
 
     if (!rows.length) {
       elements.rows.innerHTML = "<tr><td colspan='7' class='tm-empty'>표시할 스크립트가 없습니다.</td></tr>";
@@ -468,7 +571,11 @@
 
     elements.rows.innerHTML = rows.map((row) => [
       "<tr class='" + (row.appliesHere ? "tm-applies-row" : "") + "'>",
-      "<td><span class='tm-script-name'>" + escapeHtml(row.name) + "</span><span class='tm-script-id'>" + escapeHtml(row.id) + "</span></td>",
+      "<td>",
+      "<span class='tm-script-name'>" + escapeHtml(row.name) + "</span>",
+      "<span class='tm-script-id'>" + escapeHtml(row.id) + "</span>",
+      (row.description ? "<span class='tm-script-desc'>" + escapeHtml(row.description) + "</span>" : ""),
+      "</td>",
       "<td>" + (row.appliesHere
         ? "<span class='tm-badge tm-badge-match'>적용됨</span>"
         : "<span class='tm-badge tm-badge-miss'>아님</span>") + "</td>",
@@ -478,23 +585,29 @@
         ? "<span class='tm-badge tm-badge-error'>오류</span>"
         : escapeHtml(row.remoteVersion)) + "</td>",
       "<td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
-      "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시삭제</button></div></td>",
+      "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시 삭제</button></div></td>",
       "</tr>",
     ].join("")).join("");
   }
 
   function openManager(state) {
     const elements = ensureManagerUi(state);
+    if (!elements) return;
     state.managerOpen = true;
-    elements.backdrop.className = "tm-open";
     renderManager(state);
     refreshRegistry(state, { refreshRemote: true });
   }
 
   function closeManager(state) {
-    if (!state.managerElements) return;
-    state.managerOpen = false;
-    state.managerElements.backdrop.className = "";
+    if (!isManagerOpen(state)) {
+      disposeManagerRefs(state);
+      return;
+    }
+    try {
+      state.managerWindow.close();
+    } finally {
+      disposeManagerRefs(state);
+    }
   }
 
   async function refreshRemoteMeta(state, scriptIds) {
@@ -513,28 +626,31 @@
     const opts = Object.assign({ refreshRemote: false }, options);
     state.managerBusy = true;
     state.managerStatusText = "레지스트리를 확인하는 중입니다.";
-    if (state.managerOpen) renderManager(state);
+    renderManager(state);
+
     try {
       state.registry = await loadRegistry();
       state.registryError = "";
+
       if (opts.refreshRemote) {
         state.managerStatusText = "원격 메타 정보를 불러오는 중입니다.";
-        if (state.managerOpen) renderManager(state);
+        renderManager(state);
         await refreshRemoteMeta(state);
       }
+
       state.managerStatusText = "로더 상태를 최신 정보로 갱신했습니다.";
     } catch (error) {
       const cachedRegistry = safeJsonParse(getValue(STORAGE_PREFIX + ":registry:raw", ""), null);
       if (cachedRegistry) {
         state.registry = cachedRegistry;
-        state.registryError = "원격 레지스트리 조회 실패, 캐시를 사용합니다.";
+        state.registryError = "원격 레지스트리 조회에 실패해 캐시를 사용합니다.";
       } else {
         state.registryError = "레지스트리를 불러오지 못했습니다.";
       }
       state.managerStatusText = state.registryError;
     } finally {
       state.managerBusy = false;
-      if (state.managerOpen) renderManager(state);
+      renderManager(state);
     }
   }
 
@@ -545,9 +661,9 @@
     const scripts = (state.registry.scripts || []).filter((script) => !scriptIds || scriptIds.indexOf(script.id) !== -1);
     state.managerBusy = true;
     state.managerStatusText = scripts.length === 1
-      ? (scripts[0].name + " 동기화 중입니다.")
+      ? ((scripts[0].name || scripts[0].id) + " 동기화 중입니다.")
       : "전체 스크립트를 동기화하는 중입니다.";
-    if (state.managerOpen) renderManager(state);
+    renderManager(state);
 
     try {
       for (const script of scripts) {
@@ -556,18 +672,18 @@
         await loadScriptCode(script, meta);
       }
       state.managerStatusText = scripts.length === 1
-        ? (scripts[0].name + " 동기화가 완료되었습니다.")
-        : "전체 스크립트 동기화가 완료되었습니다.";
+        ? ((scripts[0].name || scripts[0].id) + " 동기화를 완료했습니다.")
+        : "전체 스크립트 동기화를 완료했습니다.";
     } catch (error) {
       state.managerStatusText = "동기화 실패: " + error.message;
     } finally {
       state.managerBusy = false;
-      if (state.managerOpen) renderManager(state);
+      renderManager(state);
     }
   }
 
   function clearScriptCaches(state, scriptIds) {
-    const scripts = (state.registry && state.registry.scripts || []).filter((script) => !scriptIds || scriptIds.indexOf(script.id) !== -1);
+    const scripts = ((state.registry && state.registry.scripts) || []).filter((script) => !scriptIds || scriptIds.indexOf(script.id) !== -1);
     scripts.forEach((script) => {
       const keys = buildScriptStorageKeys(script.id);
       deleteValue(keys.meta);
@@ -576,24 +692,24 @@
       delete state.remoteMetaById[script.id];
     });
     state.managerStatusText = scripts.length === 1
-      ? (scripts[0].name + " 캐시를 삭제했습니다.")
+      ? ((scripts[0].name || scripts[0].id) + " 캐시를 삭제했습니다.")
       : "선택한 스크립트 캐시를 삭제했습니다.";
-    if (state.managerOpen) renderManager(state);
+    renderManager(state);
   }
 
   function clearAllCaches(state) {
-    clearScriptCaches(state, (state.registry && state.registry.scripts || []).map((script) => script.id));
+    clearScriptCaches(state, ((state.registry && state.registry.scripts) || []).map((script) => script.id));
   }
 
   function toggleScriptEnabled(state, scriptId) {
-    const script = (state.registry && state.registry.scripts || []).find((item) => item.id === scriptId);
+    const script = ((state.registry && state.registry.scripts) || []).find((item) => item.id === scriptId);
     if (!script) return;
     const keys = buildScriptStorageKeys(scriptId);
     const current = getValue(keys.enabled, undefined);
     const enabled = isScriptEnabled(script, current);
     setValue(keys.enabled, !enabled);
-    state.managerStatusText = (script.name || script.id) + " " + (!enabled ? "활성화" : "비활성화") + " 후 새로고침하면 적용됩니다.";
-    if (state.managerOpen) renderManager(state);
+    state.managerStatusText = (script.name || script.id) + " 상태를 " + (!enabled ? "활성화" : "비활성화") + "로 변경했습니다. 새로고침 후 적용됩니다.";
+    renderManager(state);
   }
 
   function registerMenus(state) {
@@ -615,6 +731,8 @@
       managerOpen: false,
       managerFilterCurrentOnly: false,
       managerStatusText: "",
+      managerWindow: null,
+      managerDocument: null,
       managerElements: null,
     };
 
@@ -638,13 +756,13 @@
       try {
         meta = await loadScriptMeta(script);
       } catch (error) {
-        const cachedMeta = getValue(keys.meta, null);
+        const cachedMeta = safeJsonParse(getValue(keys.meta, null), null);
         const cachedCode = getValue(keys.code, null);
         if (!cachedMeta || !cachedCode) {
           console.error("[tamp-loader] meta load failed", script.id, error);
           continue;
         }
-        meta = JSON.parse(cachedMeta);
+        meta = cachedMeta;
       }
 
       try {
@@ -668,11 +786,13 @@
     REGISTRY_URL,
     RAW_BASE_URL,
     bootstrap,
+    buildManagerDocumentHtml,
     buildManagerRows,
     buildScriptStorageKeys,
     compareVersions,
     findMatchingScripts,
     formatSyncTime,
+    getManagerWindowFeatures,
     isScriptEnabled,
     matchUrlPattern,
     shouldRefreshCache,
