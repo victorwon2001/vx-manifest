@@ -3,7 +3,6 @@
 
   const MODULE_ID = "pattern-analyzer";
   const MODULE_NAME = "패턴분석기";
-  const MODULE_VERSION = "0.1.0";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const LEFTOVER_PATTERN_ID = 999999;
   const NAV_SELECTOR = ".nav.navbar-nav.navbar-right";
@@ -1303,7 +1302,7 @@
 
   return {
     id: MODULE_ID,
-    version: MODULE_VERSION,
+    version: "0.1.2",
     name: MODULE_NAME,
     matches: MATCHES,
     LEFTOVER_PATTERN_ID,
@@ -1321,4 +1320,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
