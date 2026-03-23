@@ -1,4 +1,4 @@
-module.exports = (function (root) {
+﻿module.exports = (function (root) {
   "use strict";
 
   const MODULE_ID = "order-import-sync";
@@ -887,3 +887,4 @@ module.exports = (function (root) {
     summarizeImportResults,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
