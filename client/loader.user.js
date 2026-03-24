@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.7
+// @version      0.4.8
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
