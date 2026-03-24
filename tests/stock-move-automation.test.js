@@ -250,6 +250,8 @@ test("main gui html uses the shared panel and card classes", () => {
   assert.match(html, /tm-ui-textarea/);
   assert.match(html, /tm-ui-btn tm-ui-btn--success/);
   assert.match(html, /tm-ui-log/);
+  assert.match(html, /tm-stock-toggle__label/);
+  assert.match(html, /aria-pressed='false'/);
 });
 
 test("edit gui html uses the shared panel and action classes", () => {
@@ -262,4 +264,5 @@ test("edit gui html uses the shared panel and action classes", () => {
   assert.match(html, /tm-ui-section-head/);
   assert.match(html, /tm-ui-btn tm-ui-btn--danger/);
   assert.match(html, /tm-ui-log/);
+  assert.match(html, /tm-stock-toggle__dot/);
 });

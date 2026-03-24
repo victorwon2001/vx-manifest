@@ -599,16 +599,46 @@
     state.modalType = "";
     return state;
   }
-  function gmRequest(details) {
-    const request = root.GM_xmlhttpRequest || (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
-    if (!request) return Promise.reject(new Error("GM_xmlhttpRequest를 사용할 수 없습니다."));
-    return new Promise((resolve, reject) => {
-      request(Object.assign({}, details, {
-        onload: resolve,
-        onerror: (response) => reject(new Error(response && response.error ? response.error : "요청이 실패했습니다.")),
-        ontimeout: () => reject(new Error("요청 시간이 초과되었습니다.")),
-      }));
+  function resolveBinaryRequestTransport(scope) {
+    const win = scope || root;
+    const gmTransport = (win && win.GM_xmlhttpRequest) || (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
+    if (typeof gmTransport === "function") return { kind: "gm", request: gmTransport };
+
+    const fetchTransport = win && typeof win.fetch === "function" ? win.fetch.bind(win) : (typeof fetch === "function" ? fetch.bind(root) : null);
+    if (typeof fetchTransport === "function") return { kind: "fetch", request: fetchTransport };
+    return null;
+  }
+  function buildResponseHeadersText(headers) {
+    if (!headers || typeof headers.forEach !== "function") return "";
+    const lines = [];
+    headers.forEach((value, key) => {
+      lines.push(String(key) + ": " + String(value));
     });
+    return lines.join("\r\n");
+  }
+  function gmRequest(details, scope) {
+    const transport = resolveBinaryRequestTransport(scope || root);
+    if (!transport) return Promise.reject(new Error("상세 XLS 다운로드 전송 수단을 찾지 못했습니다."));
+
+    if (transport.kind === "gm") {
+      return new Promise((resolve, reject) => {
+        transport.request(Object.assign({}, details, {
+          onload: resolve,
+          onerror: (response) => reject(new Error(response && response.error ? response.error : "요청이 실패했습니다.")),
+          ontimeout: () => reject(new Error("요청 시간이 초과되었습니다.")),
+        }));
+      });
+    }
+
+    return transport.request(String(details && details.url || ""), {
+      method: details && details.method ? details.method : "GET",
+      headers: Object.assign({}, details && details.headers ? details.headers : {}),
+      credentials: "include",
+    }).then(async (response) => ({
+      status: response.status,
+      responseHeaders: buildResponseHeadersText(response.headers),
+      response: await response.arrayBuffer(),
+    }));
   }
   function waitForElement(selector, attempts, delay) {
     let remaining = attempts;
@@ -1641,7 +1671,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.5",
+    version: "0.1.6",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1662,6 +1692,7 @@
     filterDetailRows,
     formatCompactDate,
     formatDateTime,
+    gmRequest,
     getAggregateCounts,
     getModeCount,
     getModeLabel,
@@ -1669,6 +1700,7 @@
     markProcessed,
     pruneHistoryEntries,
     resetSessionHistoryState,
+    resolveBinaryRequestTransport,
     searchHistoryEntries,
     shouldShowDrawer,
     shouldShowSelectedList,
@@ -1680,6 +1712,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

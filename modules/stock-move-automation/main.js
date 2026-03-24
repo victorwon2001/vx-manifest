@@ -21,11 +21,11 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiContainer{position:fixed;top:12px;right:12px;width:min(648px,calc(100vw - 24px));min-width:460px;padding:0;z-index:9999;display:none;max-height:90vh;overflow:auto;resize:both;background:var(--tm-surface);border:1px solid var(--tm-border);border-radius:20px;box-shadow:0 24px 48px rgba(45,52,53,.16)}",
-    "#stockMoveGuiContainer.tm-ui-root{background:var(--tm-surface)}",
+    "#stockMoveGuiContainer{position:fixed;top:12px;right:12px;width:min(648px,calc(100vw - 24px));min-width:460px;padding:0;z-index:9999;display:none;max-height:90vh;overflow:auto;resize:both;background:#ffffff !important;background-clip:padding-box;border:1px solid var(--tm-border);border-radius:20px;box-shadow:0 24px 48px rgba(45,52,53,.16);opacity:1;backdrop-filter:none;isolation:isolate}",
+    "#stockMoveGuiContainer.tm-ui-root,#stockMoveGuiContainer.tm-ui-root.tm-ui-panel{background:#ffffff !important}",
     "#stockMoveGuiContainer .tm-stock-shell{padding:0;overflow:hidden;border:0;border-radius:inherit;background:transparent;box-shadow:none}",
-    "#stockMoveGuiContainer.running .tm-stock-shell{border-color:#d1e2da;background:var(--tm-surface)}",
-    "#stockMoveGuiContainer.error .tm-stock-shell{border-color:#e2c3c1;background:var(--tm-surface)}",
+    "#stockMoveGuiContainer.running .tm-stock-shell{background:transparent}",
+    "#stockMoveGuiContainer.error .tm-stock-shell{background:transparent}",
     "#stockMoveGuiContainer .tm-stock-body{display:grid;gap:12px;padding:0 16px 16px;background:transparent}",
     "#stockMoveGuiContainer .tm-stock-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}",
     "#stockMoveGuiContainer .tm-stock-head-copy{display:grid;gap:6px}",
@@ -38,7 +38,11 @@
     ".tm-stock-action-row--even{grid-template-columns:repeat(2,minmax(0,1fr))}",
     ".btn-close-report{margin-top:4px}",
     "#stockMoveGuiLog{margin:0;max-height:168px;overflow-y:auto;line-height:1.6;padding:12px;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}",
-    "#toggleStockMoveGuiBtn{position:fixed;top:12px;right:12px;z-index:10000;transition:right 0.2s}",
+    "#toggleStockMoveGuiBtn{position:fixed;top:14px;right:14px;z-index:10000;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--tm-border);border-radius:999px;background:#ffffff;color:var(--tm-text);box-shadow:0 14px 28px rgba(45,52,53,.12);transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease}",
+    "#toggleStockMoveGuiBtn .tm-stock-toggle__dot{width:8px;height:8px;border-radius:50%;background:var(--tm-primary-strong);flex:0 0 auto}",
+    "#toggleStockMoveGuiBtn .tm-stock-toggle__label{display:inline-flex;align-items:center;font-weight:700;letter-spacing:-.01em}",
+    "#toggleStockMoveGuiBtn.is-open{background:var(--tm-surface-alt);border-color:#c8d2d3;color:var(--tm-primary-strong);box-shadow:0 10px 22px rgba(45,52,53,.10)}",
+    "#toggleStockMoveGuiBtn.is-open .tm-stock-toggle__dot{background:var(--tm-success)}",
     ".status-text{text-align:left;font-weight:700;margin:0 0 10px;color:var(--tm-text);font-size:13px}",
     ".format-hint{font-size:12px;color:#4f5758;margin-bottom:10px;background:var(--tm-surface-alt);padding:10px 12px;border-radius:10px;border:1px solid var(--tm-border);line-height:1.6}",
     ".report-section{display:grid;gap:10px}",
@@ -536,7 +540,11 @@
 
   function setToggleOffset(state, isOpen) {
     const button = state.doc.getElementById(MODULE_TOGGLE_ID);
-    if (button) button.style.right = isOpen ? "770px" : "10px";
+    if (!button) return;
+    button.classList.toggle("is-open", !!isOpen);
+    button.setAttribute("aria-pressed", isOpen ? "true" : "false");
+    const label = button.querySelector(".tm-stock-toggle__label");
+    if (label) label.textContent = isOpen ? "재고이동 닫기" : "재고이동 열기";
   }
 
   function getLogHtml(state) {
@@ -617,7 +625,7 @@
       "</div>",
       "</div>",
       "</div>",
-      "<button id='toggleStockMoveGuiBtn' class='tm-ui-btn tm-ui-btn--primary'>재고이동 도우미</button>",
+      "<button id='toggleStockMoveGuiBtn' type='button' aria-pressed='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
     ].join("");
   }
 
@@ -637,7 +645,7 @@
       "</div>",
       "</div>",
       "</div>",
-      "<button id='toggleStockMoveGuiBtn' class='tm-ui-btn tm-ui-btn--primary'>재고이동 도우미</button>",
+      "<button id='toggleStockMoveGuiBtn' type='button' aria-pressed='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
     ].join("");
   }
 

@@ -297,6 +297,81 @@
     };
   }
 
+  function formatSelectedFilterLabel(values) {
+    const items = (values || []).map(safeTrim).filter(Boolean);
+    return items.length ? items.join(", ") : "전체";
+  }
+
+  function getShippingModeTheme(isCancelMode) {
+    return isCancelMode ? {
+      title: "종합 출고취소 처리",
+      completedLabel: "취소완료",
+      failedLabel: "취소실패",
+      badgeText: "출고취소 모드",
+      badgeClass: "mode-badge cancel",
+      progressBackground: "linear-gradient(180deg,rgba(159,64,61,.98) 0%,rgba(128,46,46,.98) 100%)",
+    } : {
+      title: "종합 출고 처리",
+      completedLabel: "출고완료",
+      failedLabel: "출고실패",
+      badgeText: "출고 모드",
+      badgeClass: "mode-badge ship",
+      progressBackground: "linear-gradient(180deg,rgba(47,107,87,.98) 0%,rgba(35,87,70,.98) 100%)",
+    };
+  }
+
+  function buildPatternPrintDocumentHtml(options) {
+    const settings = options || {};
+    const filters = settings.filters || {};
+    const batches = Array.isArray(settings.batches) ? settings.batches : [];
+    const patterns = Array.isArray(settings.patterns) ? settings.patterns : [];
+    const batchRows = batches.length ? batches.map((batch, index) => [
+      "<tr class='" + (index % 2 === 0 ? "tone-even" : "tone-odd") + "'>",
+      "<td>" + escapeHtml(safeTrim(batch.ivmstr_ivno) ? safeTrim(batch.ivmstr_ivno) + "차" : "-") + "</td>",
+      "<td>" + escapeHtml(batch.site_name || "-") + "</td>",
+      "<td>" + escapeHtml(batch.expr_name || "-") + "</td>",
+      "<td>" + escapeHtml(String(parseInt(batch.ivcnt, 10) || 0)) + "</td>",
+      "<td class='left'>" + escapeHtml(batch.ivmstr_memo || "-") + "</td>",
+      "</tr>",
+    ].join("")).join("") : "<tr><td colspan='5'>출력할 차수 정보가 없습니다.</td></tr>";
+    const patternRows = patterns.length ? patterns.map((pattern, index) => {
+      const toneClass = index % 2 === 0 ? "tone-even" : "tone-odd";
+      return (pattern.items || []).map((item, itemIndex) => [
+        "<tr class='" + toneClass + "'>",
+        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + (index + 1) + "</td>" : "",
+        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + escapeHtml((pattern.batchNumbers || []).map((value) => safeTrim(value) ? safeTrim(value) + "차" : "").filter(Boolean).join(", ") || "-") + "</td>" : "",
+        "<td class='left'>" + escapeHtml(item.productName || "-") + "</td>",
+        "<td>" + escapeHtml(item.managementName || "-") + "</td>",
+        "<td>" + escapeHtml(item.optionName || "-") + "</td>",
+        "<td>" + escapeHtml(String(item.quantity || 0)) + "</td>",
+        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + escapeHtml(String(pattern.count || 0)) + "</td>" : "",
+        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + escapeHtml(String((pattern.invoices || []).length || 0)) + "</td>" : "",
+        "</tr>",
+      ].join("")).join("");
+    }).join("") : "<tr><td colspan='8'>출력할 패턴 정보가 없습니다.</td></tr>";
+
+    return [
+      "<!doctype html><html lang='ko'><head><meta charset='utf-8'><title>" + MODULE_NAME + " 인쇄</title><style>",
+      "@page{size:A4 landscape;margin:14mm}",
+      "body{margin:0;padding:24px;font-family:'Public Sans','Noto Sans KR','Segoe UI','Malgun Gothic',sans-serif;color:#1f2728;background:#fff}",
+      ".sheet{display:grid;gap:20px}.header{display:grid;gap:12px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#455a64}.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}.title{margin:0;font-size:28px;letter-spacing:-.04em}.stamp{font-size:12px;color:#4f5758}.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.meta-item{padding:10px 12px;border:1px solid #d8dfdf;border-radius:12px;background:#f6f7f7}.meta-item strong{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5c6668;margin-bottom:6px}.meta-item span{font-size:13px;color:#1f2728}.section{display:grid;gap:10px}.section h2{margin:0;font-size:16px;letter-spacing:-.02em}.section-note{font-size:12px;color:#4f5758}.table{width:100%;border-collapse:collapse;table-layout:fixed}.table th,.table td{padding:9px 10px;border:1px solid #d8dfdf;font-size:12px;text-align:center;vertical-align:middle}.table th{background:#eef1f1;color:#495255;font-weight:800}.table td.left,.table th.left{text-align:left}.tone-even td{background:#ffffff}.tone-odd td{background:#f7f8f8}.footer-note{font-size:11px;color:#6a7274}",
+      "</style></head><body><div class='sheet'>",
+      "<section class='header'><div class='eyebrow'>Pattern Print</div><div class='title-row'><h1 class='title'>" + MODULE_NAME + "</h1><div class='stamp'>출력일 " + escapeHtml(settings.printedAt || formatDate(new Date())) + "</div></div>",
+      "<div class='meta'>",
+      "<div class='meta-item'><strong>출력일 기준</strong><span>" + escapeHtml(settings.dateLabel || "-") + "</span></div>",
+      "<div class='meta-item'><strong>판매처</strong><span>" + escapeHtml(settings.siteLabel || "전체") + "</span></div>",
+      "<div class='meta-item'><strong>택배사</strong><span>" + escapeHtml(settings.exprLabel || "전체") + "</span></div>",
+      "<div class='meta-item'><strong>포함검색어</strong><span>" + escapeHtml((filters.includeKeywords || []).join(", ") || "-") + "</span></div>",
+      "<div class='meta-item'><strong>제외검색어</strong><span>" + escapeHtml((filters.excludeKeywords || []).join(", ") || "-") + "</span></div>",
+      "<div class='meta-item'><strong>최소반복수</strong><span>" + escapeHtml(String(filters.minRepetition || 1)) + "</span></div>",
+      "</div></section>",
+      "<section class='section'><h2>차수 정보</h2><div class='section-note'>현재 화면 필터 기준으로 보이는 차수 목록입니다.</div><table class='table'><thead><tr><th>차수</th><th>판매처</th><th>택배사</th><th>건수</th><th class='left'>메모</th></tr></thead><tbody>" + batchRows + "</tbody></table></section>",
+      "<section class='section'><h2>패턴 정보</h2><div class='section-note'>필터가 적용된 패턴 결과만 인쇄합니다.</div><table class='table'><thead><tr><th>패턴</th><th>차수</th><th class='left'>제품명</th><th>관리명</th><th>옵션명</th><th>수량</th><th>반복수</th><th>송장수</th></tr></thead><tbody>" + patternRows + "</tbody></table></section>",
+      "<div class='footer-note'>이 문서는 인쇄 전용 보기입니다.</div>",
+      "</div><script>window.addEventListener('load',function(){setTimeout(function(){window.focus();window.print();},120);});window.addEventListener('afterprint',function(){window.close();});<\/script></body></html>",
+    ].join("");
+  }
+
   function evaluateShippingResponse(responseData, isCancelMode) {
     if (isCancelMode) {
       return safeTrim(responseData && responseData.sucess) === "true" && (parseInt(responseData && responseData.cnt, 10) || 0) > 0;
@@ -386,21 +461,21 @@
       sharedCss,
       "html,body{margin:0;padding:0}body{padding:14px;box-sizing:border-box;background:#f0f1f0;color:var(--tm-text)}",
       ".shell{display:grid;gap:14px;max-width:1480px;margin:0 auto}.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end;padding:14px 16px;background:#ffffff;border:1px solid var(--tm-border);border-radius:16px}.hero-copy{display:grid;gap:6px}.hero h2{margin:0;font-size:24px;line-height:1.06;letter-spacing:-.04em;color:var(--tm-text)}.hero p{margin:0;color:#495255;font-size:13px;line-height:1.58;max-width:640px}.hero-meta{display:flex;align-items:flex-end;justify-content:flex-end;gap:8px;flex-wrap:wrap}",
-      ".card{margin:0;border:1px solid var(--tm-border);border-radius:16px;background:var(--tm-surface);box-shadow:none}.controls,.filters,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 14px}.controls{justify-content:space-between}.controls-main{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;flex:1}.controls-main>label,.filters>label{display:grid;gap:6px;color:#4f5758;font-weight:700}.controls-extra{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.actions{justify-content:flex-end}.card.scrollable{overflow:auto}",
-      ".tabs{display:flex;gap:16px;padding:0 4px;border-bottom:1px solid var(--tm-border)}.tab{height:40px;padding:0 2px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:#61686a;cursor:pointer;font-weight:800;font-size:13px}.tab.active{color:var(--tm-primary-strong);border-bottom-color:var(--tm-primary-strong)}",
+      ".card{margin:0;border:1px solid var(--tm-border);border-radius:16px;background:var(--tm-surface);box-shadow:none}.controls,.filters,.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 14px}.controls{justify-content:space-between}.controls-main{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;flex:1}.control-field,.filters>label{display:grid;gap:6px;color:#4f5758;font-weight:700}.control-field>span,.filters>label>span{display:block}.controls-main input[type='date'],.controls-main .multi-selected,.controls-extra .tm-ui-btn{height:36px;min-height:36px}.controls-extra{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}.actions{justify-content:flex-end}.card.scrollable{overflow:auto}",
+      ".tabs{display:inline-grid;grid-auto-flow:column;gap:6px;padding:5px;border:1px solid var(--tm-border);border-radius:999px;background:var(--tm-surface-alt);align-self:flex-start}.tab{height:36px;padding:0 14px;border:1px solid transparent;border-radius:999px;background:transparent;color:#4b5456;cursor:pointer;font-weight:800;font-size:13px;transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease}.tab:hover{color:var(--tm-text)}.tab.active{background:var(--tm-surface);border-color:#cfd8da;color:#263032;box-shadow:inset 0 0 0 1px rgba(38,48,50,.04)}",
       ".content{display:none}.content.active{display:grid;gap:12px}.message{padding:12px 14px;border-radius:10px;margin-bottom:16px;font-weight:700;border:1px solid var(--tm-border);background:var(--tm-surface-alt)}.message.error{background:#fbefee;color:var(--tm-danger);border-color:#e2c3c1}.message.success{background:#edf5f1;color:var(--tm-success);border-color:#d1e2da}",
       ".info{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:var(--tm-surface-alt);border:1px solid var(--tm-border);color:#4f5758;font-size:12px;font-weight:700}.summary{display:none;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin:0;padding:0}",
       ".summary-item{background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:10px;padding:12px 14px}.summary-item .label{display:block;font-size:12px;color:#4f5758;margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em}.summary-item .value{font-size:18px;font-weight:800;color:var(--tm-text)}.tags{display:flex;gap:6px;flex-wrap:wrap}.tag{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:var(--tm-surface-alt);color:var(--tm-primary-strong);font-size:12px;border:1px solid var(--tm-border)}",
-      "td.left{text-align:left}tr.clickable{cursor:pointer}tr.leftover{background:#fbefee}tfoot tr{background:var(--tm-surface-alt);font-weight:700}",
+      ".tm-ui-table th,.tm-ui-table td{text-align:center}.tm-ui-table td.left,.tm-ui-table th.left{text-align:left}tr.clickable{cursor:pointer}tr.leftover{background:#fbefee}tfoot tr{background:var(--tm-surface-alt);font-weight:700}",
       ".badge{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;margin:2px;border:1px solid var(--tm-border)}.badge.complete{background:#edf5f1;color:var(--tm-success);border-color:#d1e2da}.badge.pending{background:#f7f0e8;color:var(--tm-warning);border-color:#e3d4c0}",
-      ".link{color:var(--tm-primary-strong);text-decoration:underline;cursor:pointer;font-weight:700}.multi{position:relative;min-width:220px}.multi-selected{height:34px;padding:0 12px;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface);display:flex;align-items:center;justify-content:space-between;cursor:pointer}.multi-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.multi-badge{display:inline-flex;align-items:center;background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:999px;padding:3px 8px;font-size:12px}.multi-badge-remove{margin-left:4px;cursor:pointer;font-weight:700}.multi-dropdown{display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--tm-surface);border:1px solid var(--tm-border);border-radius:12px;box-shadow:var(--tm-shadow);z-index:10;max-height:260px;overflow:auto}.multi-dropdown.show{display:block}.multi-search{padding:8px;border-bottom:1px solid var(--tm-border);background:var(--tm-surface);position:sticky;top:0}.multi-search input{width:100%}.multi-option{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--tm-border);font-size:13px;color:var(--tm-text)}.multi-controls{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--tm-surface-alt);position:sticky;bottom:0}.multi-actions{display:flex;gap:6px}.multi-action{height:28px;padding:0 8px;border:1px solid var(--tm-border);background:var(--tm-surface);border-radius:8px;cursor:pointer}",
+      ".link{color:var(--tm-primary-strong);text-decoration:underline;cursor:pointer;font-weight:700}.multi{position:relative;min-width:220px}.multi-selected{height:36px;padding:0 12px;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface);display:flex;align-items:center;justify-content:space-between;cursor:pointer}.multi-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.multi-badge{display:inline-flex;align-items:center;background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:999px;padding:3px 8px;font-size:12px}.multi-badge-remove{margin-left:4px;cursor:pointer;font-weight:700}.multi-dropdown{display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--tm-surface);border:1px solid var(--tm-border);border-radius:12px;box-shadow:var(--tm-shadow);z-index:10;max-height:260px;overflow:auto}.multi-dropdown.show{display:block}.multi-search{padding:8px;border-bottom:1px solid var(--tm-border);background:var(--tm-surface);position:sticky;top:0}.multi-search input{width:100%}.multi-option{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--tm-border);font-size:13px;color:var(--tm-text)}.multi-controls{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap;padding:8px 10px;background:var(--tm-surface-alt);position:sticky;bottom:0}.multi-count{white-space:nowrap;font-size:12px;flex:0 0 auto}.multi-actions{display:flex;gap:6px;flex-wrap:nowrap;white-space:nowrap;flex:0 0 auto}.multi-action{height:28px;padding:0 8px;min-width:70px;border:1px solid var(--tm-border);background:var(--tm-surface);border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto}",
       ".overlay{z-index:1000}.overlay[style*='display: flex'],.overlay[style*='display:flex']{display:flex!important}.shipping-modal{width:min(720px,92vw)}.invoice-modal{width:min(560px,92vw)}.close{border:none;background:none;font-size:22px;cursor:pointer;color:var(--tm-muted)}",
       ".stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.stat{background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:10px;padding:12px;text-align:center}.stat .label{font-size:12px;color:#4f5758;text-transform:uppercase;letter-spacing:.08em}.stat .value{font-size:18px;font-weight:800;color:var(--tm-text)}.stat .value.click{cursor:pointer;color:var(--tm-primary-strong)}.progress-wrap{display:grid;gap:8px}.progress-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}.progress-label{font-size:12px;color:#4f5758;text-transform:uppercase;letter-spacing:.08em;font-weight:700}.mode-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid var(--tm-border);font-size:12px;font-weight:700;background:var(--tm-surface-alt);color:var(--tm-primary-strong)}.mode-badge.ship{background:#edf5f1;color:var(--tm-success);border-color:#d1e2da}.mode-badge.cancel{background:#fbefee;color:var(--tm-danger);border-color:#e2c3c1}.progress{height:14px;background:var(--tm-surface-alt);border-radius:999px;overflow:hidden;border:1px solid var(--tm-border)}.progress > div{height:100%;width:0;background:linear-gradient(180deg,rgba(47,107,87,.98) 0%,rgba(35,87,70,.98) 100%);transition:width .2s ease}.shipping-config{display:grid;gap:12px}.shipping-mode-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}.shipping-check{display:inline-flex;align-items:center;gap:8px;color:var(--tm-text);font-weight:700}.shipping-field{display:grid;gap:6px;color:#4f5758;font-weight:700}.shipping-stepper{display:flex;gap:8px;align-items:center}.log{max-height:220px;overflow:auto;padding:10px;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}.log-item{padding:4px 0;border-bottom:1px solid rgba(45,52,53,.08);color:#4d5658}.log-item:last-child{border-bottom:none}.log-item.success{color:var(--tm-success)}.log-item.error{color:var(--tm-danger)}",
       ".list{max-height:260px;overflow:auto;border:1px solid var(--tm-border);border-radius:10px;margin-bottom:12px;background:var(--tm-surface)}.list-item{padding:8px 10px;border-bottom:1px solid var(--tm-border);font-family:Consolas,'Courier New',monospace;font-size:12px}.list-item:nth-child(odd){background:var(--tm-surface-alt)}.list-item:last-child{border-bottom:none}.textarea{width:100%;font-family:Consolas,'Courier New',monospace}.success{display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#edf5f1;color:var(--tm-success);font-weight:700;border:1px solid #d1e2da}",
-      "#print-section{display:none}@media print{body{padding:0;background:#fff}.hero,.controls,.tabs,.filters,.actions,.overlay{display:none!important}#print-section{display:block!important}}@media (max-width:980px){body{padding:12px}.hero{grid-template-columns:1fr;align-items:flex-start}.hero-meta{justify-content:flex-start}.controls{flex-direction:column;align-items:flex-start}.controls-main,.controls-extra{width:100%}.tabs{gap:12px}}</style></head><body class='tm-ui-root tm-ui-popup' data-tm-density='normal'>",
+      "#print-section{display:none}@media print{body{padding:0;background:#fff}.hero,.controls,.tabs,.filters,.actions,.overlay{display:none!important}#print-section{display:block!important}}@media (max-width:980px){body{padding:12px}.hero{grid-template-columns:1fr;align-items:flex-start}.hero-meta{justify-content:flex-start}.controls{flex-direction:column;align-items:flex-start}.controls-main,.controls-extra{width:100%}.control-field,.multi{width:100%}.tabs{gap:12px}}</style></head><body class='tm-ui-root tm-ui-popup' data-tm-density='normal'>",
       "<div class='shell'>",
       "<div class='hero'><div class='hero-copy'><span class='tm-ui-kicker'>패턴 작업</span><h2>" + MODULE_NAME + "</h2><p>차수 데이터를 묶어 반복 패턴과 종합 출고 대상을 빠르게 정리합니다.</p></div><div class='hero-meta'><span id='data-info' class='info tm-ui-badge'>데이터 정보: 없음</span></div></div><div id='message-root'></div>",
-      "<div class='card controls tm-ui-card'><div class='controls-main'><label for='date-input'>출력일</label><input type='date' id='date-input'><div><label>판매처</label><div id='site-multiselect' class='multi'><div class='multi-selected'><span class='multi-text'>전체</span><span>▼</span></div><div class='multi-badges'></div></div></div><div><label>택배사</label><div id='expr-multiselect' class='multi'><div class='multi-selected'><span class='multi-text'>전체</span><span>▼</span></div><div class='multi-badges'></div></div></div></div><div class='controls-extra'><button id='search-button' class='tm-ui-btn tm-ui-btn--primary'>조회</button></div></div>",
+      "<div class='card controls tm-ui-card'><div class='controls-main'><label class='control-field' for='date-input'><span>출력일</span><input type='date' id='date-input'></label><div class='control-field'><span>판매처</span><div id='site-multiselect' class='multi'><div class='multi-selected'><span class='multi-text'>전체</span><span>▼</span></div><div class='multi-badges'></div></div></div><div class='control-field'><span>택배사</span><div id='expr-multiselect' class='multi'><div class='multi-selected'><span class='multi-text'>전체</span><span>▼</span></div><div class='multi-badges'></div></div></div></div><div class='controls-extra'><button id='search-button' class='tm-ui-btn tm-ui-btn--primary'>조회</button></div></div>",
       "<div class='tabs'><button id='batch-tab' class='tab active'>차수 목록</button><button id='pattern-tab' class='tab'>패턴 분석</button></div>",
       "<div id='batch-content' class='content active'><div class='card tm-ui-card scrollable'><table class='tm-ui-table'><thead><tr><th>차수</th><th>판매처</th><th>택배사</th><th>건수</th><th>배송상태</th><th>메모</th><th>패턴</th><th><input type='checkbox' id='select-all-batches'></th></tr></thead><tbody id='batch-table-body'><tr><td colspan='8'>데이터를 조회해주세요.</td></tr></tbody><tfoot id='batch-table-foot'></tfoot></table></div></div>",
       "<div id='pattern-content' class='content'><div class='card filters tm-ui-card'><label>포함검색어 <input type='text' id='include-input' placeholder='예: 김치, 사과'></label><label>제외검색어 <input type='text' id='exclude-input' placeholder='예: 김치, 사과'></label><label>최소반복수 <input type='number' id='min-rep-input' min='1' value='1' style='width:88px'></label><button id='print-pattern-button' class='tm-ui-btn tm-ui-btn--secondary gray'>인쇄</button></div><div id='pattern-summary' class='summary tm-ui-summary'></div><div class='card tm-ui-card scrollable'><table class='tm-ui-table'><thead><tr><th>순번</th><th>제품명</th><th>관리명</th><th>옵션명</th><th>수량</th><th>반복수</th><th>배송상태</th><th>송장번호</th><th><input type='checkbox' id='select-all-patterns'></th></tr></thead><tbody id='pattern-table-body'><tr><td colspan='9'>패턴 데이터가 없습니다.</td></tr></tbody><tfoot id='pattern-table-foot'></tfoot></table></div><div class='card actions tm-ui-card'><button id='show-invoices-button' class='tm-ui-btn tm-ui-btn--secondary secondary'>종합송장</button><button id='shipping-button' class='tm-ui-btn tm-ui-btn--success green'>종합출고</button></div></div>",
@@ -691,12 +766,12 @@
     });
 
     const actionRow = doc.createElement("tr");
-    actionRow.innerHTML = "<td colspan='6' style='text-align:right;font-weight:700'>선택된 차수로 종합 패턴 분석</td><td><button type='button' data-action='pattern-all'>종합패턴</button></td><td></td>";
+    actionRow.innerHTML = "<td colspan='6' style='font-weight:700'>선택된 차수로 종합 패턴 분석</td><td><button type='button' data-action='pattern-all'>종합패턴</button></td><td></td>";
     fragment.appendChild(actionRow);
     body.appendChild(fragment);
 
     const totalRow = doc.createElement("tr");
-    totalRow.innerHTML = "<td colspan='3' style='text-align:right'>총계</td><td><strong>" + totalCount + "</strong></td><td class='status-cell'></td><td colspan='3'></td>";
+    totalRow.innerHTML = "<td colspan='3'>총계</td><td><strong>" + totalCount + "</strong></td><td class='status-cell'></td><td colspan='3'></td>";
     totalRow.querySelector(".status-cell").appendChild(renderStatusBadges(doc, {
       completed: totalCompleted,
       pending: totalPending,
@@ -859,7 +934,7 @@
 
     body.appendChild(fragment);
     const totalRow = doc.createElement("tr");
-    totalRow.innerHTML = "<td colspan='5' style='text-align:right'>총계</td><td><strong>" + totalItems + "</strong></td><td class='status-cell'></td><td><strong>" + totalInvoices + "</strong></td><td></td>";
+    totalRow.innerHTML = "<td colspan='5'>총계</td><td><strong>" + totalItems + "</strong></td><td class='status-cell'></td><td><strong>" + totalInvoices + "</strong></td><td></td>";
     totalRow.querySelector(".status-cell").appendChild(renderStatusBadges(doc, {
       completed: totalCompleted,
       pending: totalPending,
@@ -889,28 +964,27 @@
     applyPatternFilters(popupState);
   }
 
-  function preparePrintSection(popupState) {
-    const doc = popupState.popupWin.document;
-    const stats = popupState.lastPatternResult ? popupState.lastPatternResult.stats : null;
+  function openPatternPrintWindow(popupState) {
     const filters = getPatternFilterOptions(popupState);
+    const batches = (popupState.dataStore.filteredBatches || popupState.dataStore.batches || []).slice();
     const patterns = popupState.renderedPatterns.filter((pattern) => pattern.id !== LEFTOVER_PATTERN_ID);
-    const rows = patterns.map((pattern, index) => pattern.items.map((item, itemIndex) => {
-      return [
-        "<tr>",
-        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + (index + 1) + "</td>" : "",
-        "<td class='left'>" + escapeHtml(item.productName) + "</td>",
-        "<td>" + escapeHtml(item.managementName) + "</td>",
-        "<td>" + escapeHtml(item.optionName) + "</td>",
-        "<td>" + item.quantity + "</td>",
-        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + pattern.count + "</td>" : "",
-        "</tr>",
-      ].join("");
-    }).join("")).join("");
-    doc.getElementById("print-section").innerHTML = [
-      "<div class='header'><h2>" + MODULE_NAME + " 인쇄</h2><div>출력일: " + formatDate(new Date()) + "</div></div>",
-      stats ? "<div style='margin-bottom:12px'>패턴 건수 " + stats.regularInvoiceCount + "개 / 짜투리 건수 " + stats.leftoverInvoiceCount + "개 / 포함검색어 " + escapeHtml(filters.includeKeywords.join(", ") || "-") + " / 제외검색어 " + escapeHtml(filters.excludeKeywords.join(", ") || "-") + " / 최소반복수 " + filters.minRepetition + "</div>" : "",
-      "<table><thead><tr><th>순번</th><th>제품명</th><th>관리명</th><th>옵션명</th><th>수량</th><th>반복수</th></tr></thead><tbody>" + rows + "</tbody></table>",
-    ].join("");
+    const html = buildPatternPrintDocumentHtml({
+      printedAt: formatDate(new Date()),
+      dateLabel: popupState.dataStore.currentDate ? formatCompactDate(popupState.dataStore.currentDate) : "-",
+      siteLabel: formatSelectedFilterLabel(getMultiSelectValues(popupState.popupWin.document, "site-multiselect")),
+      exprLabel: formatSelectedFilterLabel(getMultiSelectValues(popupState.popupWin.document, "expr-multiselect")),
+      filters,
+      batches,
+      patterns,
+    });
+    const printWindow = popupState.popupWin.open("", "tm-pattern-print", "width=1280,height=860");
+    if (!printWindow) {
+      showPopupMessage(popupState, "인쇄 창을 열지 못했습니다. 팝업 차단을 확인해주세요.", "error");
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
   }
 
   function showInvoiceModal(popupState, invoices, title) {
@@ -957,15 +1031,14 @@
 
   function updateShippingLabels(popupState, isCancelMode) {
     const doc = popupState.popupWin.document;
+    const theme = getShippingModeTheme(isCancelMode);
     const labels = doc.querySelectorAll(".stat .label");
-    labels[1].textContent = isCancelMode ? "취소완료" : "출고완료";
-    labels[2].textContent = isCancelMode ? "취소실패" : "출고실패";
-    doc.getElementById("shipping-title").textContent = isCancelMode ? "종합 출고취소 처리" : "종합 출고 처리";
-    doc.getElementById("shipping-progress-bar").style.background = isCancelMode
-      ? "linear-gradient(180deg,rgba(159,64,61,.98) 0%,rgba(128,46,46,.98) 100%)"
-      : "linear-gradient(180deg,rgba(47,107,87,.98) 0%,rgba(35,87,70,.98) 100%)";
-    doc.getElementById("shipping-mode-badge").textContent = isCancelMode ? "출고취소 모드" : "출고 모드";
-    doc.getElementById("shipping-mode-badge").className = "mode-badge " + (isCancelMode ? "cancel" : "ship");
+    labels[1].textContent = theme.completedLabel;
+    labels[2].textContent = theme.failedLabel;
+    doc.getElementById("shipping-title").textContent = theme.title;
+    doc.getElementById("shipping-progress-bar").style.background = theme.progressBackground;
+    doc.getElementById("shipping-mode-badge").textContent = theme.badgeText;
+    doc.getElementById("shipping-mode-badge").className = theme.badgeClass;
   }
 
   function renderShippingProgress(popupState, state) {
@@ -1161,8 +1234,7 @@
         showPopupMessage(popupState, "인쇄할 패턴 데이터가 없습니다.", "error");
         return;
       }
-      preparePrintSection(popupState);
-      popupState.popupWin.print();
+      openPatternPrintWindow(popupState);
     });
 
     doc.getElementById("select-all-batches").addEventListener("change", (event) => {
@@ -1326,7 +1398,10 @@
     formatInvoicesForCopy,
     buildInvoicesCsv,
     calculateProgress,
+    buildPatternPrintDocumentHtml,
     evaluateShippingResponse,
+    formatSelectedFilterLabel,
+    getShippingModeTheme,
     reduceShippingRunState,
     buildBatchUrl,
     buildOrderUrl,

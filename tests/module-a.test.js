@@ -35,3 +35,40 @@ test("module-a modal html uses the shared overlay and modal contract", () => {
   assert.match(html, /tm-ui-modal__head/);
   assert.match(html, /tm-ui-modal__body/);
 });
+
+test("resolveBinaryRequestTransport prefers fetch when GM_xmlhttpRequest is unavailable", () => {
+  const scope = {
+    fetch() {},
+  };
+
+  const transport = moduleA.resolveBinaryRequestTransport(scope);
+
+  assert.deepEqual(transport && transport.kind, "fetch");
+  assert.equal(typeof transport.request, "function");
+});
+
+test("gmRequest falls back to fetch and returns binary-compatible response shape", async () => {
+  const buffer = new TextEncoder().encode("ok").buffer;
+  const scope = {
+    fetch: async () => ({
+      status: 200,
+      headers: {
+        forEach(callback) {
+          callback("application/octet-stream", "content-type");
+          callback("attachment; filename=test.xls", "content-disposition");
+        },
+      },
+      arrayBuffer: async () => buffer,
+    }),
+  };
+
+  const response = await moduleA.gmRequest({
+    method: "GET",
+    url: "https://example.com/file.xls",
+    headers: { Accept: "application/octet-stream" },
+  }, scope);
+
+  assert.equal(response.status, 200);
+  assert.match(response.responseHeaders, /content-type: application\/octet-stream/i);
+  assert.equal(response.response.byteLength, 2);
+});

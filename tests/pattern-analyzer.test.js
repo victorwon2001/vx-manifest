@@ -71,7 +71,7 @@ function createSampleOrders() {
       ordlist_ivno: "14",
       basic_name: "김치",
       basic_nicn: "김치 5kg",
-      boptcode_name: "포기",
+      boptcode_name: "실온",
       ordlist_qty: "1",
       ordlist_ivnum: "30",
       ordlist_fnsh: "발송대기",
@@ -151,6 +151,50 @@ test("calculateProgress returns percentage and counts", () => {
   );
 });
 
+test("shipping mode theme separates ship and cancel visuals", () => {
+  const ship = analyzer.getShippingModeTheme(false);
+  const cancel = analyzer.getShippingModeTheme(true);
+
+  assert.equal(ship.badgeText, "출고 모드");
+  assert.equal(cancel.badgeText, "출고취소 모드");
+  assert.notEqual(ship.progressBackground, cancel.progressBackground);
+});
+
+test("buildPatternPrintDocumentHtml returns standalone print document", () => {
+  const html = analyzer.buildPatternPrintDocumentHtml({
+    printedAt: "2026-03-24",
+    dateLabel: "2026-03-23",
+    siteLabel: "스토어A",
+    exprLabel: "택배사A",
+    filters: {
+      includeKeywords: ["사과"],
+      excludeKeywords: [],
+      minRepetition: 2,
+    },
+    batches: [
+      { ivmstr_ivno: "12", site_name: "스토어A", expr_name: "택배사A", ivcnt: "5", ivmstr_memo: "메모A" },
+    ],
+    patterns: [
+      {
+        batchNumbers: ["12"],
+        count: 2,
+        invoices: ["INV-001", "INV-002"],
+        items: [
+          { productName: "사과", managementName: "사과 1kg", optionName: "빨강", quantity: 2 },
+        ],
+      },
+    ],
+  });
+
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /Pattern Print/);
+  assert.match(html, /차수 정보/);
+  assert.match(html, /패턴 정보/);
+  assert.match(html, /스토어A/);
+  assert.match(html, /tone-even/);
+  assert.match(html, /window\.print/);
+});
+
 test("evaluateShippingResponse distinguishes output and cancel success rules", () => {
   assert.equal(analyzer.evaluateShippingResponse({ fnsh: "0" }, false), true);
   assert.equal(analyzer.evaluateShippingResponse({ fnsh: "1" }, false), false);
@@ -190,6 +234,8 @@ test("remote module exports loader contract and named helpers", () => {
   assert.equal(typeof analyzer.reduceShippingRunState, "function");
   assert.equal(typeof analyzer.buildBatchUrl, "function");
   assert.equal(typeof analyzer.buildOrderUrl, "function");
+  assert.equal(typeof analyzer.buildPatternPrintDocumentHtml, "function");
+  assert.equal(typeof analyzer.getShippingModeTheme, "function");
 });
 
 test("popup html uses shared light admin root and component classes", () => {
@@ -205,5 +251,8 @@ test("popup html uses shared light admin root and component classes", () => {
   assert.match(html, /tm-ui-overlay/);
   assert.match(html, /tm-ui-modal/);
   assert.match(html, /shipping-mode-badge/);
-  assert.match(html, /shipping-modal/);
+  assert.match(html, /control-field/);
+  assert.match(html, /id='batch-tab' class='tab active'/);
+  assert.match(html, /\.multi-controls\{/);
+  assert.match(html, /flex-wrap:nowrap/);
 });
