@@ -608,6 +608,12 @@
     if (typeof fetchTransport === "function") return { kind: "fetch", request: fetchTransport };
     return null;
   }
+  function resolveRequestScope(scope) {
+    if (scope) return scope;
+    if (root && root.unsafeWindow && root.unsafeWindow.location) return root.unsafeWindow;
+    if (root && root.window && root.window.location) return root.window;
+    return root;
+  }
   function buildResponseHeadersText(headers) {
     if (!headers || typeof headers.forEach !== "function") return "";
     const lines = [];
@@ -616,8 +622,42 @@
     });
     return lines.join("\r\n");
   }
+  function buildFetchRequestUrl(details, scope) {
+    const preferredUrl = safeTrim(details && details.fetchUrl ? details.fetchUrl : details && details.url);
+    const resolvedScope = resolveRequestScope(scope);
+    if (/^https?:\/\//i.test(preferredUrl) && resolvedScope && resolvedScope.location && preferredUrl.indexOf(String(resolvedScope.location.origin || "")) === 0) {
+      const relativeUrl = preferredUrl.slice(String(resolvedScope.location.origin || "").length);
+      return relativeUrl || "/";
+    }
+    return preferredUrl;
+  }
+  function requestViaXhr(details, scope) {
+    const win = resolveRequestScope(scope);
+    const Xhr = (win && win.XMLHttpRequest) || (typeof XMLHttpRequest !== "undefined" ? XMLHttpRequest : null);
+    if (typeof Xhr !== "function") return Promise.reject(new Error("요청이 실패했습니다."));
+
+    return new Promise((resolve, reject) => {
+      const xhr = new Xhr();
+      xhr.open(details && details.method ? details.method : "GET", buildFetchRequestUrl(details, win), true);
+      xhr.responseType = "arraybuffer";
+      xhr.withCredentials = true;
+      xhr.timeout = details && details.timeout ? details.timeout : 30000;
+      Object.keys(details && details.headers ? details.headers : {}).forEach((key) => {
+        xhr.setRequestHeader(key, details.headers[key]);
+      });
+      xhr.onload = () => resolve({
+        status: xhr.status,
+        responseHeaders: typeof xhr.getAllResponseHeaders === "function" ? xhr.getAllResponseHeaders() : "",
+        response: xhr.response,
+      });
+      xhr.onerror = () => reject(new Error("요청이 실패했습니다."));
+      xhr.ontimeout = () => reject(new Error("요청 시간이 초과되었습니다."));
+      xhr.send(null);
+    });
+  }
   function gmRequest(details, scope) {
-    const transport = resolveBinaryRequestTransport(scope || root);
+    const requestScope = resolveRequestScope(scope);
+    const transport = resolveBinaryRequestTransport(requestScope);
     if (!transport) return Promise.reject(new Error("상세 XLS 다운로드 전송 수단을 찾지 못했습니다."));
 
     if (transport.kind === "gm") {
@@ -630,15 +670,18 @@
       });
     }
 
-    return transport.request(String(details && details.url || ""), {
+    return transport.request(buildFetchRequestUrl(details, requestScope), {
       method: details && details.method ? details.method : "GET",
       headers: Object.assign({}, details && details.headers ? details.headers : {}),
       credentials: "include",
+      cache: "no-store",
+      redirect: "follow",
+      mode: "same-origin",
     }).then(async (response) => ({
       status: response.status,
       responseHeaders: buildResponseHeadersText(response.headers),
       response: await response.arrayBuffer(),
-    }));
+    })).catch(() => requestViaXhr(details, requestScope));
   }
   function waitForElement(selector, attempts, delay) {
     let remaining = attempts;
@@ -985,13 +1028,15 @@
     return rows.map(buildRowViewModel);
   }
   async function downloadDetailWorkbook(selection) {
+    const requestQuery = toQueryString({
+      ORDLIST_IVDATE: selection.ivmstr_date || compactDate(todayString()),
+      ORDLIST_IVNO: selection.ivmstr_ivno,
+      formType: "site320main",
+    });
     const response = await gmRequest({
       method: "GET",
-      url: root.location.origin + XLS_ENDPOINT + "?" + toQueryString({
-        ORDLIST_IVDATE: selection.ivmstr_date || compactDate(todayString()),
-        ORDLIST_IVNO: selection.ivmstr_ivno,
-        formType: "site320main",
-      }),
+      url: root.location.origin + XLS_ENDPOINT + "?" + requestQuery,
+      fetchUrl: XLS_ENDPOINT + "?" + requestQuery,
       responseType: "arraybuffer",
       timeout: 30000,
       headers: { Accept: "application/vnd.ms-excel,application/octet-stream,*/*" },
@@ -1671,7 +1716,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.6",
+    version: "0.1.7",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1712,6 +1757,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

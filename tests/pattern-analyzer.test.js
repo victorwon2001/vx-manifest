@@ -195,6 +195,16 @@ test("buildPatternPrintDocumentHtml returns standalone print document", () => {
   assert.match(html, /window\.print/);
 });
 
+test("resolvePrintableBatches keeps only analyzed batch rows for printing", () => {
+  const result = analyzer.resolvePrintableBatches([
+    { ivmstr_ivno: "11", site_name: "A" },
+    { ivmstr_ivno: "12", site_name: "B" },
+    { ivmstr_ivno: "13", site_name: "C" },
+  ], ["12", "13"]);
+
+  assert.deepEqual(result.map((item) => item.ivmstr_ivno), ["12", "13"]);
+});
+
 test("evaluateShippingResponse distinguishes output and cancel success rules", () => {
   assert.equal(analyzer.evaluateShippingResponse({ fnsh: "0" }, false), true);
   assert.equal(analyzer.evaluateShippingResponse({ fnsh: "1" }, false), false);
@@ -235,6 +245,7 @@ test("remote module exports loader contract and named helpers", () => {
   assert.equal(typeof analyzer.buildBatchUrl, "function");
   assert.equal(typeof analyzer.buildOrderUrl, "function");
   assert.equal(typeof analyzer.buildPatternPrintDocumentHtml, "function");
+  assert.equal(typeof analyzer.resolvePrintableBatches, "function");
   assert.equal(typeof analyzer.getShippingModeTheme, "function");
 });
 

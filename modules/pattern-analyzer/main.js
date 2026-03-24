@@ -302,6 +302,13 @@
     return items.length ? items.join(", ") : "전체";
   }
 
+  function resolvePrintableBatches(allBatches, batchNumbers) {
+    const source = Array.isArray(allBatches) ? allBatches.slice() : [];
+    const targets = new Set((batchNumbers || []).map(safeTrim).filter(Boolean));
+    if (!targets.size) return source;
+    return source.filter((batch) => targets.has(safeTrim(batch && batch.ivmstr_ivno)));
+  }
+
   function getShippingModeTheme(isCancelMode) {
     return isCancelMode ? {
       title: "종합 출고취소 처리",
@@ -966,7 +973,10 @@
 
   function openPatternPrintWindow(popupState) {
     const filters = getPatternFilterOptions(popupState);
-    const batches = (popupState.dataStore.filteredBatches || popupState.dataStore.batches || []).slice();
+    const analysisBatchNumbers = popupState.lastPatternResult && popupState.lastPatternResult.stats
+      ? popupState.lastPatternResult.stats.batchNumbers
+      : Array.from(popupState.selectedBatches || []);
+    const batches = resolvePrintableBatches(popupState.dataStore.batches || [], analysisBatchNumbers);
     const patterns = popupState.renderedPatterns.filter((pattern) => pattern.id !== LEFTOVER_PATTERN_ID);
     const html = buildPatternPrintDocumentHtml({
       printedAt: formatDate(new Date()),
@@ -1401,6 +1411,7 @@
     buildPatternPrintDocumentHtml,
     evaluateShippingResponse,
     formatSelectedFilterLabel,
+    resolvePrintableBatches,
     getShippingModeTheme,
     reduceShippingRunState,
     buildBatchUrl,

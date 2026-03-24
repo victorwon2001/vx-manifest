@@ -49,8 +49,11 @@ test("resolveBinaryRequestTransport prefers fetch when GM_xmlhttpRequest is unav
 
 test("gmRequest falls back to fetch and returns binary-compatible response shape", async () => {
   const buffer = new TextEncoder().encode("ok").buffer;
+  const calledUrls = [];
   const scope = {
-    fetch: async () => ({
+    fetch: async (url) => {
+      calledUrls.push(url);
+      return ({
       status: 200,
       headers: {
         forEach(callback) {
@@ -59,15 +62,18 @@ test("gmRequest falls back to fetch and returns binary-compatible response shape
         },
       },
       arrayBuffer: async () => buffer,
-    }),
+      });
+    },
   };
 
   const response = await moduleA.gmRequest({
     method: "GET",
     url: "https://example.com/file.xls",
+    fetchUrl: "/util/ExlForm_DB3?ORDLIST_IVNO=12",
     headers: { Accept: "application/octet-stream" },
   }, scope);
 
+  assert.deepEqual(calledUrls, ["/util/ExlForm_DB3?ORDLIST_IVNO=12"]);
   assert.equal(response.status, 200);
   assert.match(response.responseHeaders, /content-type: application\/octet-stream/i);
   assert.equal(response.response.byteLength, 2);
