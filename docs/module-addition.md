@@ -166,11 +166,35 @@ module.exports = (function (root) {
 예시:
 
 - `shared/module-ui.js`
+- `shared/nav-menu.js`
 - `vendor/xlsx.full.min.js`
 - `vendor/jquery-3.6.0.min.js`
 
 로더는 dependency를 먼저 평가하고, 이후 모듈 본체를 실행한다.  
 캐시된 dependency가 깨져 있어도 현재 로더는 자동으로 다시 받아 복구한다.
+
+네비게이션 바에 버튼을 추가하는 모듈이면 `shared/nav-menu.js`를 우선 쓴다.
+
+- 기본 selector는 `.nav.navbar-nav.navbar-right`다.
+- 버튼 위치는 `insertBeforeLabel` 또는 `insertAfterLabel`로 맞춘다.
+- 기존 메뉴를 숨기거나 치워야 하면 `removeLabels`를 쓴다.
+- 모듈 안에서 직접 `MutationObserver`, 재시도 타이머, 메뉴 삽입 코드를 매번 다시 쓰지 않는다.
+
+예시:
+
+```javascript
+const navMenu = globalThis.__tmNavMenu;
+
+navMenu.installNavButton(window, {
+  buttonId: "tm-new-module-nav-button",
+  label: "새 기능",
+  insertBeforeLabel: "상담전용창",
+  removeLabels: ["알림", "메모"],
+  onClick() {
+    openDashboard(window);
+  },
+});
+```
 
 ## 8. 테스트와 검증
 

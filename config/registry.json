@@ -20,6 +20,15 @@
       "metaPath": "modules/inbound-data-viewer/meta.json"
     },
     {
+      "id": "unshipped-checker",
+      "name": "미출고 건수 체커",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/*"
+      ],
+      "metaPath": "modules/unshipped-checker/meta.json"
+    },
+    {
       "id": "pattern-analyzer",
       "name": "패턴분석기",
       "enabledByDefault": true,
