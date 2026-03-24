@@ -89,12 +89,48 @@ test("shouldRefreshCache compares semantic versions and checksum", () => {
   );
 });
 
+test("shouldCheckAt respects ttl windows", () => {
+  const now = Date.UTC(2026, 2, 24, 3, 0, 0);
+
+  assert.equal(loader.shouldCheckAt("", 15 * 60 * 1000, now), true);
+  assert.equal(loader.shouldCheckAt("2026-03-24T02:50:00.000Z", 15 * 60 * 1000, now), false);
+  assert.equal(loader.shouldCheckAt("2026-03-24T02:40:00.000Z", 15 * 60 * 1000, now), true);
+});
+
 test("buildScriptStorageKeys keeps script cache names isolated", () => {
   const keys = loader.buildScriptStorageKeys("module-a");
 
   assert.equal(keys.enabled, "tm-loader:v1:script:module-a:enabled");
   assert.equal(keys.meta, "tm-loader:v1:script:module-a:meta");
   assert.equal(keys.code, "tm-loader:v1:script:module-a:code");
+  assert.equal(keys.assets, "tm-loader:v1:script:module-a:assets");
+});
+
+test("normalizeMetaCacheEntry keeps full runnable cache metadata", () => {
+  const meta = loader.normalizeMetaCacheEntry("module-a", {
+    version: "0.2.0",
+    checksum: "abc",
+    entry: "modules/module-a/main.js",
+    dependencies: [{ id: "module-ui", path: "shared/module-ui.js" }],
+    capabilities: { gm: ["GM_xmlhttpRequest"], connect: ["raw.githubusercontent.com"] },
+    loaderApiVersion: 2,
+    checkedAt: "2026-03-24T01:00:00.000Z",
+    lastSyncedAt: "2026-03-24T01:05:00.000Z",
+  });
+
+  assert.equal(meta.id, "module-a");
+  assert.equal(loader.canUseCachedMeta(meta), true);
+  assert.deepEqual(meta.capabilities.gm, ["GM_xmlhttpRequest"]);
+  assert.equal(meta.loaderApiVersion, 2);
+});
+
+test("diffRegistryScripts detects added and removed modules", () => {
+  const diff = loader.diffRegistryScripts(
+    { scripts: [{ id: "module-a" }, { id: "module-b" }] },
+    { scripts: [{ id: "module-b" }, { id: "module-c" }] }
+  );
+
+  assert.deepEqual(diff, { addedIds: ["module-c"], removedIds: ["module-a"] });
 });
 
 test("formatSyncTime returns compact timestamp for valid iso values", () => {
@@ -160,6 +196,34 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
   assert.equal(rows[1].hasUpdate, false);
 });
 
+test("buildManagerRows surfaces remote status badges for new modules", () => {
+  const rows = loader.buildManagerRows({
+    registry: {
+      scripts: [
+        { id: "module-a", name: "workspace-a", enabledByDefault: true, matches: ["https://example.com/a*"] },
+        { id: "module-b", name: "workspace-b", enabledByDefault: true, matches: ["https://example.com/*"] },
+      ],
+    },
+    url: "https://example.com/a",
+    localStateById: {
+      "module-a": { enabledOverride: true, meta: { version: "0.1.0", lastSyncedAt: "2026-03-24T03:00:00.000Z" } },
+      "module-b": { enabledOverride: true, meta: null },
+    },
+    remoteMetaById: {
+      "module-a": { version: "0.1.0" },
+      "module-b": { version: "1.0.0" },
+    },
+    remoteStatusById: {
+      "module-b": { kind: "new", version: "1.0.0" },
+    },
+  });
+
+  assert.equal(rows[0].id, "module-b");
+  assert.equal(rows[0].isNew, true);
+  assert.equal(rows[0].remoteVersion, "1.0.0");
+  assert.equal(rows[1].hasUpdate, false);
+});
+
 test("getManagerWindowFeatures builds popup sizing string", () => {
   const features = loader.getManagerWindowFeatures();
 
@@ -203,6 +267,31 @@ test("loader points to neutral public repo paths", () => {
 test("loader allows excel redirects and forwards gmRequest to modules", () => {
   assert.match(loaderSource, /@connect\s+ebutexcel\.co\.kr/);
   assert.match(loaderSource, /loader:\s*\{[\s\S]*gmRequest,/);
+});
+
+test("loader declares future-proof grants and helper API surface", () => {
+  assert.match(loaderSource, /@connect\s+\*/);
+  assert.match(loaderSource, /@grant\s+GM_download/);
+  assert.match(loaderSource, /@grant\s+GM_setClipboard/);
+  assert.match(loaderSource, /@grant\s+GM_openInTab/);
+  assert.match(loaderSource, /loaderApiVersion:\s*LOADER_API_VERSION/);
+  assert.match(loaderSource, /request:\s*gmRequest/);
+});
+
+test("createLoaderApi exposes storage and convenience helpers", () => {
+  const api = loader.createLoaderApi(
+    { focus() {} },
+    { id: "module-a", name: "workspace-a" },
+    { version: "0.2.0", entry: "modules/module-a/main.js", capabilities: { gm: ["GM_xmlhttpRequest"] } }
+  );
+
+  assert.equal(api.loaderApiVersion, 2);
+  assert.equal(api.request, api.gmRequest);
+  assert.equal(typeof api.download, "function");
+  assert.equal(typeof api.copyText, "function");
+  assert.equal(typeof api.openTab, "function");
+  assert.equal(typeof api.storage.get, "function");
+  assert.deepEqual(api.capabilities.gm, ["GM_xmlhttpRequest"]);
 });
 
 test("registry and remote meta avoid obvious public labels", () => {
