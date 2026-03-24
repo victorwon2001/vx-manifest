@@ -6,6 +6,7 @@
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const UNSPECIFIED_LOCATION_VALUE = "1059,2244,210221";
   const MODULE_STYLE_ID = "tm-stock-move-style";
+  const MODULE_DOCK_ID = "stockMoveGuiDock";
   const MODULE_GUI_ID = "stockMoveGuiContainer";
   const MODULE_TOGGLE_ID = "toggleStockMoveGuiBtn";
   const MAIN_ENDPOINT = "/stm/stm300main4_jdata";
@@ -21,7 +22,10 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiContainer{position:fixed;top:12px;right:12px;width:min(648px,calc(100vw - 24px));min-width:460px;padding:14px;z-index:9999;display:none;max-height:90vh;overflow:auto;resize:both;background:linear-gradient(180deg,#f3f6f6 0%,#edf1f1 100%) !important;background-clip:padding-box;border:1px solid #c7d1d3;border-radius:22px;box-shadow:0 30px 56px rgba(45,52,53,.18),0 8px 18px rgba(45,52,53,.08);opacity:1;backdrop-filter:none;isolation:isolate}",
+    "#stockMoveGuiDock{position:fixed;top:12px;right:12px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
+    "#stockMoveGuiDock>*{pointer-events:auto}",
+    "#stockMoveGuiDock.is-open{z-index:10000}",
+    "#stockMoveGuiContainer{position:relative;width:min(648px,calc(100vw - 24px));min-width:460px;padding:14px;display:none;max-height:calc(90vh - 46px);overflow:auto;resize:both;background:linear-gradient(180deg,#f3f6f6 0%,#edf1f1 100%) !important;background-clip:padding-box;border:1px solid #c7d1d3;border-radius:22px;box-shadow:0 30px 56px rgba(45,52,53,.18),0 8px 18px rgba(45,52,53,.08);opacity:1;backdrop-filter:none;isolation:isolate}",
     "#stockMoveGuiContainer.tm-ui-root,#stockMoveGuiContainer.tm-ui-root.tm-ui-panel{background:linear-gradient(180deg,#f3f6f6 0%,#edf1f1 100%) !important}",
     "#stockMoveGuiContainer::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(69,90,100,.08)}",
     "#stockMoveGuiContainer .tm-stock-shell{display:grid;gap:12px;padding:0;overflow:visible;border:0;border-radius:inherit;background:transparent;box-shadow:none}",
@@ -39,7 +43,7 @@
     ".tm-stock-action-row--even{grid-template-columns:repeat(2,minmax(0,1fr))}",
     ".btn-close-report{margin-top:4px}",
     "#stockMoveGuiLog{margin:0;max-height:168px;overflow-y:auto;line-height:1.6;padding:12px;border:1px solid rgba(69,90,100,.10);border-radius:16px;background:#263033;color:#ecf2f2}",
-    "#toggleStockMoveGuiBtn{position:fixed;top:14px;right:14px;z-index:10000;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--tm-border);border-radius:999px;background:#ffffff;color:var(--tm-text);box-shadow:0 14px 28px rgba(45,52,53,.12);transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease}",
+    "#toggleStockMoveGuiBtn{position:relative;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--tm-border);border-radius:999px;background:#ffffff;color:var(--tm-text);box-shadow:0 14px 28px rgba(45,52,53,.12);transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease}",
     "#toggleStockMoveGuiBtn .tm-stock-toggle__dot{width:8px;height:8px;border-radius:50%;background:var(--tm-primary-strong);flex:0 0 auto}",
     "#toggleStockMoveGuiBtn .tm-stock-toggle__label{display:inline-flex;align-items:center;font-weight:700;letter-spacing:-.01em}",
     "#toggleStockMoveGuiBtn.is-open{background:var(--tm-surface-alt);border-color:#c8d2d3;color:var(--tm-primary-strong);box-shadow:0 10px 22px rgba(45,52,53,.10)}",
@@ -78,7 +82,8 @@
     ".btn-proceed{background:var(--tm-success);border-color:var(--tm-success);color:#fff}",
     ".btn-cancel{background:var(--tm-surface);color:var(--tm-text);border-color:var(--tm-border)}",
     ".spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--tm-border);border-top:2px solid var(--tm-primary-strong);border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}",
-    "@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}"
+    "@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}",
+    "@media (max-width: 768px){#stockMoveGuiDock{top:8px;right:8px}#stockMoveGuiContainer{width:min(100vw - 16px,648px);min-width:0}}"
   ].join("");
 
   function getModuleUi(win) {
@@ -542,8 +547,11 @@
   function setToggleOffset(state, isOpen) {
     const button = state.doc.getElementById(MODULE_TOGGLE_ID);
     if (!button) return;
+    const dock = state.doc.getElementById(MODULE_DOCK_ID);
+    if (dock) dock.classList.toggle("is-open", !!isOpen);
     button.classList.toggle("is-open", !!isOpen);
     button.setAttribute("aria-pressed", isOpen ? "true" : "false");
+    button.setAttribute("aria-expanded", isOpen ? "true" : "false");
     const label = button.querySelector(".tm-stock-toggle__label");
     if (label) label.textContent = isOpen ? "재고이동 닫기" : "재고이동 열기";
   }
@@ -602,7 +610,9 @@
       className: "tm-stock-panel",
     });
     return [
-      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/"/g, "'") + ">",
+      "<div id='stockMoveGuiDock'>",
+      "<button id='toggleStockMoveGuiBtn' type='button' aria-controls='stockMoveGuiContainer' aria-pressed='false' aria-expanded='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
+      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/\"/g, "'") + ">",
       "<div class='tm-stock-shell tm-ui-card'>",
       "<div class='tm-ui-panel-head tm-stock-head'>",
       "<div class='tm-stock-head-copy'>",
@@ -626,7 +636,7 @@
       "</div>",
       "</div>",
       "</div>",
-      "<button id='toggleStockMoveGuiBtn' type='button' aria-pressed='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
+      "</div>",
     ].join("");
   }
 
@@ -637,7 +647,9 @@
       className: "tm-stock-panel",
     });
     return [
-      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/"/g, "'") + ">",
+      "<div id='stockMoveGuiDock'>",
+      "<button id='toggleStockMoveGuiBtn' type='button' aria-controls='stockMoveGuiContainer' aria-pressed='false' aria-expanded='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
+      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/\"/g, "'") + ">",
       "<div class='tm-stock-shell tm-ui-card'>",
       "<div class='tm-ui-panel-head tm-stock-head'><div class='tm-stock-head-copy'><span class='tm-ui-kicker'>실행 상태</span><div class='tm-stock-title tm-ui-title'>재고이동 처리 중</div><p class='tm-ui-subtitle'>편집 화면에서는 현재 실행 단계와 중지 제어만 노출합니다.</p></div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
       "<div class='tm-stock-body'>",
@@ -646,7 +658,7 @@
       "</div>",
       "</div>",
       "</div>",
-      "<button id='toggleStockMoveGuiBtn' type='button' aria-pressed='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
+      "</div>",
     ].join("");
   }
 
@@ -1114,7 +1126,7 @@
   return {
     id: MODULE_ID,
     name: MODULE_NAME,
-    version: "0.1.9",
+    version: "0.1.10",
     matches: MATCHES,
     run,
     start,
@@ -1132,6 +1144,7 @@
     buildEditGuiHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
