@@ -11,6 +11,15 @@
       "metaPath": "modules/module-a/meta.json"
     },
     {
+      "id": "inbound-data-viewer",
+      "name": "입고 데이터 뷰어",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/*"
+      ],
+      "metaPath": "modules/inbound-data-viewer/meta.json"
+    },
+    {
       "id": "pattern-analyzer",
       "name": "패턴분석기",
       "enabledByDefault": true,
