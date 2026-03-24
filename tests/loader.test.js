@@ -354,7 +354,10 @@ test("loader source wires sync execution and busy status messaging", () => {
   assert.match(loaderSource, /managerState\.bootWindow = scope/);
   assert.match(loaderSource, /typeof GM_xmlhttpRequest === "function"/);
   assert.match(loaderSource, /typeof GM_getValue === "function"/);
+  assert.match(loaderSource, /doc\.__tmManagerClickHandler/);
+  assert.match(loaderSource, /removeEventListener\("click", doc\.__tmManagerClickHandler\)/);
   assert.doesNotMatch(loaderSource, /openManager\(root\)/);
+  assert.doesNotMatch(loaderSource, /doc\.__tmManagerBound/);
 });
 
 test("createLoaderApi exposes storage and convenience helpers", () => {

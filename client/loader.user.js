@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.6
+// @version      0.4.7
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -41,7 +41,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.4.6";
+  const LOADER_VERSION = "0.4.7";
   const LOADER_API_VERSION = 2;
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
@@ -985,9 +985,11 @@
   }
 
   function bindManagerEvents(doc) {
-    if (!doc || doc.__tmManagerBound) return;
-    doc.__tmManagerBound = true;
-    doc.addEventListener("click", async (event) => {
+    if (!doc) return;
+    if (typeof doc.__tmManagerClickHandler === "function" && typeof doc.removeEventListener === "function") {
+      doc.removeEventListener("click", doc.__tmManagerClickHandler);
+    }
+    const clickHandler = async (event) => {
       const actionNode = getActionNode(event.target);
       if (!actionNode) return;
       if (managerState.busy) return;
@@ -1031,7 +1033,9 @@
           root.console.error("[VX Console] manager action failed", error);
         }
       }
-    });
+    };
+    doc.__tmManagerClickHandler = clickHandler;
+    doc.addEventListener("click", clickHandler);
   }
 
   function openPopupWindow(win) {
