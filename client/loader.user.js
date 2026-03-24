@@ -56,6 +56,7 @@
   const REGISTRY_CHECKED_AT_KEY = STORAGE_PREFIX + ":registry:checkedAt";
   const META_PREWARMED_AT_KEY = STORAGE_PREFIX + ":meta:prewarmedAt";
   const REMOTE_STATUS_KEY = STORAGE_PREFIX + ":remote:status";
+  const REMOTE_META_KEY = STORAGE_PREFIX + ":remote:meta";
   const REGISTRY_LOCK_KEY = STORAGE_PREFIX + ":registry:lock";
   const META_PREWARM_LOCK_KEY = STORAGE_PREFIX + ":meta:lock";
   const REGISTRY_CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -65,6 +66,7 @@
   const managerState = {
     windowRef: null,
     popupReady: false,
+    sourceWindow: null,
   };
 
   function getGlobalScope() {
@@ -274,8 +276,17 @@
     return value && typeof value === "object" ? value : {};
   }
 
+  function readRemoteMetaMap() {
+    const value = safeJsonParse(getValue(REMOTE_META_KEY, ""), {});
+    return value && typeof value === "object" ? value : {};
+  }
+
   function writeRemoteStatusMap(statusMap) {
     setValue(REMOTE_STATUS_KEY, JSON.stringify(statusMap || {}));
+  }
+
+  function writeRemoteMetaMap(metaMap) {
+    setValue(REMOTE_META_KEY, JSON.stringify(metaMap || {}));
   }
 
   function acquireRefreshLock(key, ttlMs, nowValue) {
@@ -863,19 +874,20 @@
       if (!actionNode) return;
       const action = actionNode.getAttribute("data-action");
       const scriptId = actionNode.getAttribute("data-script-id");
+      const sourceWindow = managerState.sourceWindow || root;
       if (action === "sync-current") {
-        await syncScripts("current-page", { window: managerState.windowRef || root });
+        await syncScripts("current-page", { window: sourceWindow });
       } else if (action === "sync-all") {
-        await syncScripts("all", { window: managerState.windowRef || root });
+        await syncScripts("all", { window: sourceWindow });
       } else if (action === "clear-cache") {
         await clearAllCaches();
       } else if (action === "refresh") {
-        await renderManager(managerState.windowRef || root);
+        await renderManager(sourceWindow);
       } else if (action === "toggle-script" && scriptId) {
         const enabled = actionNode.getAttribute("data-enabled") !== "true";
         await toggleScriptEnabled(scriptId, enabled);
       } else if (action === "sync-script" && scriptId) {
-        await syncScripts(scriptId, { window: managerState.windowRef || root });
+        await syncScripts(scriptId, { window: sourceWindow });
       } else if (action === "clear-script" && scriptId) {
         await clearScriptCaches(scriptId);
       }
@@ -888,7 +900,8 @@
   }
 
   function ensureManagerUi(win) {
-    const popup = isManagerOpen() ? managerState.windowRef : openPopupWindow(win);
+    const opener = win || managerState.sourceWindow || root;
+    const popup = isManagerOpen() ? managerState.windowRef : openPopupWindow(opener);
     if (!popup) return null;
     if (!managerState.popupReady || !popup.document.getElementById(MANAGER_ROOT_ID)) {
       bootstrapManagerDocument(popup.document);
@@ -900,21 +913,17 @@
   }
 
   async function renderManager(win) {
-    const popup = ensureManagerUi(win || root);
+    const sourceWindow = win || managerState.sourceWindow || root;
+    managerState.sourceWindow = sourceWindow;
+    const popup = ensureManagerUi(sourceWindow);
     if (!popup) return null;
     const registry = readCachedRegistry() || { scripts: [] };
     const remoteStatusById = readRemoteStatusMap();
-    const remoteMetaById = {};
-    const scripts = Array.isArray(registry.scripts) ? registry.scripts : [];
-    scripts.forEach((script) => {
-      const remoteStatus = remoteStatusById[script.id];
-      if (!remoteStatus) return;
-      remoteMetaById[script.id] = { id: script.id, version: remoteStatus.version || "" };
-    });
+    const remoteMetaById = readRemoteMetaMap();
 
     const rows = buildManagerRows({
       registry,
-      url: popup.location && popup.location.href ? popup.location.href : (root.location && root.location.href ? root.location.href : ""),
+      url: sourceWindow.location && sourceWindow.location.href ? sourceWindow.location.href : (root.location && root.location.href ? root.location.href : ""),
       localStateById: readLocalStateMap(registry),
       remoteMetaById,
       remoteStatusById,
@@ -940,7 +949,7 @@
       ].join("");
     }).join("");
 
-    doc.getElementById("tm-manager-subtitle").textContent = formatManagerSubtitle(root.location && root.location.href ? root.location.href : "");
+    doc.getElementById("tm-manager-subtitle").textContent = formatManagerSubtitle(sourceWindow.location && sourceWindow.location.href ? sourceWindow.location.href : "");
     doc.getElementById("tm-summary-total").textContent = String(rows.length);
     doc.getElementById("tm-summary-current").textContent = String(rows.filter((row) => row.appliesHere).length);
     doc.getElementById("tm-summary-updates").textContent = String(rows.filter((row) => row.hasUpdate).length);
@@ -1001,6 +1010,9 @@
   async function refreshRemoteMeta(script, options) {
     const remoteMeta = await fetchJson(resolvePath(script.metaPath));
     const normalizedRemoteMeta = normalizeMetaCacheEntry(script.id, remoteMeta);
+    const remoteMetaMap = readRemoteMetaMap();
+    remoteMetaMap[script.id] = normalizedRemoteMeta;
+    writeRemoteMetaMap(remoteMetaMap);
     const statusMap = readRemoteStatusMap();
     await updateScriptRemoteStatus(script, normalizedRemoteMeta, statusMap);
     persistRemoteStatusMap(statusMap);
@@ -1021,6 +1033,9 @@
     deleteValue(keys.remoteStatus);
     deleteValue(keys.notifiedVersion);
     readAssetCacheKeys(scriptId).forEach((assetKey) => deleteValue(assetKey));
+    const remoteMetaMap = readRemoteMetaMap();
+    delete remoteMetaMap[scriptId];
+    writeRemoteMetaMap(remoteMetaMap);
   }
 
   async function refreshRegistry(options) {
@@ -1043,17 +1058,21 @@
       });
 
       const nextStatusMap = readRemoteStatusMap();
+      const nextRemoteMetaMap = readRemoteMetaMap();
       diff.removedIds.forEach((scriptId) => clearRemoteStatusEntry(nextStatusMap, scriptId));
+      diff.removedIds.forEach((scriptId) => delete nextRemoteMetaMap[scriptId]);
 
       for (const addedId of diff.addedIds) {
         const addedScript = getScriptsFromRegistry(nextRegistry).find((script) => script.id === addedId);
         if (!addedScript) continue;
         const remoteMeta = normalizeMetaCacheEntry(addedScript.id, await fetchJson(resolvePath(addedScript.metaPath)));
+        nextRemoteMetaMap[addedId] = remoteMeta;
         const status = updateRemoteStatusEntry(nextStatusMap, addedId, "new", remoteMeta.version);
         notifyOnceForStatus(addedScript, status);
       }
 
       persistRemoteStatusMap(nextStatusMap);
+      writeRemoteMetaMap(nextRemoteMetaMap);
       return nextRegistry;
     } finally {
       releaseRefreshLock(REGISTRY_LOCK_KEY);
@@ -1096,12 +1115,12 @@
         ? findMatchingScripts(registry, currentUrl)
         : scripts.filter((script) => script.id === scope));
     for (const script of targets) {
-      await prewarmScriptBundle(script);
+      await refreshRemoteMeta(script, { prewarm: true });
     }
     const statusMap = readRemoteStatusMap();
     targets.forEach((script) => clearRemoteStatusEntry(statusMap, script.id));
     persistRemoteStatusMap(statusMap);
-    await renderManager(options && options.window ? options.window : root);
+    await renderManager(options && options.window ? options.window : (managerState.sourceWindow || root));
     return targets.length;
   }
 
@@ -1110,26 +1129,27 @@
     const statusMap = readRemoteStatusMap();
     clearRemoteStatusEntry(statusMap, scriptId);
     persistRemoteStatusMap(statusMap);
-    await renderManager(root);
+    await renderManager(managerState.sourceWindow || root);
   }
 
   async function clearAllCaches() {
     getValueList().forEach((key) => {
       if (key.indexOf(STORAGE_PREFIX + ":") === 0) deleteValue(key);
     });
-    await renderManager(root);
+    await renderManager(managerState.sourceWindow || root);
   }
 
   async function toggleScriptEnabled(scriptId, enabled) {
     const keys = buildScriptStorageKeys(scriptId);
     setValue(keys.enabled, !!enabled);
-    await renderManager(root);
+    await renderManager(managerState.sourceWindow || root);
   }
 
   function openManager(win) {
-    const popup = ensureManagerUi(win || root);
+    managerState.sourceWindow = win || root;
+    const popup = ensureManagerUi(managerState.sourceWindow);
     if (popup && typeof popup.focus === "function") popup.focus();
-    renderManager(win || root);
+    renderManager(managerState.sourceWindow);
     return popup;
   }
 
