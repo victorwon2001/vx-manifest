@@ -72,16 +72,25 @@ test("inbound helper gui html uses shared panel contract", () => {
     },
   });
 
+  assert.match(html, /id="tmInboundHelperDock"/);
+  assert.match(html, /id="tmInboundHelperToggle"[\s\S]*id="tmInboundHelperGui"/);
   assert.match(html, /tm-ui-root tm-ui-panel tm-inbound-helper/);
   assert.match(html, /tm-ui-card tm-inbound-helper__shell/);
   assert.match(html, /tm-ui-panel-head/);
   assert.match(html, /tm-ui-log/);
   assert.match(html, /tm-ui-btn tm-ui-btn--success/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /tm-inbound-helper__toggle-label/);
 });
 
 test("inbound helper state keeps window reference for gui mounting", () => {
   assert.match(source, /win\[STATE_KEY\]\s*=\s*\{\s*[\s\S]*?\bwin,\s*[\s\S]*?initialized:/);
   assert.match(source, /win\[STATE_KEY\]\.win = win;/);
+});
+
+test("inbound helper toggle state no longer shifts horizontal position", () => {
+  assert.doesNotMatch(source, /\.css\("right",\s*isVisible/);
+  assert.match(source, /\.attr\("aria-expanded",\s*isVisible \? "true" : "false"\)/);
 });
 
 test("inbound helper registry and dependencies stay aligned", () => {

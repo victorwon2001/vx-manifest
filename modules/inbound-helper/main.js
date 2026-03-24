@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-helper";
   const MODULE_NAME = "입고도우미";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm106edit4.jsp*"];
 
   const KEY_QUEUE_MAP = "ebut_v5_queue_map";
@@ -12,6 +12,7 @@
   const KEY_LOGS = "ebut_v5_logs";
   const KEY_RETRY = "ebut_v5_retry";
 
+  const DOCK_ID = "tmInboundHelperDock";
   const GUI_ID = "tmInboundHelperGui";
   const TOGGLE_ID = "tmInboundHelperToggle";
   const INPUT_ID = "tmInboundHelperInput";
@@ -152,46 +153,48 @@
       ? moduleUi.buildRootAttributes({ kind: "panel", className: "tm-inbound-helper", density: "compact" })
       : 'class="tm-ui-root tm-ui-panel tm-inbound-helper" data-tm-density="compact"';
     return [
-      '<div id="' + GUI_ID + '" ' + rootAttrs + ' style="display:none">',
-      '  <div class="tm-ui-card tm-inbound-helper__shell">',
-      '    <div class="tm-ui-panel-head tm-ui-panel-head--compact">',
-      '      <div class="tm-ui-head-meta">',
-      "        <div>",
-      '          <p class="tm-ui-kicker">Inbound Helper</p>',
-      '          <h3 class="tm-ui-title">입고도우미</h3>',
-      '          <p class="tm-ui-subtitle">단순 일괄 입력과 병렬 순차 반복을 한 화면에서 처리합니다.</p>',
-      "        </div>",
-      '        <button type="button" class="tm-ui-btn tm-ui-btn--ghost tm-inbound-helper__close" data-action="close-panel">닫기</button>',
-      "      </div>",
-      "    </div>",
-      '    <div class="tm-inbound-helper__body tm-ui-stack">',
-      '      <div class="tm-inbound-helper__tabs">',
-      '        <button type="button" class="tm-ui-btn tm-ui-btn--secondary tm-inbound-helper__tab is-active" data-mode="batch">단순 일괄 입력</button>',
-      '        <button type="button" class="tm-ui-btn tm-ui-btn--secondary tm-inbound-helper__tab" data-mode="seq">병렬 순차 반복</button>',
-      "      </div>",
-      '      <div id="tmInboundHelperDescBatch" class="tm-ui-message tm-inbound-helper__desc"><strong>단순 입력</strong><br>화면에 있는 상품에 수량을 한 번에 채워 넣습니다. 같은 상품이 여러 줄이면 합산되고, 행 분할은 하지 않습니다.</div>',
-      '      <div id="tmInboundHelperDescSeq" class="tm-ui-message tm-inbound-helper__desc tm-inbound-helper__desc--accent" hidden><strong>고속 병렬 처리</strong><br>현재 화면의 모든 상품을 한 번씩 입력하고 저장한 뒤 자동 새로고침으로 다음 회차를 반복합니다. 정확코드 매칭, 로케이션 검증, 알림창 무시를 포함합니다.</div>',
-      '      <div id="tmInboundHelperInputArea" class="tm-ui-stack">',
-      '        <label class="tm-ui-label" for="' + INPUT_ID + '"><span>입력 데이터</span><textarea id="' + INPUT_ID + '" class="tm-ui-textarea" placeholder="[붙여넣기]\n상품코드  수량  [로케이션]"></textarea></label>',
-      '        <div id="tmInboundHelperBatchOptions" class="tm-inbound-helper__options tm-ui-stack">',
-      '          <label class="tm-inbound-helper__checkbox"><input type="checkbox" id="tmInboundHelperMerge" checked> <span>중복 상품 수량 합산하기</span></label>',
-      '          <label class="tm-inbound-helper__checkbox"><input type="checkbox" id="tmInboundHelperAutoSave"> <span>입력 후 자동 저장 (오류 0건 시)</span></label>',
-      '          <button type="button" class="tm-ui-btn tm-ui-btn--primary" id="tmInboundHelperRunBatch">일괄 입력 시작</button>',
-      "        </div>",
-      '        <div id="tmInboundHelperSeqOptions" class="tm-inbound-helper__options" hidden>',
-      '          <button type="button" class="tm-ui-btn tm-ui-btn--success" id="tmInboundHelperRunSeq">병렬 순차 시작</button>',
+      '<div id="' + DOCK_ID + '" class="tm-inbound-helper__dock">',
+      '  <button type="button" id="' + TOGGLE_ID + '" class="tm-ui-btn tm-ui-btn--secondary" aria-controls="' + GUI_ID + '" aria-pressed="false" aria-expanded="false"><span class="tm-inbound-helper__toggle-dot" aria-hidden="true"></span><span class="tm-inbound-helper__toggle-label">입고도우미 열기</span></button>',
+      '  <div id="' + GUI_ID + '" ' + rootAttrs + ' style="display:none">',
+      '    <div class="tm-ui-card tm-inbound-helper__shell">',
+      '      <div class="tm-ui-panel-head tm-ui-panel-head--compact">',
+      '        <div class="tm-ui-head-meta">',
+      "          <div>",
+      '            <p class="tm-ui-kicker">Inbound Helper</p>',
+      '            <h3 class="tm-ui-title">입고도우미</h3>',
+      '            <p class="tm-ui-subtitle">단순 일괄 입력과 병렬 순차 반복을 한 화면에서 처리합니다.</p>',
+      "          </div>",
+      '          <button type="button" class="tm-ui-btn tm-ui-btn--ghost tm-inbound-helper__close" data-action="close-panel">닫기</button>',
       "        </div>",
       "      </div>",
-      '      <div id="tmInboundHelperRunningArea" class="tm-ui-stack" hidden>',
-      '        <div class="tm-ui-statusbar"><span class="tm-ui-inline-note">자동 처리</span><span class="tm-ui-badge tm-ui-badge--success">실행 중</span></div>',
-      '        <div id="tmInboundHelperProgress" class="tm-ui-message">남은 작업을 계산하는 중입니다.</div>',
-      '        <button type="button" class="tm-ui-btn tm-ui-btn--danger" id="tmInboundHelperStopSeq">강제 중지</button>',
+      '      <div class="tm-inbound-helper__body tm-ui-stack">',
+      '        <div class="tm-inbound-helper__tabs">',
+      '          <button type="button" class="tm-ui-btn tm-ui-btn--secondary tm-inbound-helper__tab is-active" data-mode="batch">단순 일괄 입력</button>',
+      '          <button type="button" class="tm-ui-btn tm-ui-btn--secondary tm-inbound-helper__tab" data-mode="seq">병렬 순차 반복</button>',
+      "        </div>",
+      '        <div id="tmInboundHelperDescBatch" class="tm-ui-message tm-inbound-helper__desc"><strong>단순 입력</strong><br>화면에 있는 상품에 수량을 한 번에 채워 넣습니다. 같은 상품이 여러 줄이면 합산되고, 행 분할은 하지 않습니다.</div>',
+      '        <div id="tmInboundHelperDescSeq" class="tm-ui-message tm-inbound-helper__desc tm-inbound-helper__desc--accent" hidden><strong>고속 병렬 처리</strong><br>현재 화면의 모든 상품을 한 번씩 입력하고 저장한 뒤 자동 새로고침으로 다음 회차를 반복합니다. 정확코드 매칭, 로케이션 검증, 알림창 무시를 포함합니다.</div>',
+      '        <div id="tmInboundHelperInputArea" class="tm-ui-stack">',
+      '          <label class="tm-ui-label" for="' + INPUT_ID + '"><span>입력 데이터</span><textarea id="' + INPUT_ID + '" class="tm-ui-textarea" placeholder="[붙여넣기]\n상품코드  수량  [로케이션]"></textarea></label>',
+      '          <div id="tmInboundHelperBatchOptions" class="tm-inbound-helper__options tm-ui-stack">',
+      '            <label class="tm-inbound-helper__checkbox"><input type="checkbox" id="tmInboundHelperMerge" checked> <span>중복 상품 수량 합산하기</span></label>',
+      '            <label class="tm-inbound-helper__checkbox"><input type="checkbox" id="tmInboundHelperAutoSave"> <span>입력 후 자동 저장 (오류 0건 시)</span></label>',
+      '            <button type="button" class="tm-ui-btn tm-ui-btn--primary" id="tmInboundHelperRunBatch">일괄 입력 시작</button>',
+      "          </div>",
+      '          <div id="tmInboundHelperSeqOptions" class="tm-inbound-helper__options" hidden>',
+      '            <button type="button" class="tm-ui-btn tm-ui-btn--success" id="tmInboundHelperRunSeq">병렬 순차 시작</button>',
+      "          </div>",
+      "        </div>",
+      '        <div id="tmInboundHelperRunningArea" class="tm-ui-stack" hidden>',
+      '          <div class="tm-ui-statusbar"><span class="tm-ui-inline-note">자동 처리</span><span class="tm-ui-badge tm-ui-badge--success">실행 중</span></div>',
+      '          <div id="tmInboundHelperProgress" class="tm-ui-message">남은 작업을 계산하는 중입니다.</div>',
+      '          <button type="button" class="tm-ui-btn tm-ui-btn--danger" id="tmInboundHelperStopSeq">강제 중지</button>',
+      "        </div>",
+      '        <div id="' + LOG_ID + '" class="tm-ui-log">준비됨.</div>',
       "      </div>",
-      '      <div id="' + LOG_ID + '" class="tm-ui-log">준비됨.</div>',
       "    </div>",
       "  </div>",
       "</div>",
-      '<button type="button" id="' + TOGGLE_ID + '" class="tm-ui-btn tm-ui-btn--secondary"><span class="tm-inbound-helper__toggle-dot" aria-hidden="true"></span><span>입고도우미</span></button>',
     ].join("");
   }
 
@@ -203,7 +206,10 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      "#" + GUI_ID + "{position:fixed;top:12px;right:12px;width:min(460px,calc(100vw - 24px));max-height:90vh;z-index:9999;overflow:auto;resize:both}",
+      "#" + DOCK_ID + "{position:fixed;top:12px;right:12px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
+      "#" + DOCK_ID + ">*{pointer-events:auto}",
+      "#" + DOCK_ID + ".is-open{z-index:10000}",
+      "#" + GUI_ID + "{position:relative;width:min(460px,calc(100vw - 24px));max-height:calc(90vh - 46px);overflow:auto;resize:both}",
       "#" + GUI_ID + ".is-running .tm-inbound-helper__shell{border-color:#d1e2da;box-shadow:0 24px 42px rgba(45,52,53,.12)}",
       "#" + GUI_ID + " .tm-inbound-helper__shell{display:grid;gap:0;overflow:hidden}",
       "#" + GUI_ID + " .tm-inbound-helper__body{padding:14px 16px}",
@@ -216,11 +222,12 @@
       "#" + GUI_ID + " .tm-inbound-helper__checkbox input{width:16px;height:16px;margin:0}",
       "#" + GUI_ID + " textarea{min-height:132px;font-family:Consolas,'Courier New',monospace;font-size:12px}",
       "#" + GUI_ID + " .tm-ui-log{max-height:160px;overflow:auto}",
-      "#" + TOGGLE_ID + "{position:fixed;top:14px;right:14px;z-index:10000;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;box-shadow:0 14px 28px rgba(45,52,53,.12)}",
+      "#" + TOGGLE_ID + "{position:relative;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;box-shadow:0 14px 28px rgba(45,52,53,.12)}",
       "#" + TOGGLE_ID + " .tm-inbound-helper__toggle-dot{width:8px;height:8px;border-radius:50%;background:var(--tm-primary-strong);display:inline-block}",
+      "#" + TOGGLE_ID + " .tm-inbound-helper__toggle-label{display:inline-flex;align-items:center;font-weight:700;letter-spacing:-.01em}",
       "#" + TOGGLE_ID + ".is-open{background:var(--tm-surface-alt)}",
       "#" + TOGGLE_ID + ".is-open .tm-inbound-helper__toggle-dot{background:var(--tm-success)}",
-      "@media (max-width: 768px){#" + GUI_ID + "{width:min(100vw - 16px,520px);top:8px;right:8px}#" + TOGGLE_ID + "{top:8px;right:8px}}",
+      "@media (max-width: 768px){#" + DOCK_ID + "{top:8px;right:8px}#" + GUI_ID + "{width:min(100vw - 16px,520px)}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -302,7 +309,12 @@
 
   function syncTogglePosition($) {
     const isVisible = $("#" + GUI_ID).is(":visible");
-    $("#" + TOGGLE_ID).toggleClass("is-open", isVisible).css("right", isVisible ? "482px" : "14px");
+    $("#" + DOCK_ID).toggleClass("is-open", isVisible);
+    $("#" + TOGGLE_ID)
+      .toggleClass("is-open", isVisible)
+      .attr("aria-pressed", isVisible ? "true" : "false")
+      .attr("aria-expanded", isVisible ? "true" : "false");
+    $("#" + TOGGLE_ID + " .tm-inbound-helper__toggle-label").text(isVisible ? "입고도우미 닫기" : "입고도우미 열기");
   }
 
   function readLogs(win) {
@@ -633,5 +645,6 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
