@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-helper";
   const MODULE_NAME = "입고도우미";
-  const MODULE_VERSION = "0.1.1";
+  const MODULE_VERSION = "0.1.2";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm106edit4.jsp*"];
 
   const KEY_QUEUE_MAP = "ebut_v5_queue_map";
@@ -133,6 +133,7 @@
   function getPageState(win, unsafeWin) {
     if (!win[STATE_KEY]) {
       win[STATE_KEY] = {
+        win,
         initialized: false,
         runningScheduled: false,
         originalAlert: win.alert,
@@ -141,6 +142,7 @@
         $: null,
       };
     }
+    win[STATE_KEY].win = win;
     if (unsafeWin) win[STATE_KEY].unsafeWindow = unsafeWin;
     return win[STATE_KEY];
   }
@@ -631,4 +633,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 

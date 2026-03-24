@@ -1,9 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const moduleUnderTest = require("../modules/inbound-helper/main.js");
 const meta = require("../modules/inbound-helper/meta.json");
 const registry = require("../config/registry.json");
+const source = fs.readFileSync(path.resolve(__dirname, "../modules/inbound-helper/main.js"), "utf8");
 
 test("inbound helper exports loader contract", () => {
   assert.equal(moduleUnderTest.id, "inbound-helper");
@@ -74,6 +77,11 @@ test("inbound helper gui html uses shared panel contract", () => {
   assert.match(html, /tm-ui-panel-head/);
   assert.match(html, /tm-ui-log/);
   assert.match(html, /tm-ui-btn tm-ui-btn--success/);
+});
+
+test("inbound helper state keeps window reference for gui mounting", () => {
+  assert.match(source, /win\[STATE_KEY\]\s*=\s*\{\s*[\s\S]*?\bwin,\s*[\s\S]*?initialized:/);
+  assert.match(source, /win\[STATE_KEY\]\.win = win;/);
 });
 
 test("inbound helper registry and dependencies stay aligned", () => {

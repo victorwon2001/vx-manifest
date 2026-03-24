@@ -1,7 +1,7 @@
 ﻿{
     "id":  "inbound-helper",
     "name":  "입고도우미",
-    "version":  "0.1.1",
+    "version":  "0.1.2",
     "description":  "입고 화면에서 일괄 입력과 병렬 순차 반복을 지원하는 자동화 도구",
     "entry":  "modules/inbound-helper/main.js",
     "dependencies":  [
@@ -18,5 +18,5 @@
                      ],
     "checksum":  "",
     "loaderApiVersion":  2,
-    "updatedAt":  "2026-03-24 23:39:36"
+    "updatedAt":  "2026-03-24 23:55:13"
 }
