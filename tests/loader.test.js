@@ -345,10 +345,16 @@ test("loader source wires sync execution and busy status messaging", () => {
   assert.match(loaderSource, /전체 동기화 중/);
   assert.match(loaderSource, /await runScript\(script,\s*actionWindow/);
   assert.match(loaderSource, /function getActionNode\(target\)/);
+  assert.match(loaderSource, /function getDirectGrantFunction\(name\)/);
+  assert.match(loaderSource, /function getPageWindow\(candidate\)/);
   assert.match(loaderSource, /ensureCurrentPageScriptsRunning\(managerState\.sourceWindow\)/);
   assert.match(loaderSource, /function registerMenus\(win\)/);
   assert.match(loaderSource, /openManager\(sourceWindow\)/);
   assert.match(loaderSource, /registerMenus\(scope\)/);
+  assert.match(loaderSource, /managerState\.bootWindow = scope/);
+  assert.match(loaderSource, /typeof GM_xmlhttpRequest === "function"/);
+  assert.match(loaderSource, /typeof GM_getValue === "function"/);
+  assert.doesNotMatch(loaderSource, /openManager\(root\)/);
 });
 
 test("createLoaderApi exposes storage and convenience helpers", () => {

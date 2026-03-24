@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.4
+// @version      0.4.5
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -41,7 +41,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.4.4";
+  const LOADER_VERSION = "0.4.5";
   const LOADER_API_VERSION = 2;
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
@@ -66,6 +66,7 @@
   const managerState = {
     windowRef: null,
     popupReady: false,
+    bootWindow: null,
     sourceWindow: null,
     busy: false,
     statusText: "",
@@ -92,11 +93,54 @@
     return scope.__tmLoaderRuntimeState;
   }
 
+  function getDirectGrantFunction(name) {
+    switch (name) {
+      case "GM_xmlhttpRequest":
+        return typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : null;
+      case "GM_getValue":
+        return typeof GM_getValue === "function" ? GM_getValue : null;
+      case "GM_setValue":
+        return typeof GM_setValue === "function" ? GM_setValue : null;
+      case "GM_deleteValue":
+        return typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+      case "GM_listValues":
+        return typeof GM_listValues === "function" ? GM_listValues : null;
+      case "GM_registerMenuCommand":
+        return typeof GM_registerMenuCommand === "function" ? GM_registerMenuCommand : null;
+      case "GM_notification":
+        return typeof GM_notification === "function" ? GM_notification : null;
+      case "GM_addStyle":
+        return typeof GM_addStyle === "function" ? GM_addStyle : null;
+      case "GM_addElement":
+        return typeof GM_addElement === "function" ? GM_addElement : null;
+      case "GM_download":
+        return typeof GM_download === "function" ? GM_download : null;
+      case "GM_setClipboard":
+        return typeof GM_setClipboard === "function" ? GM_setClipboard : null;
+      case "GM_openInTab":
+        return typeof GM_openInTab === "function" ? GM_openInTab : null;
+      case "GM_getTab":
+        return typeof GM_getTab === "function" ? GM_getTab : null;
+      case "GM_saveTab":
+        return typeof GM_saveTab === "function" ? GM_saveTab : null;
+      case "GM_getTabs":
+        return typeof GM_getTabs === "function" ? GM_getTabs : null;
+      default:
+        return null;
+    }
+  }
+
   function getFunction(name) {
+    const directFn = getDirectGrantFunction(name);
+    if (typeof directFn === "function") return directFn;
     if (root && typeof root[name] === "function") return root[name];
     const scope = getGlobalScope();
     if (scope && typeof scope[name] === "function") return scope[name];
     return null;
+  }
+
+  function getPageWindow(candidate) {
+    return candidate || managerState.sourceWindow || managerState.bootWindow || root;
   }
 
   function getValue(key, fallbackValue) {
@@ -915,7 +959,7 @@
       if (managerState.busy) return;
       const action = actionNode.getAttribute("data-action");
       const scriptId = actionNode.getAttribute("data-script-id");
-      const sourceWindow = managerState.sourceWindow || root;
+      const sourceWindow = getPageWindow();
       try {
         if (action === "sync-current") {
           setManagerStatus("현재 페이지 동기화 중...", true);
@@ -962,7 +1006,7 @@
   }
 
   function ensureManagerUi(win) {
-    const opener = win || managerState.sourceWindow || root;
+    const opener = getPageWindow(win);
     const popup = isManagerOpen() ? managerState.windowRef : openPopupWindow(opener);
     if (!popup) return null;
     if (!managerState.popupReady || !popup.document.getElementById(MANAGER_ROOT_ID)) {
@@ -975,7 +1019,7 @@
   }
 
   async function renderManager(win) {
-    const sourceWindow = win || managerState.sourceWindow || root;
+    const sourceWindow = getPageWindow(win);
     managerState.sourceWindow = sourceWindow;
     const popup = ensureManagerUi(sourceWindow);
     if (!popup) return null;
@@ -1036,7 +1080,7 @@
       text: script.name + " " + status.version + " " + (status.kind === "new" ? "모듈이 추가되었습니다." : "업데이트가 준비되었습니다."),
       timeout: 5000,
       onclick() {
-        openManager(root);
+        openManager(getPageWindow());
       },
     });
   }
@@ -1173,7 +1217,7 @@
 
   async function syncScripts(scope, options) {
     const registry = readCachedRegistry() || await refreshRegistry({ force: true });
-    const actionWindow = options && options.window ? options.window : (managerState.sourceWindow || root);
+    const actionWindow = getPageWindow(options && options.window);
     const currentUrl = actionWindow && actionWindow.location ? actionWindow.location.href : (root.location && root.location.href ? root.location.href : "");
     const scripts = getScriptsFromRegistry(registry);
     const targets = scope === "all"
@@ -1198,7 +1242,7 @@
   }
 
   async function ensureCurrentPageScriptsRunning(win) {
-    const actionWindow = win || managerState.sourceWindow || root;
+    const actionWindow = getPageWindow(win);
     const registry = readCachedRegistry();
     if (!registry) return 0;
     const currentUrl = actionWindow && actionWindow.location ? actionWindow.location.href : "";
@@ -1223,7 +1267,7 @@
     const statusMap = readRemoteStatusMap();
     clearRemoteStatusEntry(statusMap, scriptId);
     persistRemoteStatusMap(statusMap);
-    await renderManager(managerState.sourceWindow || root);
+    await renderManager(getPageWindow());
   }
 
   async function clearAllCaches() {
@@ -1233,7 +1277,7 @@
     if (managerState.sourceWindow) {
       getRuntimeState(managerState.sourceWindow).executedVersions = {};
     }
-    await renderManager(managerState.sourceWindow || root);
+    await renderManager(getPageWindow());
   }
 
   async function toggleScriptEnabled(scriptId, enabled) {
@@ -1250,11 +1294,11 @@
         });
       }
     }
-    await renderManager(managerState.sourceWindow || root);
+    await renderManager(getPageWindow());
   }
 
   function openManager(win) {
-    managerState.sourceWindow = win || root;
+    managerState.sourceWindow = getPageWindow(win);
     const popup = ensureManagerUi(managerState.sourceWindow);
     if (popup && typeof popup.focus === "function") popup.focus();
     renderManager(managerState.sourceWindow);
@@ -1265,7 +1309,7 @@
   function registerMenus(win) {
     const registerMenu = getFunction("GM_registerMenuCommand");
     if (typeof registerMenu !== "function") return;
-    const sourceWindow = win || root;
+    const sourceWindow = getPageWindow(win);
     registerMenu("VX Console 열기", function onOpenManager() {
       openManager(sourceWindow);
     });
@@ -1277,7 +1321,7 @@
       try {
         const nextRegistry = await refreshRegistry();
         await prewarmEnabledScripts(nextRegistry || registry);
-        if (isManagerOpen()) await renderManager(win || root);
+        if (isManagerOpen()) await renderManager(getPageWindow(win));
       } catch (error) {
         if (root && root.console && typeof root.console.error === "function") {
           root.console.error("[VX Console] background refresh failed", error);
@@ -1287,7 +1331,8 @@
   }
 
   async function bootstrap(win) {
-    const scope = win || root;
+    const scope = getPageWindow(win);
+    managerState.bootWindow = scope;
     registerMenus(scope);
 
     let registry = readCachedRegistry();
