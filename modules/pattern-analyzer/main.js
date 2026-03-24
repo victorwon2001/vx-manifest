@@ -1398,7 +1398,7 @@
 
   return {
     id: MODULE_ID,
-    version: "0.1.8",
+    version: "0.1.9",
     name: MODULE_NAME,
     matches: MATCHES,
     LEFTOVER_PATTERN_ID,
@@ -1421,6 +1421,7 @@
     createPopupHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
