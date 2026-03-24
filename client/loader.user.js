@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.5
+// @version      0.4.6
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -41,7 +41,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.4.5";
+  const LOADER_VERSION = "0.4.6";
   const LOADER_API_VERSION = 2;
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
@@ -488,7 +488,13 @@
   }
 
   function fetchText(url) {
-    return gmRequest({ method: "GET", url }).then((response) => String(response.responseText || ""));
+    return gmRequest({ method: "GET", url }).then((response) => {
+      const status = Number(response && response.status);
+      if (Number.isFinite(status) && status >= 400) {
+        throw new Error("HTTP " + status + " for " + url);
+      }
+      return String(response && response.responseText ? response.responseText : "");
+    });
   }
 
   function fetchJson(url) {
@@ -565,10 +571,27 @@
     return assetCode;
   }
 
+  function clearAssetCode(scriptId, dependency) {
+    const assetKey = buildAssetCacheKey(scriptId, dependency.id || dependency.path);
+    deleteValue(assetKey);
+    return assetKey;
+  }
+
   async function loadCachedOrRemoteAsset(scriptId, dependency, options) {
-    const code = await ensureAssetCode(scriptId, dependency, options);
-    evaluateLooseScript(code, options && options.window ? options.window : root, dependency.path || dependency.id || "asset.js");
-    return code;
+    const scope = options && options.window ? options.window : root;
+    const filename = dependency.path || dependency.id || "asset.js";
+    const preferCache = !options || options.preferCache !== false;
+    let code = await ensureAssetCode(scriptId, dependency, options);
+    try {
+      evaluateLooseScript(code, scope, filename);
+      return code;
+    } catch (error) {
+      if (!preferCache) throw error;
+      clearAssetCode(scriptId, dependency);
+      code = await ensureAssetCode(scriptId, dependency, { preferCache: false });
+      evaluateLooseScript(code, scope, filename);
+      return code;
+    }
   }
 
   async function prewarmScriptAssets(script, meta, options) {
@@ -594,6 +617,10 @@
     });
     if (syncedMeta) setValue(keys.meta, JSON.stringify(syncedMeta));
     return code;
+  }
+
+  function clearScriptCode(scriptId) {
+    deleteValue(buildScriptStorageKeys(scriptId).code);
   }
 
   async function loadScriptMeta(script, options) {
@@ -715,10 +742,17 @@
       });
     }
 
-    const code = await loadScriptCode(script, meta, {
-      preferCache: !options || options.preferCache !== false,
-    });
-    const moduleApi = evaluateModule(code, win, meta.entry || script.id + ".js");
+    const preferCache = !options || options.preferCache !== false;
+    let code = await loadScriptCode(script, meta, { preferCache });
+    let moduleApi;
+    try {
+      moduleApi = evaluateModule(code, win, meta.entry || script.id + ".js");
+    } catch (error) {
+      if (!preferCache) throw error;
+      clearScriptCode(script.id);
+      code = await loadScriptCode(script, meta, { preferCache: false });
+      moduleApi = evaluateModule(code, win, meta.entry || script.id + ".js");
+    }
     if (!moduleApi || typeof moduleApi.run !== "function") return null;
 
     const context = {

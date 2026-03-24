@@ -510,6 +510,64 @@ test("bootstrap cold start fetches registry, meta and code remotely", async () =
   }
 });
 
+test("bootstrap refetches broken cached dependency assets before running modules", async () => {
+  const env = createGmEnvironment({
+    GM_xmlhttpRequest(details) {
+      if (details.url !== loader.RAW_BASE_URL + "shared/retry-dep.js") {
+        throw new Error("unexpected URL: " + details.url);
+      }
+      details.onload({
+        status: 200,
+        responseText: 'window.__depLoaded=(window.__depLoaded||0)+1;',
+        response: 'window.__depLoaded=(window.__depLoaded||0)+1;',
+        responseHeaders: "content-type: application/javascript",
+      });
+    },
+  });
+
+  try {
+    const scriptId = "bootstrap-bad-asset";
+    const keys = loader.buildScriptStorageKeys(scriptId);
+    const registryCache = {
+      version: 1,
+      scripts: [
+        {
+          id: scriptId,
+          name: scriptId,
+          enabledByDefault: true,
+          matches: ["https://example.com/*"],
+          metaPath: "modules/bootstrap-bad-asset/meta.json",
+        },
+      ],
+    };
+    env.store.set("tm-loader:v1:registry:raw", JSON.stringify(registryCache));
+    env.store.set(keys.meta, JSON.stringify({
+      id: scriptId,
+      name: scriptId,
+      version: "1.0.0",
+      entry: "modules/bootstrap-bad-asset/main.js",
+      checksum: "",
+      dependencies: [
+        { id: "dep", version: "1.0.0", path: "shared/retry-dep.js" },
+      ],
+      capabilities: { gm: [] },
+      loaderApiVersion: 2,
+      checkedAt: "2026-03-24T00:00:00.000Z",
+      lastSyncedAt: "2026-03-24T00:00:00.000Z",
+    }));
+    env.store.set(keys.code, 'module.exports={id:"bootstrap-bad-asset",run(context){context.window.__loaderRuns=(context.window.__loaderRuns||[]).concat(context.window.__depLoaded||0);}};');
+    env.store.set("tm-loader:v1:asset:bootstrap-bad-asset:dep", "broken:");
+
+    const fakeWindow = createFakeWindow("https://example.com/dashboard");
+    await loader.bootstrap(fakeWindow);
+
+    assert.deepEqual(fakeWindow.__loaderRuns, [1]);
+    assert.equal(env.store.get("tm-loader:v1:asset:bootstrap-bad-asset:dep"), 'window.__depLoaded=(window.__depLoaded||0)+1;');
+  } finally {
+    env.restore();
+  }
+});
+
 test("registry and remote meta expose the requested display names", () => {
   assert.equal(registry.scripts[0].name, "송장출력(스캔) 필터링");
   assert.equal(remoteMeta.name, "송장출력(스캔) 필터링");
