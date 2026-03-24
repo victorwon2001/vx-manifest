@@ -136,7 +136,30 @@ module.exports = (function (root) {
 - 부작용 있는 자동 실행은 `run(context)` 안에서만 시작한다.
 - top-level에서 대상 페이지 DOM을 바로 건드리지 않는다.
 
-## 6. dependency와 공통 자산
+## 6. 디자인 기준
+
+신규 모듈 UI는 기존 디자인을 기준으로 맞춘다.  
+같은 표면에 뜨는 모듈이면 새 레이아웃을 발명하기보다 기존 셸과 토큰을 재사용하는 것이 우선이다.
+
+기본 원칙:
+
+- 먼저 기존 모듈과 `shared/module-ui.js`를 읽고, 이미 있는 패널/팝업/툴바 구조를 최대한 따른다.
+- 같은 표면이면 같은 밀도와 톤을 유지한다.
+  - 임베디드 툴바형
+  - 플로팅 패널형
+  - 독립 팝업형
+- 색은 상태 강조나 주요 액션에만 제한적으로 쓴다.
+- 과한 카드 중첩, 과한 그라디언트, 과한 장식보다 읽기 쉬운 운영 UI를 우선한다.
+- 버튼 높이, 필드 높이, 테이블 패딩은 기존 모듈과 맞춘다.
+- 가능하면 공통 클래스와 토큰으로 해결하고, 모듈 전용 CSS는 부족한 부분만 최소로 추가한다.
+
+실무 기준:
+
+- `shared/module-ui.js`로 표현 가능한 구조면 새 스타일 시스템을 만들지 않는다.
+- 같은 기능군의 기존 모듈이 있으면 제목 구조, 상태 바, 액션 배치, 테이블 모양을 먼저 참고한다.
+- 새 폰트, 새 색 체계, 새 상호작용 패턴은 기존 UI로 해결이 안 될 때만 검토한다.
+
+## 7. dependency와 공통 자산
 
 공통 UI나 vendor 자산이 필요하면 `meta.json`의 `dependencies`에 넣는다.
 
@@ -149,7 +172,7 @@ module.exports = (function (root) {
 로더는 dependency를 먼저 평가하고, 이후 모듈 본체를 실행한다.  
 캐시된 dependency가 깨져 있어도 현재 로더는 자동으로 다시 받아 복구한다.
 
-## 7. 테스트와 검증
+## 8. 테스트와 검증
 
 신규 모듈 추가 후 최소한 아래 검증은 돌린다.
 
@@ -164,7 +187,7 @@ node --test C:\Users\victor\tamp스크립트\tests\*.test.js
 - HTML builder / 상태 reducer / parser 같은 순수 함수 테스트
 - registry/meta 정합성 테스트
 
-## 8. 릴리스
+## 9. 릴리스
 
 모듈 추가나 개선은 `tools/release.ps1`로 버전, changelog, commit, push를 같이 처리한다.
 
@@ -181,7 +204,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\victor\tamp스크립트\tools\
 
 공통 자산도 같이 바뀌면 `shared/module-ui.js` 같은 파일을 `-ExtraPaths`에 추가한다.
 
-## 9. 관리창 노출과 반영
+## 10. 관리창 노출과 반영
 
 중요한 점:
 
@@ -189,7 +212,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\victor\tamp스크립트\tools\
 - 기능 브랜치에만 올린 신규 모듈은 관리창에 보이지 않는다.
 - 사용자가 로더에서 바로 테스트하길 원하면 최종적으로 `main`에 반영해야 한다.
 
-## 10. 로더 재설치가 필요한지 판단
+## 11. 로더 재설치가 필요한지 판단
 
 아래는 로더 재설치가 필요 없다.
 
@@ -207,7 +230,7 @@ powershell -ExecutionPolicy Bypass -File C:\Users\victor\tamp스크립트\tools\
 - 새 grant/connect 요구가 생긴 경우
 - `context.loader` 계약 변경
 
-## 11. 실제 작업 체크리스트
+## 12. 실제 작업 체크리스트
 
 작업 전에:
 
@@ -215,14 +238,16 @@ powershell -ExecutionPolicy Bypass -File C:\Users\victor\tamp스크립트\tools\
 2. `moduleId` 결정
 3. 페이지 매칭 규칙 정리
 4. dependency 필요 여부 정리
+5. 기존 디자인 참고 대상 선정
 
 작업 중:
 
 1. `meta.json` 생성
 2. `main.js` 생성
 3. `config/registry.json` 등록
-4. 테스트 추가/수정
-5. `validate-manifest` 통과 확인
+4. 기존 모듈과 공통 UI 기준으로 구조와 스타일 맞춤
+5. 테스트 추가/수정
+6. `validate-manifest` 통과 확인
 
 작업 후:
 

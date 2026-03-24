@@ -50,8 +50,9 @@
 4. `meta.json`에 `id`, `name`, `version`, `entry`, `dependencies`, `loaderApiVersion`를 맞춘다.
 5. `main.js`는 `module.exports = { id, name, version, matches, run }` 계약을 지킨다.
 6. 공통 기능은 전역 GM 함수 대신 `context.loader`를 기본 사용 경로로 삼는다.
-7. 테스트와 `node tools/validate-manifest.js`를 통과시킨다.
-8. 릴리스 후 `main`에 반영해야 관리창에서 보인다.
+7. 디자인은 기존 모듈과 `shared/module-ui.js`를 먼저 참고하고, 같은 표면이면 같은 톤과 밀도를 유지한다.
+8. 테스트와 `node tools/validate-manifest.js`를 통과시킨다.
+9. 릴리스 후 `main`에 반영해야 관리창에서 보인다.
 
 상세 절차는 [docs/module-addition.md](C:/Users/victor/tamp스크립트/docs/module-addition.md)를 본다.
 
