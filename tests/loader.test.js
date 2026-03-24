@@ -273,6 +273,33 @@ test("buildManagerRows surfaces remote status badges for new modules", () => {
   assert.equal(rows[1].hasUpdate, false);
 });
 
+test("buildManagerRows surfaces redeploy status when checksum changes without version bump", () => {
+  const rows = loader.buildManagerRows({
+    registry: {
+      scripts: [
+        { id: "module-a", name: "workspace-a", enabledByDefault: true, matches: ["https://example.com/*"] },
+      ],
+    },
+    url: "https://example.com/a",
+    localStateById: {
+      "module-a": {
+        enabledOverride: true,
+        meta: { version: "0.1.0", checksum: "cached-a", lastSyncedAt: "2026-03-24T03:00:00.000Z" },
+      },
+    },
+    remoteMetaById: {
+      "module-a": { version: "0.1.0", checksum: "remote-b" },
+    },
+    remoteStatusById: {
+      "module-a": { kind: "redeploy", version: "0.1.0", checksum: "remote-b" },
+    },
+  });
+
+  assert.equal(rows[0].isRedeploy, true);
+  assert.equal(rows[0].hasUpdate, false);
+  assert.equal(rows[0].statusKind, "redeploy");
+});
+
 test("getManagerWindowFeatures builds popup sizing string", () => {
   const features = loader.getManagerWindowFeatures();
   assert.match(features, /width=1160/);
@@ -361,11 +388,28 @@ test("loader source wires sync execution and busy status messaging", () => {
 });
 
 test("loader source forces registry refresh for manual manager sync actions", () => {
-  assert.match(loaderSource, /await syncScripts\("current-page", \{ window: sourceWindow, forceRegistry: true \}\)/);
-  assert.match(loaderSource, /await syncScripts\("all", \{ window: sourceWindow, forceRegistry: true \}\)/);
-  assert.match(loaderSource, /await syncScripts\(scriptId, \{ window: sourceWindow, forceRegistry: true \}\)/);
-  assert.match(loaderSource, /await refreshRegistry\(\{ force: true \}\);\s*await renderManager\(sourceWindow\)/);
+  assert.match(loaderSource, /syncScripts\("current-page", \{ window: sourceWindow, forceRegistry: true, waitForLock: true \}\)/);
+  assert.match(loaderSource, /syncScripts\("all", \{ window: sourceWindow, forceRegistry: true, waitForLock: true \}\)/);
+  assert.match(loaderSource, /syncScripts\(scriptId, \{ window: sourceWindow, forceRegistry: true, waitForLock: true \}\)/);
+  assert.match(loaderSource, /refreshRegistryState\(\{ force: true, waitForLock: true, refreshAllMeta: true, window: sourceWindow \}\)/);
   assert.match(loaderSource, /const forceRegistry = !options \|\| options\.forceRegistry !== false;/);
+  assert.match(loaderSource, /waitForRefreshLock\(REGISTRY_LOCK_KEY/);
+});
+
+test("loader version comes from runtime metadata instead of a stale hard-coded constant", () => {
+  assert.doesNotMatch(loaderSource, /const LOADER_VERSION\s*=/);
+
+  const originalGmInfo = global.GM_info;
+  global.GM_info = { script: { version: "0.5.0" } };
+  try {
+    assert.equal(loader.getLoaderVersion(), "0.5.0");
+  } finally {
+    if (typeof originalGmInfo === "undefined") {
+      delete global.GM_info;
+    } else {
+      global.GM_info = originalGmInfo;
+    }
+  }
 });
 
 test("createLoaderApi exposes storage and convenience helpers", () => {
@@ -574,6 +618,295 @@ test("bootstrap refetches broken cached dependency assets before running modules
 
     assert.deepEqual(fakeWindow.__loaderRuns, [1]);
     assert.equal(env.store.get("tm-loader:v1:asset:bootstrap-bad-asset:dep"), 'window.__depLoaded=(window.__depLoaded||0)+1;');
+  } finally {
+    env.restore();
+  }
+});
+
+test("readRemote maps lazily migrate legacy blob entries to per-script keys", () => {
+  const env = createGmEnvironment();
+  try {
+    env.store.set("tm-loader:v1:remote:meta", JSON.stringify({
+      "module-a": { version: "0.2.0", entry: "modules/module-a/main.js", checksum: "abc" },
+    }));
+    env.store.set("tm-loader:v1:remote:status", JSON.stringify({
+      "module-a": { kind: "update", version: "0.2.0", checksum: "abc" },
+    }));
+
+    const metaMap = loader.readRemoteMetaMap();
+    const statusMap = loader.readRemoteStatusMap();
+
+    assert.equal(metaMap["module-a"].version, "0.2.0");
+    assert.equal(statusMap["module-a"].kind, "update");
+    assert.equal(env.store.has("tm-loader:v1:remote:meta"), false);
+    assert.equal(env.store.has("tm-loader:v1:remote:status"), false);
+    assert.equal(env.store.has("tm-loader:v1:remote:meta:module-a"), true);
+    assert.equal(env.store.has("tm-loader:v1:remote:status:module-a"), true);
+  } finally {
+    env.restore();
+  }
+});
+
+test("refreshRegistryState refreshes existing module remote meta for manual refresh", async () => {
+  const responses = new Map([
+    [
+      loader.REGISTRY_URL,
+      JSON.stringify({
+        version: 1,
+        scripts: [
+          {
+            id: "manual-refresh",
+            name: "manual-refresh",
+            enabledByDefault: true,
+            matches: ["https://example.com/*"],
+            metaPath: "modules/manual-refresh/meta.json",
+          },
+        ],
+      }),
+    ],
+    [
+      loader.RAW_BASE_URL + "modules/manual-refresh/meta.json",
+      JSON.stringify({
+        id: "manual-refresh",
+        name: "manual-refresh",
+        version: "0.2.0",
+        entry: "modules/manual-refresh/main.js",
+        checksum: "remote-020",
+        dependencies: [],
+        capabilities: { gm: [] },
+        loaderApiVersion: 2,
+      }),
+    ],
+  ]);
+  const env = createGmEnvironment({
+    GM_xmlhttpRequest(details) {
+      const body = responses.get(details.url);
+      if (!body) throw new Error("unexpected URL: " + details.url);
+      details.onload({
+        status: 200,
+        responseText: body,
+        response: body,
+        responseHeaders: "content-type: application/json",
+      });
+    },
+  });
+
+  try {
+    env.store.set("tm-loader:v1:registry:raw", JSON.stringify({
+      version: 1,
+      scripts: [
+        {
+          id: "manual-refresh",
+          name: "manual-refresh",
+          enabledByDefault: true,
+          matches: ["https://example.com/*"],
+          metaPath: "modules/manual-refresh/meta.json",
+        },
+      ],
+    }));
+    env.store.set("tm-loader:v1:script:manual-refresh:meta", JSON.stringify({
+      id: "manual-refresh",
+      name: "manual-refresh",
+      version: "0.1.0",
+      entry: "modules/manual-refresh/main.js",
+      checksum: "cached-010",
+      dependencies: [],
+      capabilities: { gm: [] },
+      loaderApiVersion: 2,
+    }));
+
+    const result = await loader.refreshRegistryState({ force: true, refreshAllMeta: true, waitForLock: true });
+    const remoteMetaMap = loader.readRemoteMetaMap();
+    const remoteStatusMap = loader.readRemoteStatusMap();
+
+    assert.equal(result.scriptCount, 1);
+    assert.equal(remoteMetaMap["manual-refresh"].version, "0.2.0");
+    assert.equal(remoteStatusMap["manual-refresh"].kind, "update");
+  } finally {
+    env.restore();
+  }
+});
+
+test("refreshRegistryState removes deleted modules and local overrides immediately", async () => {
+  const env = createGmEnvironment({
+    GM_xmlhttpRequest(details) {
+      if (details.url !== loader.REGISTRY_URL) throw new Error("unexpected URL: " + details.url);
+      details.onload({
+        status: 200,
+        responseText: JSON.stringify({ version: 1, scripts: [] }),
+        response: JSON.stringify({ version: 1, scripts: [] }),
+        responseHeaders: "content-type: application/json",
+      });
+    },
+  });
+
+  try {
+    const removedScript = {
+      id: "removed-script",
+      name: "removed-script",
+      enabledByDefault: true,
+      matches: ["https://example.com/*"],
+      metaPath: "modules/removed-script/meta.json",
+    };
+    const keys = loader.buildScriptStorageKeys("removed-script");
+    env.store.set("tm-loader:v1:registry:raw", JSON.stringify({ version: 1, scripts: [removedScript] }));
+    env.store.set(keys.enabled, false);
+    env.store.set(keys.meta, JSON.stringify({
+      id: "removed-script",
+      name: "removed-script",
+      version: "0.1.0",
+      entry: "modules/removed-script/main.js",
+      checksum: "cached",
+      dependencies: [],
+      capabilities: { gm: [] },
+      loaderApiVersion: 2,
+    }));
+    env.store.set("tm-loader:v1:remote:meta:removed-script", JSON.stringify({
+      id: "removed-script",
+      version: "0.2.0",
+      entry: "modules/removed-script/main.js",
+      checksum: "remote",
+    }));
+    env.store.set("tm-loader:v1:remote:status:removed-script", JSON.stringify({
+      kind: "update",
+      version: "0.2.0",
+      checksum: "remote",
+    }));
+
+    const result = await loader.refreshRegistryState({
+      force: true,
+      waitForLock: true,
+      window: { setTimeout },
+    });
+
+    assert.equal(result.removedCount, 1);
+    assert.equal(env.store.has(keys.enabled), false);
+    assert.equal(env.store.has(keys.meta), false);
+    assert.equal(env.store.has("tm-loader:v1:remote:meta:removed-script"), false);
+    assert.equal(env.store.has("tm-loader:v1:remote:status:removed-script"), false);
+  } finally {
+    env.restore();
+  }
+});
+
+test("refreshRegistryState waits for registry lock before confirming manual refresh", async () => {
+  const env = createGmEnvironment({
+    GM_xmlhttpRequest(details) {
+      if (details.url !== loader.REGISTRY_URL) throw new Error("unexpected URL: " + details.url);
+      details.onload({
+        status: 200,
+        responseText: JSON.stringify({ version: 1, scripts: [] }),
+        response: JSON.stringify({ version: 1, scripts: [] }),
+        responseHeaders: "content-type: application/json",
+      });
+    },
+  });
+
+  try {
+    env.store.set("tm-loader:v1:registry:lock", Date.now() + 200);
+    setTimeout(() => env.store.delete("tm-loader:v1:registry:lock"), 20);
+
+    const startedAt = Date.now();
+    const result = await loader.refreshRegistryState({ force: true, waitForLock: true });
+
+    assert.equal(result.waited, true);
+    assert.ok(Date.now() - startedAt >= 20);
+  } finally {
+    env.restore();
+  }
+});
+
+test("syncScripts reconciles checksum-only redeploys to clean after manual sync", async () => {
+  const responses = new Map([
+    [
+      loader.REGISTRY_URL,
+      JSON.stringify({
+        version: 1,
+        scripts: [
+          {
+            id: "redeploy-script",
+            name: "redeploy-script",
+            enabledByDefault: true,
+            matches: ["https://example.com/*"],
+            metaPath: "modules/redeploy-script/meta.json",
+          },
+        ],
+      }),
+    ],
+    [
+      loader.RAW_BASE_URL + "modules/redeploy-script/meta.json",
+      JSON.stringify({
+        id: "redeploy-script",
+        name: "redeploy-script",
+        version: "1.0.0",
+        entry: "modules/redeploy-script/main.js",
+        checksum: "remote-2",
+        dependencies: [],
+        capabilities: { gm: [] },
+        loaderApiVersion: 2,
+      }),
+    ],
+    [
+      loader.RAW_BASE_URL + "modules/redeploy-script/main.js",
+      'module.exports={id:"redeploy-script",run(context){context.window.__redeployRuns=(context.window.__redeployRuns||0)+1;}};',
+    ],
+  ]);
+  const env = createGmEnvironment({
+    GM_xmlhttpRequest(details) {
+      const body = responses.get(details.url);
+      if (!body) throw new Error("unexpected URL: " + details.url);
+      details.onload({
+        status: 200,
+        responseText: body,
+        response: body,
+        responseHeaders: "content-type: application/json",
+      });
+    },
+  });
+
+  try {
+    const scriptId = "redeploy-script";
+    const keys = loader.buildScriptStorageKeys(scriptId);
+    env.store.set("tm-loader:v1:registry:raw", JSON.stringify({
+      version: 1,
+      scripts: [
+        {
+          id: scriptId,
+          name: scriptId,
+          enabledByDefault: true,
+          matches: ["https://example.com/*"],
+          metaPath: "modules/redeploy-script/meta.json",
+        },
+      ],
+    }));
+    env.store.set(keys.meta, JSON.stringify({
+      id: scriptId,
+      name: scriptId,
+      version: "1.0.0",
+      entry: "modules/redeploy-script/main.js",
+      checksum: "cached-1",
+      dependencies: [],
+      capabilities: { gm: [] },
+      loaderApiVersion: 2,
+      checkedAt: "2026-03-24T00:00:00.000Z",
+      lastSyncedAt: "2026-03-24T00:00:00.000Z",
+    }));
+    env.store.set(keys.code, 'module.exports={id:"redeploy-script",run(context){context.window.__redeployRuns=(context.window.__redeployRuns||0)+1;}};');
+
+    const fakeWindow = createFakeWindow("https://example.com/dashboard");
+    const result = await loader.syncScripts("current-page", {
+      window: fakeWindow,
+      forceRegistry: true,
+      waitForLock: true,
+    });
+    const remoteStatusMap = loader.readRemoteStatusMap();
+    const syncedMeta = JSON.parse(env.store.get(keys.meta));
+
+    assert.equal(result.targetCount, 1);
+    assert.equal(result.runCount, 1);
+    assert.equal(fakeWindow.__redeployRuns, 1);
+    assert.equal(remoteStatusMap[scriptId].kind, "clean");
+    assert.equal(syncedMeta.checksum, "remote-2");
   } finally {
     env.restore();
   }
