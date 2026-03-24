@@ -162,7 +162,6 @@ test("shipping mode theme separates ship and cancel visuals", () => {
 
 test("buildPatternPrintDocumentHtml returns standalone print document", () => {
   const html = analyzer.buildPatternPrintDocumentHtml({
-    printedAt: "2026-03-24",
     dateLabel: "2026-03-23",
     siteLabel: "스토어A",
     exprLabel: "택배사A",
@@ -187,12 +186,15 @@ test("buildPatternPrintDocumentHtml returns standalone print document", () => {
   });
 
   assert.match(html, /<!doctype html>/i);
-  assert.match(html, /Pattern Print/);
+  assert.match(html, /batch-list/);
+  assert.match(html, /pattern-table/);
   assert.match(html, /차수 정보/);
   assert.match(html, /패턴 정보/);
   assert.match(html, /스토어A/);
   assert.match(html, /tone-even/);
   assert.match(html, /window\.print/);
+  assert.doesNotMatch(html, /Pattern Print/);
+  assert.doesNotMatch(html, /송장수/);
 });
 
 test("resolvePrintableBatches keeps only analyzed batch rows for printing", () => {

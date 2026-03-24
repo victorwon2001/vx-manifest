@@ -13,6 +13,7 @@
   const HISTORY_KEEP_DAYS = 14;
   const RECENT_MISMATCH_LIMIT = 20;
   const BRIDGE_RETRY_LIMIT = 40;
+  let runtimeContext = null;
 
   function SessionExpiredError(message) {
     this.name = "SessionExpiredError";
@@ -600,6 +601,10 @@
     return state;
   }
   function resolveBinaryRequestTransport(scope) {
+    const loaderRequest = runtimeContext && runtimeContext.loader && typeof runtimeContext.loader.gmRequest === "function"
+      ? runtimeContext.loader.gmRequest
+      : null;
+    if (loaderRequest) return { kind: "loader-gm", request: loaderRequest };
     const win = scope || root;
     const gmTransport = (win && win.GM_xmlhttpRequest) || (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
     if (typeof gmTransport === "function") return { kind: "gm", request: gmTransport };
@@ -659,6 +664,10 @@
     const requestScope = resolveRequestScope(scope);
     const transport = resolveBinaryRequestTransport(requestScope);
     if (!transport) return Promise.reject(new Error("상세 XLS 다운로드 전송 수단을 찾지 못했습니다."));
+
+    if (transport.kind === "loader-gm") {
+      return transport.request(details);
+    }
 
     if (transport.kind === "gm") {
       return new Promise((resolve, reject) => {
@@ -1710,13 +1719,14 @@
   }
 
   function run(context) {
+    runtimeContext = context || null;
     const win = context && context.window ? context.window : root;
     start(win);
   }
 
   return {
     id: "module-a",
-    version: "0.1.7",
+    version: "0.1.8",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1757,6 +1767,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

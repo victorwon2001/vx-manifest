@@ -23,6 +23,7 @@ const remoteMeta = require(resolveRepoPath(["../scripts/site3217/meta.json", "..
 const patternAnalyzerMeta = require(resolveRepoPath(["../modules/pattern-analyzer/meta.json"]));
 const stockMoveAutomationMeta = require(resolveRepoPath(["../modules/stock-move-automation/meta.json"]));
 const orderImportSyncMeta = require(resolveRepoPath(["../modules/order-import-sync/meta.json"]));
+const loaderSource = fs.readFileSync(resolveRepoPath(["../loader/loader.user.js", "../client/loader.user.js"]), "utf8");
 
 test("matchUrlPattern handles trailing wildcard", () => {
   assert.equal(
@@ -187,6 +188,11 @@ test("loader points to neutral public repo paths", () => {
   assert.match(loader.REGISTRY_URL, /vx-manifest/);
   assert.match(loader.REGISTRY_URL, /config\/registry\.json/);
   assert.doesNotMatch(loader.REGISTRY_URL, /tamp-scripts|registry\/registry/);
+});
+
+test("loader allows excel redirects and forwards gmRequest to modules", () => {
+  assert.match(loaderSource, /@connect\s+ebutexcel\.co\.kr/);
+  assert.match(loaderSource, /loader:\s*\{[\s\S]*gmRequest,/);
 });
 
 test("registry and remote meta avoid obvious public labels", () => {

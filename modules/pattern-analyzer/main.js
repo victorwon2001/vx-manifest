@@ -332,49 +332,46 @@
     const filters = settings.filters || {};
     const batches = Array.isArray(settings.batches) ? settings.batches : [];
     const patterns = Array.isArray(settings.patterns) ? settings.patterns : [];
+    const metaItems = [
+      settings.dateLabel ? "기준일 " + escapeHtml(settings.dateLabel) : "",
+      settings.siteLabel ? "판매처 " + escapeHtml(settings.siteLabel) : "",
+      settings.exprLabel ? "택배사 " + escapeHtml(settings.exprLabel) : "",
+      (filters.includeKeywords || []).length ? "포함 " + escapeHtml((filters.includeKeywords || []).join(", ")) : "",
+      (filters.excludeKeywords || []).length ? "제외 " + escapeHtml((filters.excludeKeywords || []).join(", ")) : "",
+      filters.minRepetition ? "최소반복 " + escapeHtml(String(filters.minRepetition)) : "",
+    ].filter(Boolean);
     const batchRows = batches.length ? batches.map((batch, index) => [
-      "<tr class='" + (index % 2 === 0 ? "tone-even" : "tone-odd") + "'>",
-      "<td>" + escapeHtml(safeTrim(batch.ivmstr_ivno) ? safeTrim(batch.ivmstr_ivno) + "차" : "-") + "</td>",
-      "<td>" + escapeHtml(batch.site_name || "-") + "</td>",
-      "<td>" + escapeHtml(batch.expr_name || "-") + "</td>",
-      "<td>" + escapeHtml(String(parseInt(batch.ivcnt, 10) || 0)) + "</td>",
-      "<td class='left'>" + escapeHtml(batch.ivmstr_memo || "-") + "</td>",
-      "</tr>",
-    ].join("")).join("") : "<tr><td colspan='5'>출력할 차수 정보가 없습니다.</td></tr>";
+      "<li class='batch-item " + (index % 2 === 0 ? "tone-even" : "tone-odd") + "'>",
+      "<span class='batch-no'>" + escapeHtml(safeTrim(batch.ivmstr_ivno) ? safeTrim(batch.ivmstr_ivno) + "차" : "-") + "</span>",
+      "<span class='batch-site'>" + escapeHtml(batch.site_name || "-") + "</span>",
+      "<span class='batch-expr'>" + escapeHtml(batch.expr_name || "-") + "</span>",
+      "<span class='batch-count'>" + escapeHtml(String(parseInt(batch.ivcnt, 10) || 0)) + "건</span>",
+      "<span class='batch-memo'>" + escapeHtml(batch.ivmstr_memo || "-") + "</span>",
+      "</li>",
+    ].join("")).join("") : "<li class='batch-item'><span class='batch-memo'>출력할 차수 정보가 없습니다.</span></li>";
     const patternRows = patterns.length ? patterns.map((pattern, index) => {
       const toneClass = index % 2 === 0 ? "tone-even" : "tone-odd";
       return (pattern.items || []).map((item, itemIndex) => [
         "<tr class='" + toneClass + "'>",
         itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + (index + 1) + "</td>" : "",
-        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + escapeHtml((pattern.batchNumbers || []).map((value) => safeTrim(value) ? safeTrim(value) + "차" : "").filter(Boolean).join(", ") || "-") + "</td>" : "",
-        "<td class='left'>" + escapeHtml(item.productName || "-") + "</td>",
-        "<td>" + escapeHtml(item.managementName || "-") + "</td>",
+        "<td class='left product-cell'>" + escapeHtml(item.productName || "-") + "</td>",
+        "<td class='left management-cell'>" + escapeHtml(item.managementName || "-") + "</td>",
         "<td>" + escapeHtml(item.optionName || "-") + "</td>",
         "<td>" + escapeHtml(String(item.quantity || 0)) + "</td>",
         itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + escapeHtml(String(pattern.count || 0)) + "</td>" : "",
-        itemIndex === 0 ? "<td rowspan='" + pattern.items.length + "'>" + escapeHtml(String((pattern.invoices || []).length || 0)) + "</td>" : "",
         "</tr>",
       ].join("")).join("");
-    }).join("") : "<tr><td colspan='8'>출력할 패턴 정보가 없습니다.</td></tr>";
+    }).join("") : "<tr><td colspan='6'>출력할 패턴 정보가 없습니다.</td></tr>";
 
     return [
       "<!doctype html><html lang='ko'><head><meta charset='utf-8'><title>" + MODULE_NAME + " 인쇄</title><style>",
-      "@page{size:A4 landscape;margin:14mm}",
-      "body{margin:0;padding:24px;font-family:'Public Sans','Noto Sans KR','Segoe UI','Malgun Gothic',sans-serif;color:#1f2728;background:#fff}",
-      ".sheet{display:grid;gap:20px}.header{display:grid;gap:12px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#455a64}.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}.title{margin:0;font-size:28px;letter-spacing:-.04em}.stamp{font-size:12px;color:#4f5758}.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.meta-item{padding:10px 12px;border:1px solid #d8dfdf;border-radius:12px;background:#f6f7f7}.meta-item strong{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5c6668;margin-bottom:6px}.meta-item span{font-size:13px;color:#1f2728}.section{display:grid;gap:10px}.section h2{margin:0;font-size:16px;letter-spacing:-.02em}.section-note{font-size:12px;color:#4f5758}.table{width:100%;border-collapse:collapse;table-layout:fixed}.table th,.table td{padding:9px 10px;border:1px solid #d8dfdf;font-size:12px;text-align:center;vertical-align:middle}.table th{background:#eef1f1;color:#495255;font-weight:800}.table td.left,.table th.left{text-align:left}.tone-even td{background:#ffffff}.tone-odd td{background:#f7f8f8}.footer-note{font-size:11px;color:#6a7274}",
+      "@page{size:A4 portrait;margin:6mm 5mm 7mm}",
+      "body{margin:0;font-family:'Public Sans','Noto Sans KR','Segoe UI','Malgun Gothic',sans-serif;color:#1f2728;background:#fff;font-size:10.5px;line-height:1.3}",
+      ".sheet{display:grid;gap:10px}.meta-strip{display:flex;flex-wrap:wrap;gap:4px 6px}.meta-chip{display:inline-flex;align-items:center;padding:2px 7px;border:1px solid #d8dfdf;border-radius:999px;background:#f7f8f8;color:#455255;font-size:10px}.section{display:grid;gap:5px}.section h2{margin:0;font-size:12px;letter-spacing:-.02em}.batch-list{list-style:none;margin:0;padding:0;border:1px solid #d7dfdf;border-radius:10px;overflow:hidden}.batch-item{display:grid;grid-template-columns:56px minmax(78px,1fr) minmax(78px,1fr) 48px minmax(0,2fr);gap:6px;align-items:center;padding:4px 6px;border-bottom:1px solid #e3e9e9}.batch-item:last-child{border-bottom:none}.batch-no,.batch-count{font-weight:700;color:#223033}.batch-memo{color:#4e5758;white-space:normal;word-break:break-word}.table{width:100%;border-collapse:collapse}.pattern-table{table-layout:auto}.table th,.table td{padding:4px 6px;border:1px solid #d8dfdf;font-size:10px;text-align:center;vertical-align:middle;line-height:1.25}.table th{background:#eef1f1;color:#495255;font-weight:800}.table td.left,.table th.left{text-align:left}.pattern-table .product-cell,.pattern-table .management-cell{word-break:break-word}.pattern-table .col-pattern{width:34px}.pattern-table .col-product{width:38%}.pattern-table .col-option{width:18%}.pattern-table .col-qty{width:44px}.pattern-table .col-repeat{width:48px}.tone-even td,.tone-even{background:#ffffff}.tone-odd td,.tone-odd{background:#f7f8f8}",
       "</style></head><body><div class='sheet'>",
-      "<section class='header'><div class='eyebrow'>Pattern Print</div><div class='title-row'><h1 class='title'>" + MODULE_NAME + "</h1><div class='stamp'>출력일 " + escapeHtml(settings.printedAt || formatDate(new Date())) + "</div></div>",
-      "<div class='meta'>",
-      "<div class='meta-item'><strong>출력일 기준</strong><span>" + escapeHtml(settings.dateLabel || "-") + "</span></div>",
-      "<div class='meta-item'><strong>판매처</strong><span>" + escapeHtml(settings.siteLabel || "전체") + "</span></div>",
-      "<div class='meta-item'><strong>택배사</strong><span>" + escapeHtml(settings.exprLabel || "전체") + "</span></div>",
-      "<div class='meta-item'><strong>포함검색어</strong><span>" + escapeHtml((filters.includeKeywords || []).join(", ") || "-") + "</span></div>",
-      "<div class='meta-item'><strong>제외검색어</strong><span>" + escapeHtml((filters.excludeKeywords || []).join(", ") || "-") + "</span></div>",
-      "<div class='meta-item'><strong>최소반복수</strong><span>" + escapeHtml(String(filters.minRepetition || 1)) + "</span></div>",
-      "</div></section>",
-      "<section class='section'><h2>차수 정보</h2><div class='section-note'>현재 화면 필터 기준으로 보이는 차수 목록입니다.</div><table class='table'><thead><tr><th>차수</th><th>판매처</th><th>택배사</th><th>건수</th><th class='left'>메모</th></tr></thead><tbody>" + batchRows + "</tbody></table></section>",
-      "<section class='section'><h2>패턴 정보</h2><div class='section-note'>필터가 적용된 패턴 결과만 인쇄합니다.</div><table class='table'><thead><tr><th>패턴</th><th>차수</th><th class='left'>제품명</th><th>관리명</th><th>옵션명</th><th>수량</th><th>반복수</th><th>송장수</th></tr></thead><tbody>" + patternRows + "</tbody></table></section>",
-      "<div class='footer-note'>이 문서는 인쇄 전용 보기입니다.</div>",
+      metaItems.length ? "<div class='meta-strip'>" + metaItems.map((item) => "<span class='meta-chip'>" + item + "</span>").join("") + "</div>" : "",
+      "<section class='section'><h2>차수 정보</h2><ul class='batch-list'>" + batchRows + "</ul></section>",
+      "<section class='section'><h2>패턴 정보</h2><table class='table pattern-table'><thead><tr><th class='col-pattern'>패턴</th><th class='col-product left'>제품명</th><th class='left'>관리명</th><th class='col-option'>옵션명</th><th class='col-qty'>수량</th><th class='col-repeat'>반복수</th></tr></thead><tbody>" + patternRows + "</tbody></table></section>",
       "</div><script>window.addEventListener('load',function(){setTimeout(function(){window.focus();window.print();},120);});window.addEventListener('afterprint',function(){window.close();});<\/script></body></html>",
     ].join("");
   }

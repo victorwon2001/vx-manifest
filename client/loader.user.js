@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.3.2
+// @version      0.3.3
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -15,6 +15,8 @@
 // @grant        GM_notification
 // @grant        GM_addStyle
 // @connect      raw.githubusercontent.com
+// @connect      ebutexcel.co.kr
+// @connect      www.ebut3pl.co.kr
 // @run-at       document-end
 // ==/UserScript==
 
@@ -28,7 +30,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.3.2";
+  const LOADER_VERSION = "0.3.3";
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
   const REPO_NAME = "vx-manifest";
@@ -799,6 +801,7 @@
             registryUrl: REGISTRY_URL,
             script,
             meta,
+            gmRequest,
           },
         });
       } catch (error) {
