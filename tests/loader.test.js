@@ -102,6 +102,14 @@ test("formatSyncTime returns compact timestamp for valid iso values", () => {
   assert.equal(loader.formatSyncTime(""), "-");
 });
 
+test("formatManagerSubtitle strips noisy query strings from the current page label", () => {
+  assert.equal(
+    loader.formatManagerSubtitle("https://www.ebut3pl.co.kr/site/site320save_new?ORDLIST_IVDATE=20260324&ORDLIST_IVNO=17"),
+    "https://www.ebut3pl.co.kr/site/site320save_new"
+  );
+  assert.equal(loader.formatManagerSubtitle("not-a-url"), "not-a-url");
+});
+
 test("buildManagerRows merges registry, page match, cache and remote meta", () => {
   const sampleRegistry = {
     scripts: [
@@ -145,9 +153,11 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
   assert.equal(rows[0].enabled, true);
   assert.equal(rows[0].cachedVersion, "0.2.0");
   assert.equal(rows[0].remoteVersion, "0.2.1");
+  assert.equal(rows[0].hasUpdate, true);
   assert.equal(rows[0].lastSyncedAtLabel, "2026-03-23 08:11");
   assert.equal(rows[1].enabled, false);
   assert.equal(rows[1].appliesHere, false);
+  assert.equal(rows[1].hasUpdate, false);
 });
 
 test("getManagerWindowFeatures builds popup sizing string", () => {

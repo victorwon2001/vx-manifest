@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.3.3
+// @version      0.3.4
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -30,7 +30,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.3.3";
+  const LOADER_VERSION = "0.3.4";
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
   const REPO_NAME = "vx-manifest";
@@ -114,6 +114,33 @@
     return match ? (match[1] + " " + match[2]) : "-";
   }
 
+  function formatManagerSubtitle(url) {
+    try {
+      const currentUrl = new URL(String(url || ""));
+      return currentUrl.origin + currentUrl.pathname;
+    } catch (error) {
+      return String(url || "");
+    }
+  }
+
+  function getManagerRowClassName(row) {
+    return [row.appliesHere ? "tm-applies-row" : "", row.hasUpdate ? "tm-update-row" : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  function renderRemoteVersionCell(row) {
+    if (row.hasRemoteError) {
+      return "<span class='tm-badge tm-badge-error'>?ㅻ쪟</span>";
+    }
+    if (!row.hasUpdate) {
+      return escapeHtml(row.remoteVersion);
+    }
+    return "<div class='tm-version-stack'><span>"
+      + escapeHtml(row.remoteVersion)
+      + "</span><span class='tm-badge tm-badge-update'>?낅뜲?댄듃</span></div>";
+  }
+
   function getValue(key, fallbackValue) {
     if (typeof GM_getValue === "function") return GM_getValue(key, fallbackValue);
     return fallbackValue;
@@ -157,6 +184,8 @@
         enabled: isScriptEnabled(script, localState.enabledOverride),
         cachedVersion: localMeta && localMeta.version ? localMeta.version : "-",
         remoteVersion: remoteMeta && remoteMeta.version ? remoteMeta.version : "-",
+        hasUpdate: !!(localMeta && localMeta.version && remoteMeta && remoteMeta.version && !remoteMeta.error
+          && compareVersions(remoteMeta.version, localMeta.version) > 0),
         hasRemoteError: !!(remoteMeta && remoteMeta.error),
         lastSyncedAtLabel: formatSyncTime(localMeta && localMeta.lastSyncedAt),
       };
@@ -412,7 +441,12 @@
       ".tm-badge-match{background:#edf5f1;border-color:#d1e2da;color:#2f6b57}",
       ".tm-badge-miss{background:#f7f9f9;border-color:#dde4e5;color:#5a6061}",
       ".tm-badge-error{background:#fbefee;border-color:#e2c3c1;color:#9f403d}",
+      ".tm-badge-update{background:#fff1dc;border-color:#ecd7b0;color:#946318}",
       ".tm-actions{display:flex;gap:6px;flex-wrap:wrap}",
+      ".tm-version-stack{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
+      ".tm-update-row td{background:#fff9f0}",
+      ".tm-update-row td:first-child{box-shadow:inset 3px 0 0 #d19a3a}",
+      ".tm-update-row:hover td{background:#fff3e2}",
       ".tm-empty{padding:56px 16px;text-align:center;color:#5a6061}",
       "@media (max-width:980px){#" + MANAGER_ROOT_ID + "{padding:12px}.tm-hero{padding:18px;align-items:flex-start;flex-direction:column}.tm-section-note{text-align:left;max-width:none}.tm-table-head{padding:16px;align-items:flex-start;flex-direction:column}.tm-table-wrap{max-height:none}}",
     ].join("\n");
@@ -578,7 +612,7 @@
     const enabledCount = allRows.filter((row) => row.enabled).length;
 
     elements.doc.title = "VX Console";
-    elements.subtitle.textContent = state.url;
+    elements.subtitle.textContent = formatManagerSubtitle(state.url);
     elements.filterCurrent.className = state.managerFilterCurrentOnly ? "tm-filter-on" : "";
     elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지만";
     elements.syncAll.disabled = !!state.managerBusy;
@@ -597,7 +631,7 @@
     }
 
     elements.rows.innerHTML = rows.map((row) => [
-      "<tr class='" + (row.appliesHere ? "tm-applies-row" : "") + "'>",
+      "<tr class='" + getManagerRowClassName(row) + "'>",
       "<td>",
       "<span class='tm-script-name'>" + escapeHtml(row.name) + "</span>",
       "<span class='tm-script-id'>" + escapeHtml(row.id) + "</span>",
@@ -615,6 +649,13 @@
       "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">다시 동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시 삭제</button></div></td>",
       "</tr>",
     ].join("")).join("");
+
+    rows.forEach((row, index) => {
+      const tableRow = elements.rows.children[index];
+      if (!tableRow) return;
+      const remoteVersionCell = tableRow.children[4];
+      if (remoteVersionCell) remoteVersionCell.innerHTML = renderRemoteVersionCell(row);
+    });
   }
 
   function openManager(state) {
@@ -821,6 +862,7 @@
     compareVersions,
     findMatchingScripts,
     formatSyncTime,
+    formatManagerSubtitle,
     getManagerWindowFeatures,
     isScriptEnabled,
     matchUrlPattern,
