@@ -999,11 +999,11 @@
       try {
         if (action === "sync-current") {
           setManagerStatus("현재 페이지 동기화 중...", true);
-          await syncScripts("current-page", { window: sourceWindow });
+          await syncScripts("current-page", { window: sourceWindow, forceRegistry: true });
           setManagerStatus("현재 페이지 동기화 완료", false);
         } else if (action === "sync-all") {
           setManagerStatus("전체 동기화 중...", true);
-          await syncScripts("all", { window: sourceWindow });
+          await syncScripts("all", { window: sourceWindow, forceRegistry: true });
           setManagerStatus("전체 동기화 완료", false);
         } else if (action === "clear-cache") {
           setManagerStatus("전체 캐시 삭제 중...", true);
@@ -1011,6 +1011,7 @@
           setManagerStatus("전체 캐시 삭제 완료", false);
         } else if (action === "refresh") {
           setManagerStatus("관리창 새로고침 중...", true);
+          await refreshRegistry({ force: true });
           await renderManager(sourceWindow);
           setManagerStatus("관리창 새로고침 완료", false);
         } else if (action === "toggle-script" && scriptId) {
@@ -1020,7 +1021,7 @@
           setManagerStatus(enabled ? "스크립트 활성화 완료" : "스크립트 비활성화 완료", false);
         } else if (action === "sync-script" && scriptId) {
           setManagerStatus("스크립트 동기화 중...", true);
-          await syncScripts(scriptId, { window: sourceWindow });
+          await syncScripts(scriptId, { window: sourceWindow, forceRegistry: true });
           setManagerStatus("스크립트 동기화 완료", false);
         } else if (action === "clear-script" && scriptId) {
           setManagerStatus("스크립트 캐시 삭제 중...", true);
@@ -1254,7 +1255,10 @@
   }
 
   async function syncScripts(scope, options) {
-    const registry = readCachedRegistry() || await refreshRegistry({ force: true });
+    const forceRegistry = !options || options.forceRegistry !== false;
+    const registry = forceRegistry
+      ? await refreshRegistry({ force: true })
+      : (readCachedRegistry() || await refreshRegistry({ force: true }));
     const actionWindow = getPageWindow(options && options.window);
     const currentUrl = actionWindow && actionWindow.location ? actionWindow.location.href : (root.location && root.location.href ? root.location.href : "");
     const scripts = getScriptsFromRegistry(registry);

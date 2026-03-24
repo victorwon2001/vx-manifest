@@ -360,6 +360,14 @@ test("loader source wires sync execution and busy status messaging", () => {
   assert.doesNotMatch(loaderSource, /doc\.__tmManagerBound/);
 });
 
+test("loader source forces registry refresh for manual manager sync actions", () => {
+  assert.match(loaderSource, /await syncScripts\("current-page", \{ window: sourceWindow, forceRegistry: true \}\)/);
+  assert.match(loaderSource, /await syncScripts\("all", \{ window: sourceWindow, forceRegistry: true \}\)/);
+  assert.match(loaderSource, /await syncScripts\(scriptId, \{ window: sourceWindow, forceRegistry: true \}\)/);
+  assert.match(loaderSource, /await refreshRegistry\(\{ force: true \}\);\s*await renderManager\(sourceWindow\)/);
+  assert.match(loaderSource, /const forceRegistry = !options \|\| options\.forceRegistry !== false;/);
+});
+
 test("createLoaderApi exposes storage and convenience helpers", () => {
   const api = loader.createLoaderApi(
     { focus() {} },
