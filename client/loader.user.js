@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.2
+// @version      0.4.4
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -41,7 +41,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.4.2";
+  const LOADER_VERSION = "0.4.4";
   const LOADER_API_VERSION = 2;
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
@@ -876,6 +876,14 @@
     });
   }
 
+  function getActionNode(target) {
+    const node = target && target.nodeType === 1
+      ? target
+      : (target && target.parentElement ? target.parentElement : null);
+    if (!node || typeof node.closest !== "function") return null;
+    return node.closest("[data-action]");
+  }
+
   function isManagerOpen() {
     return !!(managerState.windowRef && !managerState.windowRef.closed);
   }
@@ -902,7 +910,7 @@
     if (!doc || doc.__tmManagerBound) return;
     doc.__tmManagerBound = true;
     doc.addEventListener("click", async (event) => {
-      const actionNode = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
+      const actionNode = getActionNode(event.target);
       if (!actionNode) return;
       if (managerState.busy) return;
       const action = actionNode.getAttribute("data-action");
@@ -941,7 +949,9 @@
         }
       } catch (error) {
         setManagerStatus("실패: " + (error && error.message ? error.message : "알 수 없는 오류"), false);
-        throw error;
+        if (root && root.console && typeof root.console.error === "function") {
+          root.console.error("[VX Console] manager action failed", error);
+        }
       }
     });
   }
@@ -1187,6 +1197,27 @@
     return targets.length;
   }
 
+  async function ensureCurrentPageScriptsRunning(win) {
+    const actionWindow = win || managerState.sourceWindow || root;
+    const registry = readCachedRegistry();
+    if (!registry) return 0;
+    const currentUrl = actionWindow && actionWindow.location ? actionWindow.location.href : "";
+    const targets = findMatchingScripts(registry, currentUrl);
+    for (const script of targets) {
+      try {
+        await runScript(script, actionWindow, {
+          preferCache: true,
+          allowRepeat: false,
+        });
+      } catch (error) {
+        if (root && root.console && typeof root.console.error === "function") {
+          root.console.error("[VX Console] current-page run failed:", script.id, error);
+        }
+      }
+    }
+    return targets.length;
+  }
+
   async function clearScriptCaches(scriptId) {
     purgeScriptCaches(scriptId);
     const statusMap = readRemoteStatusMap();
@@ -1227,14 +1258,16 @@
     const popup = ensureManagerUi(managerState.sourceWindow);
     if (popup && typeof popup.focus === "function") popup.focus();
     renderManager(managerState.sourceWindow);
+    ensureCurrentPageScriptsRunning(managerState.sourceWindow);
     return popup;
   }
 
-  function registerMenus() {
+  function registerMenus(win) {
     const registerMenu = getFunction("GM_registerMenuCommand");
     if (typeof registerMenu !== "function") return;
+    const sourceWindow = win || root;
     registerMenu("VX Console 열기", function onOpenManager() {
-      openManager(root);
+      openManager(sourceWindow);
     });
   }
 
@@ -1255,7 +1288,7 @@
 
   async function bootstrap(win) {
     const scope = win || root;
-    registerMenus();
+    registerMenus(scope);
 
     let registry = readCachedRegistry();
     if (!registry) {

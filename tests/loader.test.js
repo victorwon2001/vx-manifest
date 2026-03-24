@@ -344,6 +344,11 @@ test("loader source wires sync execution and busy status messaging", () => {
   assert.match(loaderSource, /현재 페이지 동기화 중/);
   assert.match(loaderSource, /전체 동기화 중/);
   assert.match(loaderSource, /await runScript\(script,\s*actionWindow/);
+  assert.match(loaderSource, /function getActionNode\(target\)/);
+  assert.match(loaderSource, /ensureCurrentPageScriptsRunning\(managerState\.sourceWindow\)/);
+  assert.match(loaderSource, /function registerMenus\(win\)/);
+  assert.match(loaderSource, /openManager\(sourceWindow\)/);
+  assert.match(loaderSource, /registerMenus\(scope\)/);
 });
 
 test("createLoaderApi exposes storage and convenience helpers", () => {
