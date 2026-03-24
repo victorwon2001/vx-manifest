@@ -67,6 +67,8 @@
     windowRef: null,
     popupReady: false,
     sourceWindow: null,
+    busy: false,
+    statusText: "",
   };
 
   function getGlobalScope() {
@@ -78,6 +80,16 @@
     const scope = getGlobalScope();
     if (!scope[FALLBACK_MEMORY_KEY]) scope[FALLBACK_MEMORY_KEY] = {};
     return scope[FALLBACK_MEMORY_KEY];
+  }
+
+  function getRuntimeState(win) {
+    const scope = win || root || getGlobalScope();
+    if (!scope.__tmLoaderRuntimeState) {
+      scope.__tmLoaderRuntimeState = {
+        executedVersions: {},
+      };
+    }
+    return scope.__tmLoaderRuntimeState;
   }
 
   function getFunction(name) {
@@ -646,6 +658,10 @@
       preferCache: !options || options.preferCache !== false,
     });
     if (!canUseCachedMeta(meta)) return null;
+    const runtimeState = getRuntimeState(win);
+    if (!options || options.allowRepeat !== true) {
+      if (runtimeState.executedVersions[script.id] === meta.version) return null;
+    }
 
     const dependencies = Array.isArray(meta.dependencies) ? meta.dependencies : [];
     for (const dependency of dependencies) {
@@ -670,7 +686,9 @@
       meta,
       loader: createLoaderApi(win, script, meta),
     };
-    return moduleApi.run(context);
+    const result = await moduleApi.run(context);
+    runtimeState.executedVersions[script.id] = meta.version;
+    return result;
   }
 
   function getManagerRowClassName(row) {
@@ -827,6 +845,7 @@
       ".tm-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
       ".tm-button{height:34px;padding:0 14px;border-radius:999px;border:1px solid #51666f;background:#51666f;color:#fff;font-weight:600;cursor:pointer}",
       ".tm-button:hover{filter:brightness(.96)}",
+      ".tm-button:disabled{opacity:.55;cursor:not-allowed;filter:none}",
       ".tm-button-secondary{background:#fff;color:#334047;border-color:#c8d0d5}",
       ".tm-button-ghost{background:#f5f6f7;color:#334047;border-color:#e1e7ea}",
       ".tm-button-toggle{min-width:84px}",
@@ -836,12 +855,25 @@
   }
 
   function buildManagerStatusText(rows) {
+    if (managerState.statusText) return managerState.statusText;
     const total = rows.length;
     const updateCount = rows.filter((row) => row.hasUpdate).length;
     const newCount = rows.filter((row) => row.isNew).length;
     if (!total) return "불러온 스크립트가 없습니다.";
     if (!updateCount && !newCount) return "최신 상태입니다.";
     return "업데이트 " + updateCount + "건, 신규 " + newCount + "건";
+  }
+
+  function setManagerStatus(text, busy) {
+    managerState.statusText = String(text || "");
+    managerState.busy = !!busy;
+    if (!isManagerOpen()) return;
+    const doc = managerState.windowRef.document;
+    const statusNode = doc.getElementById("tm-manager-status-text");
+    if (statusNode) statusNode.textContent = managerState.statusText || "준비됨";
+    doc.querySelectorAll("[data-action]").forEach((node) => {
+      node.disabled = managerState.busy;
+    });
   }
 
   function isManagerOpen() {
@@ -872,24 +904,44 @@
     doc.addEventListener("click", async (event) => {
       const actionNode = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
       if (!actionNode) return;
+      if (managerState.busy) return;
       const action = actionNode.getAttribute("data-action");
       const scriptId = actionNode.getAttribute("data-script-id");
       const sourceWindow = managerState.sourceWindow || root;
-      if (action === "sync-current") {
-        await syncScripts("current-page", { window: sourceWindow });
-      } else if (action === "sync-all") {
-        await syncScripts("all", { window: sourceWindow });
-      } else if (action === "clear-cache") {
-        await clearAllCaches();
-      } else if (action === "refresh") {
-        await renderManager(sourceWindow);
-      } else if (action === "toggle-script" && scriptId) {
-        const enabled = actionNode.getAttribute("data-enabled") !== "true";
-        await toggleScriptEnabled(scriptId, enabled);
-      } else if (action === "sync-script" && scriptId) {
-        await syncScripts(scriptId, { window: sourceWindow });
-      } else if (action === "clear-script" && scriptId) {
-        await clearScriptCaches(scriptId);
+      try {
+        if (action === "sync-current") {
+          setManagerStatus("현재 페이지 동기화 중...", true);
+          await syncScripts("current-page", { window: sourceWindow });
+          setManagerStatus("현재 페이지 동기화 완료", false);
+        } else if (action === "sync-all") {
+          setManagerStatus("전체 동기화 중...", true);
+          await syncScripts("all", { window: sourceWindow });
+          setManagerStatus("전체 동기화 완료", false);
+        } else if (action === "clear-cache") {
+          setManagerStatus("전체 캐시 삭제 중...", true);
+          await clearAllCaches();
+          setManagerStatus("전체 캐시 삭제 완료", false);
+        } else if (action === "refresh") {
+          setManagerStatus("관리창 새로고침 중...", true);
+          await renderManager(sourceWindow);
+          setManagerStatus("관리창 새로고침 완료", false);
+        } else if (action === "toggle-script" && scriptId) {
+          const enabled = actionNode.getAttribute("data-enabled") !== "true";
+          setManagerStatus(enabled ? "스크립트 활성화 중..." : "스크립트 비활성화 중...", true);
+          await toggleScriptEnabled(scriptId, enabled);
+          setManagerStatus(enabled ? "스크립트 활성화 완료" : "스크립트 비활성화 완료", false);
+        } else if (action === "sync-script" && scriptId) {
+          setManagerStatus("스크립트 동기화 중...", true);
+          await syncScripts(scriptId, { window: sourceWindow });
+          setManagerStatus("스크립트 동기화 완료", false);
+        } else if (action === "clear-script" && scriptId) {
+          setManagerStatus("스크립트 캐시 삭제 중...", true);
+          await clearScriptCaches(scriptId);
+          setManagerStatus("스크립트 캐시 삭제 완료", false);
+        }
+      } catch (error) {
+        setManagerStatus("실패: " + (error && error.message ? error.message : "알 수 없는 오류"), false);
+        throw error;
       }
     });
   }
@@ -933,6 +985,7 @@
     const rowsHtml = rows.map((row) => {
       const stateLabel = row.enabled ? "사용" : "중지";
       const appliesLabel = row.appliesHere ? '<span class="tm-badge tm-badge-new">현재 페이지</span>' : "";
+      const disabledAttr = managerState.busy ? " disabled" : "";
       return [
         '<tr class="' + getManagerRowClassName(row) + '">',
         "  <td><strong>" + escapeHtml(row.name) + "</strong><div>" + escapeHtml(row.id) + "</div></td>",
@@ -941,9 +994,9 @@
         "  <td>" + renderRemoteVersionCell(row) + "</td>",
         "  <td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
         '  <td><div class="tm-actions">',
-        '    <button type="button" class="tm-button tm-button-secondary tm-button-toggle" data-action="toggle-script" data-script-id="' + escapeHtml(row.id) + '" data-enabled="' + String(row.enabled) + '">' + (row.enabled ? "끄기" : "켜기") + "</button>",
-        '    <button type="button" class="tm-button tm-button-ghost" data-action="sync-script" data-script-id="' + escapeHtml(row.id) + '">동기화</button>',
-        '    <button type="button" class="tm-button tm-button-ghost" data-action="clear-script" data-script-id="' + escapeHtml(row.id) + '">캐시삭제</button>',
+        '    <button type="button" class="tm-button tm-button-secondary tm-button-toggle" data-action="toggle-script" data-script-id="' + escapeHtml(row.id) + '" data-enabled="' + String(row.enabled) + '"' + disabledAttr + '>' + (row.enabled ? "끄기" : "켜기") + "</button>",
+        '    <button type="button" class="tm-button tm-button-ghost" data-action="sync-script" data-script-id="' + escapeHtml(row.id) + '"' + disabledAttr + '>동기화</button>',
+        '    <button type="button" class="tm-button tm-button-ghost" data-action="clear-script" data-script-id="' + escapeHtml(row.id) + '"' + disabledAttr + '>캐시삭제</button>',
         "  </div></td>",
         "</tr>",
       ].join("");
@@ -1036,6 +1089,9 @@
     const remoteMetaMap = readRemoteMetaMap();
     delete remoteMetaMap[scriptId];
     writeRemoteMetaMap(remoteMetaMap);
+    if (managerState.sourceWindow) {
+      delete getRuntimeState(managerState.sourceWindow).executedVersions[scriptId];
+    }
   }
 
   async function refreshRegistry(options) {
@@ -1107,7 +1163,8 @@
 
   async function syncScripts(scope, options) {
     const registry = readCachedRegistry() || await refreshRegistry({ force: true });
-    const currentUrl = options && options.window && options.window.location ? options.window.location.href : (root.location && root.location.href ? root.location.href : "");
+    const actionWindow = options && options.window ? options.window : (managerState.sourceWindow || root);
+    const currentUrl = actionWindow && actionWindow.location ? actionWindow.location.href : (root.location && root.location.href ? root.location.href : "");
     const scripts = getScriptsFromRegistry(registry);
     const targets = scope === "all"
       ? scripts
@@ -1116,11 +1173,17 @@
         : scripts.filter((script) => script.id === scope));
     for (const script of targets) {
       await refreshRemoteMeta(script, { prewarm: true });
+      if (findMatchingScripts({ scripts: [script] }, currentUrl).length) {
+        await runScript(script, actionWindow, {
+          preferCache: true,
+          allowRepeat: false,
+        });
+      }
     }
     const statusMap = readRemoteStatusMap();
     targets.forEach((script) => clearRemoteStatusEntry(statusMap, script.id));
     persistRemoteStatusMap(statusMap);
-    await renderManager(options && options.window ? options.window : (managerState.sourceWindow || root));
+    await renderManager(actionWindow);
     return targets.length;
   }
 
@@ -1136,12 +1199,26 @@
     getValueList().forEach((key) => {
       if (key.indexOf(STORAGE_PREFIX + ":") === 0) deleteValue(key);
     });
+    if (managerState.sourceWindow) {
+      getRuntimeState(managerState.sourceWindow).executedVersions = {};
+    }
     await renderManager(managerState.sourceWindow || root);
   }
 
   async function toggleScriptEnabled(scriptId, enabled) {
     const keys = buildScriptStorageKeys(scriptId);
     setValue(keys.enabled, !!enabled);
+    if (enabled && managerState.sourceWindow) {
+      const registry = readCachedRegistry() || { scripts: [] };
+      const script = getScriptsFromRegistry(registry).find((item) => item.id === scriptId);
+      const currentUrl = managerState.sourceWindow.location && managerState.sourceWindow.location.href ? managerState.sourceWindow.location.href : "";
+      if (script && findMatchingScripts({ scripts: [script] }, currentUrl).length) {
+        await runScript(script, managerState.sourceWindow, {
+          preferCache: true,
+          allowRepeat: false,
+        });
+      }
+    }
     await renderManager(managerState.sourceWindow || root);
   }
 

@@ -340,6 +340,12 @@ test("critical loader functions have a single canonical definition", () => {
   });
 });
 
+test("loader source wires sync execution and busy status messaging", () => {
+  assert.match(loaderSource, /현재 페이지 동기화 중/);
+  assert.match(loaderSource, /전체 동기화 중/);
+  assert.match(loaderSource, /await runScript\(script,\s*actionWindow/);
+});
+
 test("createLoaderApi exposes storage and convenience helpers", () => {
   const api = loader.createLoaderApi(
     { focus() {} },
@@ -390,6 +396,46 @@ test("bootstrap runs cached module without waiting for remote registry", async (
     const fakeWindow = createFakeWindow("https://example.com/dashboard");
     await loader.bootstrap(fakeWindow);
     assert.deepEqual(fakeWindow.__loaderRuns, ["cache"]);
+  } finally {
+    env.restore();
+  }
+});
+
+test("bootstrap skips rerunning the same script version on the same window", async () => {
+  const env = createGmEnvironment();
+  try {
+    const registryCache = {
+      version: 1,
+      scripts: [
+        {
+          id: "bootstrap-cache-once",
+          name: "bootstrap-cache-once",
+          enabledByDefault: true,
+          matches: ["https://example.com/*"],
+          metaPath: "modules/bootstrap-cache-once/meta.json",
+        },
+      ],
+    };
+    const keys = loader.buildScriptStorageKeys("bootstrap-cache-once");
+    env.store.set("tm-loader:v1:registry:raw", JSON.stringify(registryCache));
+    env.store.set(keys.meta, JSON.stringify({
+      id: "bootstrap-cache-once",
+      name: "bootstrap-cache-once",
+      version: "1.0.0",
+      entry: "modules/bootstrap-cache-once/main.js",
+      checksum: "",
+      dependencies: [],
+      capabilities: { gm: [] },
+      loaderApiVersion: 2,
+      checkedAt: "2026-03-24T00:00:00.000Z",
+      lastSyncedAt: "2026-03-24T00:00:00.000Z",
+    }));
+    env.store.set(keys.code, 'module.exports={id:"bootstrap-cache-once",run(context){context.window.__loaderRuns=(context.window.__loaderRuns||0)+1;}};');
+
+    const fakeWindow = createFakeWindow("https://example.com/dashboard");
+    await loader.bootstrap(fakeWindow);
+    await loader.bootstrap(fakeWindow);
+    assert.equal(fakeWindow.__loaderRuns, 1);
   } finally {
     env.restore();
   }
