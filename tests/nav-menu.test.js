@@ -17,3 +17,8 @@ test("nav menu findTargetItem matches by contained text", () => {
   assert.equal(navMenu.findTargetItem(items, "상담전용창"), items[1]);
   assert.equal(navMenu.findTargetItem(items, "없는메뉴"), null);
 });
+
+test("nav menu exports shared installer helpers", () => {
+  assert.equal(typeof navMenu.ensureNavButton, "function");
+  assert.equal(typeof navMenu.installNavButton, "function");
+});

@@ -121,21 +121,31 @@
 
     let attempts = 0;
     let observer = null;
+    let pending = false;
 
-    const ensure = function ensureInstalled() {
-      if (ensureNavButton(scope, options)) return true;
-      attempts += 1;
-      if (attempts < options.retryLimit) scope.setTimeout(ensure, options.retryDelayMs);
-      return false;
+    const scheduleEnsure = function scheduleEnsure(delayMs) {
+      if (pending) return;
+      pending = true;
+      scope.setTimeout(() => {
+        pending = false;
+        ensure();
+      }, Math.max(0, Number(delayMs) || 0));
     };
 
-    const scheduleEnsure = function scheduleEnsure() {
-      scope.setTimeout(ensure, 0);
+    const ensure = function ensureInstalled() {
+      if (ensureNavButton(scope, options)) {
+        attempts = 0;
+        return true;
+      }
+      attempts += 1;
+      if (attempts < options.retryLimit) scheduleEnsure(options.retryDelayMs);
+      return false;
     };
 
     if (typeof scope.MutationObserver === "function" && doc.body) {
       observer = new scope.MutationObserver(() => {
-        if (!doc.getElementById(options.buttonId)) scheduleEnsure();
+        if (doc.getElementById(options.buttonId)) return;
+        scheduleEnsure(Math.max(options.retryDelayMs, 1500));
       });
       observer.observe(doc.body, { childList: true, subtree: true });
     }
@@ -152,8 +162,8 @@
     };
 
     state.installs[options.buttonId] = api;
-    if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", ensure, { once: true });
-    else ensure();
+    if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", () => scheduleEnsure(0), { once: true });
+    else scheduleEnsure(0);
     return api;
   }
 

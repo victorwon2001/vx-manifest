@@ -22,6 +22,17 @@ test("unshipped checker date range covers the latest three months", () => {
   });
 });
 
+test("unshipped checker clamps month-end ranges without skipping trailing days", () => {
+  assert.equal(
+    moduleUnderTest.shiftMonthsClamped(new Date("2026-05-31T09:00:00+09:00"), -3).toISOString().slice(0, 10),
+    "2026-02-28"
+  );
+  assert.equal(
+    moduleUnderTest.shiftMonthsClamped(new Date("2026-12-31T09:00:00+09:00"), -3).toISOString().slice(0, 10),
+    "2026-09-30"
+  );
+});
+
 test("unshipped checker data url keeps expected query shape", () => {
   const url = moduleUnderTest.buildDataUrl("2025-12-24", "2026-03-24", 3, 123456);
 

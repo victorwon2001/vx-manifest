@@ -3,7 +3,7 @@
 
   const MODULE_ID = "unshipped-checker";
   const MODULE_NAME = "미출고 건수 체커";
-  const MODULE_VERSION = "0.1.1";
+  const MODULE_VERSION = "0.1.2";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const DATA_ENDPOINT = "/site/site210main_jdata";
   const NAV_BUTTON_ID = "tm-unshipped-checker-nav-button";
@@ -50,16 +50,28 @@
     return yyyy + "-" + mm + "-" + dd;
   }
 
-  function shiftMonths(baseDate, diffMonths) {
-    const date = new Date(baseDate.getTime());
-    date.setMonth(date.getMonth() + diffMonths);
-    return date;
+  function shiftMonthsClamped(baseDate, diffMonths) {
+    const source = new Date(baseDate.getTime());
+    const sourceDay = source.getDate();
+    const targetMonthIndex = source.getMonth() + diffMonths;
+    const targetYear = source.getFullYear() + Math.floor(targetMonthIndex / 12);
+    const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
+    const lastDayOfTargetMonth = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+    return new Date(
+      targetYear,
+      normalizedMonth,
+      Math.min(sourceDay, lastDayOfTargetMonth),
+      source.getHours(),
+      source.getMinutes(),
+      source.getSeconds(),
+      source.getMilliseconds()
+    );
   }
 
   function createDateRange(now) {
     const baseDate = now instanceof Date ? new Date(now.getTime()) : new Date();
     return {
-      from: formatDateLabel(shiftMonths(baseDate, -3)),
+      from: formatDateLabel(shiftMonthsClamped(baseDate, -3)),
       to: formatDateLabel(baseDate),
     };
   }
@@ -564,6 +576,7 @@
     name: MODULE_NAME,
     version: MODULE_VERSION,
     matches: MATCHES,
+    shiftMonthsClamped,
     createDateRange,
     buildDataUrl,
     groupBySite,
@@ -575,4 +588,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
