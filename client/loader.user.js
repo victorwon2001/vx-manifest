@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.1
+// @version      0.4.2
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -41,7 +41,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.4.1";
+  const LOADER_VERSION = "0.4.2";
   const LOADER_API_VERSION = 2;
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
