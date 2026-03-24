@@ -20,6 +20,15 @@
       "metaPath": "modules/inbound-data-viewer/meta.json"
     },
     {
+      "id": "inbound-helper",
+      "name": "입고도우미",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/jsp/stm/stm106edit4.jsp*"
+      ],
+      "metaPath": "modules/inbound-helper/meta.json"
+    },
+    {
       "id": "unshipped-checker",
       "name": "미출고 건수 체커",
       "enabledByDefault": true,
