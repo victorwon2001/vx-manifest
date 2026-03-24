@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.4.0
+// @version      0.4.1
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -41,7 +41,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
-  const LOADER_VERSION = "0.4.0";
+  const LOADER_VERSION = "0.4.1";
   const LOADER_API_VERSION = 2;
   const STORAGE_PREFIX = "tm-loader:v1";
   const REPO_OWNER = "victorwon2001";
@@ -61,6 +61,82 @@
   const REGISTRY_CHECK_INTERVAL_MS = 15 * 60 * 1000;
   const META_PREWARM_INTERVAL_MS = 60 * 60 * 1000;
   const LOCK_TTL_MS = 90 * 1000;
+  const FALLBACK_MEMORY_KEY = "__tmLoaderMemoryStore";
+  const managerState = {
+    windowRef: null,
+    popupReady: false,
+  };
+
+  function getGlobalScope() {
+    if (typeof globalThis !== "undefined" && globalThis) return globalThis;
+    return root;
+  }
+
+  function getMemoryStore() {
+    const scope = getGlobalScope();
+    if (!scope[FALLBACK_MEMORY_KEY]) scope[FALLBACK_MEMORY_KEY] = {};
+    return scope[FALLBACK_MEMORY_KEY];
+  }
+
+  function getFunction(name) {
+    if (root && typeof root[name] === "function") return root[name];
+    const scope = getGlobalScope();
+    if (scope && typeof scope[name] === "function") return scope[name];
+    return null;
+  }
+
+  function getValue(key, fallbackValue) {
+    const fn = getFunction("GM_getValue");
+    if (fn) {
+      try {
+        return fn(key, fallbackValue);
+      } catch (error) {
+        return fallbackValue;
+      }
+    }
+    const store = getMemoryStore();
+    return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : fallbackValue;
+  }
+
+  function setValue(key, value) {
+    const fn = getFunction("GM_setValue");
+    if (fn) {
+      fn(key, value);
+      return;
+    }
+    getMemoryStore()[key] = value;
+  }
+
+  function deleteValue(key) {
+    const fn = getFunction("GM_deleteValue");
+    if (fn) {
+      fn(key);
+      return;
+    }
+    delete getMemoryStore()[key];
+  }
+
+  function getValueList() {
+    const fn = getFunction("GM_listValues");
+    if (fn) return fn();
+    return Object.keys(getMemoryStore());
+  }
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
+
+  function toTimestamp(value) {
+    const time = new Date(String(value || "")).getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function shouldCheckAt(lastCheckedAt, intervalMs, nowValue) {
+    const lastCheckedTime = toTimestamp(lastCheckedAt);
+    const currentTime = typeof nowValue === "number" ? nowValue : Date.now();
+    if (!lastCheckedTime) return true;
+    return currentTime - lastCheckedTime >= Number(intervalMs || 0);
+  }
 
   function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -75,16 +151,6 @@
       .replace(/'/g, "&#39;");
   }
 
-  function matchUrlPattern(url, pattern) {
-    const regex = new RegExp("^" + String(pattern).split("*").map(escapeRegExp).join(".*") + "$");
-    return regex.test(String(url || ""));
-  }
-
-  function findMatchingScripts(registry, url) {
-    const scripts = Array.isArray(registry && registry.scripts) ? registry.scripts : [];
-    return scripts.filter((script) => Array.isArray(script.matches) && script.matches.some((pattern) => matchUrlPattern(url, pattern)));
-  }
-
   function safeJsonParse(value, fallbackValue) {
     if (!value) return fallbackValue;
     try {
@@ -95,7 +161,11 @@
   }
 
   function parseVersion(version) {
-    return String(version || "0.0.0").split(".").map((value) => Number(value || 0)).concat([0, 0, 0]).slice(0, 3);
+    return String(version || "0.0.0")
+      .split(".")
+      .map((value) => Number(value || 0))
+      .concat([0, 0, 0])
+      .slice(0, 3);
   }
 
   function compareVersions(left, right) {
@@ -115,6 +185,18 @@
     return false;
   }
 
+  function matchUrlPattern(url, pattern) {
+    const regex = new RegExp("^" + String(pattern).split("*").map(escapeRegExp).join(".*") + "$");
+    return regex.test(String(url || ""));
+  }
+
+  function findMatchingScripts(registry, url) {
+    const scripts = Array.isArray(registry && registry.scripts) ? registry.scripts : [];
+    return scripts.filter((script) => {
+      return Array.isArray(script.matches) && script.matches.some((pattern) => matchUrlPattern(url, pattern));
+    });
+  }
+
   function isScriptEnabled(script, overrideValue) {
     if (typeof overrideValue === "boolean") return overrideValue;
     return script.enabledByDefault !== false;
@@ -123,7 +205,7 @@
   function formatSyncTime(value) {
     const text = String(value || "");
     const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/.exec(text);
-    return match ? (match[1] + " " + match[2]) : "-";
+    return match ? match[1] + " " + match[2] : "-";
   }
 
   function formatManagerSubtitle(url) {
@@ -135,24 +217,7 @@
     }
   }
 
-  function nowIso() {
-    return new Date().toISOString();
-  }
-
-  function toTimestamp(value) {
-    const time = new Date(String(value || "")).getTime();
-    return Number.isFinite(time) ? time : 0;
-  }
-
-  function shouldCheckAt(lastCheckedAt, intervalMs, nowValue) {
-    const lastCheckedTime = toTimestamp(lastCheckedAt);
-    const currentTime = typeof nowValue === "number" ? nowValue : Date.now();
-    if (!lastCheckedTime) return true;
-    return (currentTime - lastCheckedTime) >= Number(intervalMs || 0);
-  }
-
-  function buildAssetCacheKey(scriptId, suffix, stageName) {
-    if (stageName === "next") return STORAGE_PREFIX + ":asset-next:" + scriptId + ":" + suffix;
+  function buildAssetCacheKey(scriptId, suffix) {
     return STORAGE_PREFIX + ":asset:" + scriptId + ":" + suffix;
   }
 
@@ -164,6 +229,8 @@
       registry: STORAGE_PREFIX + ":script:" + scriptId + ":registry",
       assets: STORAGE_PREFIX + ":script:" + scriptId + ":assets",
       remoteStatus: STORAGE_PREFIX + ":script:" + scriptId + ":remoteStatus",
+      notifiedVersion: STORAGE_PREFIX + ":script:" + scriptId + ":notifiedVersion",
+      storagePrefix: STORAGE_PREFIX + ":module:" + scriptId + ":",
     };
   }
 
@@ -178,25 +245,24 @@
   function normalizeMetaCacheEntry(scriptId, meta) {
     if (!meta || typeof meta !== "object") return null;
     if (!meta.version) return null;
-    const normalized = Object.assign({}, meta);
-    normalized.id = normalized.id || scriptId;
-    normalized.entry = normalized.entry || "";
-    normalized.checksum = normalized.checksum || "";
-    normalized.dependencies = Array.isArray(normalized.dependencies) ? normalized.dependencies.slice() : [];
-    normalized.capabilities = normalizeCapabilities(normalized.capabilities);
-    normalized.loaderApiVersion = Number(normalized.loaderApiVersion || 1) || 1;
-    normalized.checkedAt = normalized.checkedAt || "";
-    normalized.lastSyncedAt = normalized.lastSyncedAt || "";
-    return normalized;
+    return {
+      id: meta.id || scriptId,
+      name: meta.name || "",
+      version: String(meta.version),
+      description: meta.description || "",
+      entry: meta.entry || "",
+      checksum: meta.checksum || "",
+      dependencies: Array.isArray(meta.dependencies) ? meta.dependencies.slice() : [],
+      capabilities: normalizeCapabilities(meta.capabilities),
+      loaderApiVersion: Number(meta.loaderApiVersion || 1) || 1,
+      checkedAt: meta.checkedAt || "",
+      lastSyncedAt: meta.lastSyncedAt || "",
+      updatedAt: meta.updatedAt || "",
+    };
   }
 
   function canUseCachedMeta(meta) {
     return !!(meta && meta.entry);
-  }
-
-  function getValueList() {
-    if (typeof GM_listValues === "function") return GM_listValues();
-    return [];
   }
 
   function readCachedRegistry() {
@@ -226,355 +292,311 @@
 
   function readAssetCacheKeys(scriptId) {
     const keys = buildScriptStorageKeys(scriptId);
-    const value = safeJsonParse(getValue(keys.assets, null), []);
+    const value = safeJsonParse(getValue(keys.assets, ""), []);
     return Array.isArray(value) ? value.filter(Boolean) : [];
   }
 
   function rememberAssetCacheKey(scriptId, assetKey) {
-    const currentKeys = readAssetCacheKeys(scriptId);
-    if (currentKeys.indexOf(assetKey) !== -1) return;
-    currentKeys.push(assetKey);
-    setValue(buildScriptStorageKeys(scriptId).assets, JSON.stringify(currentKeys));
+    const current = readAssetCacheKeys(scriptId);
+    if (current.indexOf(assetKey) !== -1) return;
+    current.push(assetKey);
+    setValue(buildScriptStorageKeys(scriptId).assets, JSON.stringify(current));
   }
 
   function readCachedScriptMeta(scriptId) {
-    return normalizeMetaCacheEntry(scriptId, safeJsonParse(getValue(buildScriptStorageKeys(scriptId).meta, null), null));
+    return normalizeMetaCacheEntry(scriptId, safeJsonParse(getValue(buildScriptStorageKeys(scriptId).meta, ""), null));
   }
 
-  function buildSyncedMeta(script, meta, previousMeta, syncedAt) {
-    return normalizeMetaCacheEntry(script.id, Object.assign({}, previousMeta || {}, meta || {}, {
-      id: script.id,
-      checkedAt: syncedAt || (previousMeta && previousMeta.checkedAt) || "",
-      lastSyncedAt: syncedAt || (previousMeta && previousMeta.lastSyncedAt) || "",
-    }));
+  function buildSyncedMeta(scriptId, meta, options) {
+    const existing = normalizeMetaCacheEntry(scriptId, options && options.existing);
+    const normalized = normalizeMetaCacheEntry(scriptId, meta);
+    if (!normalized) return null;
+    normalized.checkedAt = options && options.checkedAt ? options.checkedAt : nowIso();
+    normalized.lastSyncedAt = options && options.lastSyncedAt
+      ? options.lastSyncedAt
+      : (existing && existing.lastSyncedAt ? existing.lastSyncedAt : "");
+    return normalized;
+  }
+
+  function readScriptLocalState(script) {
+    const keys = buildScriptStorageKeys(script.id);
+    const enabledValue = getValue(keys.enabled, null);
+    return {
+      enabledOverride: typeof enabledValue === "boolean" ? enabledValue : undefined,
+      meta: readCachedScriptMeta(script.id),
+      registry: safeJsonParse(getValue(keys.registry, ""), null),
+    };
+  }
+
+  function readLocalStateMap(registry) {
+    const scripts = Array.isArray(registry && registry.scripts) ? registry.scripts : [];
+    return scripts.reduce((result, script) => {
+      result[script.id] = readScriptLocalState(script);
+      return result;
+    }, {});
   }
 
   function diffRegistryScripts(previousRegistry, nextRegistry) {
-    const previousIds = new Set(((previousRegistry && previousRegistry.scripts) || []).map((script) => script.id));
-    const nextIds = new Set(((nextRegistry && nextRegistry.scripts) || []).map((script) => script.id));
+    const previousIds = new Set((previousRegistry && previousRegistry.scripts || []).map((script) => script.id));
+    const nextIds = new Set((nextRegistry && nextRegistry.scripts || []).map((script) => script.id));
     const addedIds = [];
     const removedIds = [];
-
-    nextIds.forEach((scriptId) => {
-      if (!previousIds.has(scriptId)) addedIds.push(scriptId);
+    nextIds.forEach((id) => {
+      if (!previousIds.has(id)) addedIds.push(id);
     });
-    previousIds.forEach((scriptId) => {
-      if (!nextIds.has(scriptId)) removedIds.push(scriptId);
+    previousIds.forEach((id) => {
+      if (!nextIds.has(id)) removedIds.push(id);
     });
-
-    return { addedIds, removedIds };
+    return { addedIds: addedIds.sort(), removedIds: removedIds.sort() };
   }
 
-  function updateRemoteStatusEntry(statusMap, script, nextEntry) {
-    if (!nextEntry) {
-      delete statusMap[script.id];
-      return;
-    }
-
-    const previous = statusMap[script.id] || {};
-    statusMap[script.id] = Object.assign({}, previous, nextEntry, {
-      id: script.id,
-      name: nextEntry.name || script.name || previous.name || script.id,
-      detectedAt: nextEntry.detectedAt || previous.detectedAt || nowIso(),
-    });
+  function updateRemoteStatusEntry(statusMap, scriptId, kind, version) {
+    statusMap[scriptId] = {
+      kind,
+      version: String(version || ""),
+      detectedAt: nowIso(),
+    };
+    return statusMap[scriptId];
   }
 
   function clearRemoteStatusEntry(statusMap, scriptId) {
     delete statusMap[scriptId];
   }
 
-  function notifyOnceForStatus(script, entry) {
-    if (!entry || !entry.version || entry.notifiedVersion === entry.version) return entry;
-    if (entry.kind === "update") {
-      notify({ text: (script.name || script.id) + " 새 버전 " + entry.version + " 감지", timeout: 5000 });
-    }
-    if (entry.kind === "new") {
-      notify({ text: (script.name || script.id) + " 모듈이 새로 추가되었습니다.", timeout: 5000 });
-    }
-    return Object.assign({}, entry, { notifiedVersion: entry.version });
+  function resolvePath(relativePath) {
+    return new URL(String(relativePath || ""), RAW_BASE_URL).toString();
   }
 
-  function getManagerRowClassName(row) {
-    return [
-      row.appliesHere ? "tm-applies-row" : "",
-      row.hasUpdate ? "tm-update-row" : "",
-      row.isNew ? "tm-new-row" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-  }
-
-  function renderRemoteVersionCell(row) {
-    if (row.hasRemoteError) {
-      return "<span class='tm-badge tm-badge-error'>오류</span>";
-    }
-    if (row.isNew) {
-      return "<div class='tm-version-stack'><span>"
-        + escapeHtml(row.remoteVersion)
-        + "</span><span class='tm-badge tm-badge-update'>신규</span></div>";
-    }
-    if (!row.hasUpdate) {
-      return escapeHtml(row.remoteVersion);
-    }
-    return "<div class='tm-version-stack'><span>"
-      + escapeHtml(row.remoteVersion)
-      + "</span><span class='tm-badge tm-badge-update'>업데이트</span></div>";
-  }
-
-  function getManagerRowClassName(row) {
-    return [row.appliesHere ? "tm-applies-row" : "", row.hasUpdate ? "tm-update-row" : ""]
-      .filter(Boolean)
-      .join(" ");
-  }
-
-  function renderRemoteVersionCell(row) {
-    if (row.hasRemoteError) {
-      return "<span class='tm-badge tm-badge-error'>?ㅻ쪟</span>";
-    }
-    if (!row.hasUpdate) {
-      return escapeHtml(row.remoteVersion);
-    }
-    return "<div class='tm-version-stack'><span>"
-      + escapeHtml(row.remoteVersion)
-      + "</span><span class='tm-badge tm-badge-update'>?낅뜲?댄듃</span></div>";
-  }
-
-  function getValue(key, fallbackValue) {
-    if (typeof GM_getValue === "function") return GM_getValue(key, fallbackValue);
-    return fallbackValue;
-  }
-
-  function setValue(key, value) {
-    if (typeof GM_setValue === "function") GM_setValue(key, value);
-  }
-
-  function deleteValue(key) {
-    if (typeof GM_deleteValue === "function") GM_deleteValue(key);
-  }
-
-  function readScriptLocalState(scriptId) {
-    const keys = buildScriptStorageKeys(scriptId);
-    return {
-      enabledOverride: getValue(keys.enabled, undefined),
-      meta: readCachedScriptMeta(scriptId),
-      hasCode: !!getValue(keys.code, ""),
-      registry: safeJsonParse(getValue(keys.registry, null), null),
-    };
-  }
-
-  function buildManagerRows(options) {
-    const registry = options.registry || { scripts: [] };
-    const url = options.url || "";
-    const localStateById = options.localStateById || {};
-    const remoteMetaById = options.remoteMetaById || {};
-    const remoteStatusById = options.remoteStatusById || {};
-
-    const rows = (registry.scripts || []).map((script) => {
-      const localState = localStateById[script.id] || {};
-      const localMeta = localState.meta || null;
-      const remoteMeta = remoteMetaById[script.id] || null;
-      const remoteStatus = remoteStatusById[script.id] || null;
-      const appliesHere = Array.isArray(script.matches) && script.matches.some((pattern) => matchUrlPattern(url, pattern));
-      const remoteVersion = remoteMeta && remoteMeta.version
-        ? remoteMeta.version
-        : (remoteStatus && remoteStatus.version ? remoteStatus.version : "-");
-      const isNew = !!(remoteStatus && remoteStatus.kind === "new");
-      const hasRemoteUpdate = !!(localMeta && localMeta.version && remoteMeta && remoteMeta.version && !remoteMeta.error
-        && compareVersions(remoteMeta.version, localMeta.version) > 0);
-      const hasUpdate = !!(remoteStatus && remoteStatus.kind === "update") || hasRemoteUpdate;
-
-      return {
-        id: script.id,
-        name: script.name || script.id,
-        description: script.description || "",
-        appliesHere,
-        enabled: isScriptEnabled(script, localState.enabledOverride),
-        cachedVersion: localMeta && localMeta.version ? localMeta.version : "-",
-        remoteVersion,
-        hasUpdate,
-        isNew,
-        hasRemoteError: !!(remoteMeta && remoteMeta.error),
-        lastSyncedAtLabel: formatSyncTime(localMeta && localMeta.lastSyncedAt),
-        capabilitySummary: localMeta && localMeta.capabilities ? localMeta.capabilities : null,
-      };
+  function buildResponseHeadersText(headers) {
+    if (!headers || typeof headers.forEach !== "function") return "";
+    const lines = [];
+    headers.forEach((value, key) => {
+      lines.push(String(key) + ": " + String(value));
     });
-
-    return rows.sort((left, right) => {
-      if (left.isNew !== right.isNew) return left.isNew ? -1 : 1;
-      if (left.appliesHere !== right.appliesHere) return left.appliesHere ? -1 : 1;
-      return String(left.name).localeCompare(String(right.name));
-    });
+    return lines.join("\r\n");
   }
 
   function gmRequest(details) {
-    const request = root.GM_xmlhttpRequest || (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
-    if (!request) return Promise.reject(new Error("GM_xmlhttpRequest unavailable"));
-    return new Promise((resolve, reject) => {
-      request(Object.assign({}, details, {
-        onload: resolve,
-        onerror: reject,
-        ontimeout: reject,
-      }));
+    const request = getFunction("GM_xmlhttpRequest");
+    if (typeof request === "function") {
+      return new Promise((resolve, reject) => {
+        request(Object.assign({}, details, {
+          onload: resolve,
+          onerror: (response) => reject(new Error(response && response.error ? response.error : "요청이 실패했습니다.")),
+          ontimeout: () => reject(new Error("요청 시간이 초과되었습니다.")),
+        }));
+      });
+    }
+
+    const fetchFn = (root && typeof root.fetch === "function")
+      ? root.fetch.bind(root)
+      : (typeof fetch === "function" ? fetch.bind(getGlobalScope()) : null);
+    if (typeof fetchFn !== "function") {
+      return Promise.reject(new Error("네트워크 전송 수단을 찾지 못했습니다."));
+    }
+
+    const requestUrl = String(details && details.url ? details.url : "");
+    const method = String(details && details.method ? details.method : "GET");
+    const headers = Object.assign({}, details && details.headers ? details.headers : {});
+    const body = details && Object.prototype.hasOwnProperty.call(details, "data") ? details.data : undefined;
+
+    return fetchFn(requestUrl, {
+      method,
+      headers,
+      body,
+      credentials: "include",
+      redirect: "follow",
+      cache: "no-store",
+    }).then(async (response) => {
+      const responseType = String(details && details.responseType ? details.responseType : "").toLowerCase();
+      const payload = responseType === "arraybuffer" ? await response.arrayBuffer() : await response.text();
+      return {
+        status: response.status,
+        finalUrl: response.url || requestUrl,
+        responseHeaders: buildResponseHeadersText(response.headers),
+        responseText: typeof payload === "string" ? payload : "",
+        response: payload,
+      };
     });
   }
 
-  async function fetchText(url) {
-    const response = await gmRequest({
-      method: "GET",
-      url,
-      headers: { "Cache-Control": "no-cache" },
-    });
-    if (Number(response.status) >= 400) throw new Error("HTTP " + response.status + " for " + url);
-    return String(response.responseText || "");
+  function fetchText(url) {
+    return gmRequest({ method: "GET", url }).then((response) => String(response.responseText || ""));
   }
 
-  async function fetchJson(url) {
-    return JSON.parse(await fetchText(url));
+  function fetchJson(url) {
+    return fetchText(url).then((text) => JSON.parse(text));
   }
 
-  function resolvePath(path) {
-    return /^https?:\/\//i.test(String(path || "")) ? path : (RAW_BASE_URL + String(path || "").replace(/^\/+/, ""));
+  function createRequire() {
+    return function unsupportedRequire(requestedPath) {
+      throw new Error("require is not supported in loader runtime: " + requestedPath);
+    };
   }
 
-  function evaluateModule(code, context) {
-    const module = { exports: {} };
-    const exports = module.exports;
-    const fn = new Function("module", "exports", "context", code + "\n//# sourceURL=remote-userscript.js");
-    fn(module, exports, context);
-    return module.exports;
+  function evaluateLooseScript(code, scope, filename) {
+    const win = scope || root;
+    const fn = new Function(
+      "window",
+      "self",
+      "globalThis",
+      "document",
+      "location",
+      "navigator",
+      "unsafeWindow",
+      code + "\n//# sourceURL=" + filename
+    );
+    return fn(
+      win,
+      win,
+      win,
+      win && win.document,
+      win && win.location,
+      win && win.navigator,
+      (win && win.unsafeWindow) || win
+    );
   }
 
-  function evaluateLooseScript(code, context) {
-    const fn = new Function("context", code + "\n//# sourceURL=remote-dependency.js");
-    return fn(context);
+  function evaluateModule(code, scope, filename) {
+    const win = scope || root;
+    const moduleObject = { exports: {} };
+    const fn = new Function(
+      "module",
+      "exports",
+      "require",
+      "window",
+      "self",
+      "globalThis",
+      "document",
+      "location",
+      "navigator",
+      "unsafeWindow",
+      code + "\n//# sourceURL=" + filename + "\nreturn module.exports;"
+    );
+    return fn(
+      moduleObject,
+      moduleObject.exports,
+      createRequire(),
+      win,
+      win,
+      win,
+      win && win.document,
+      win && win.location,
+      win && win.navigator,
+      (win && win.unsafeWindow) || win
+    );
   }
 
-  function getManagerRowClassName(row) {
-    return [
-      row.appliesHere ? "tm-applies-row" : "",
-      row.hasUpdate ? "tm-update-row" : "",
-      row.isNew ? "tm-new-row" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+  async function ensureAssetCode(scriptId, dependency, options) {
+    const assetKey = buildAssetCacheKey(scriptId, dependency.id || dependency.path);
+    const preferCache = !options || options.preferCache !== false;
+    const cachedCode = getValue(assetKey, "");
+    if (preferCache && cachedCode) return String(cachedCode);
+    const assetCode = await fetchText(resolvePath(dependency.path));
+    setValue(assetKey, assetCode);
+    rememberAssetCacheKey(scriptId, assetKey);
+    return assetCode;
   }
 
-  function renderRemoteVersionCell(row) {
-    if (row.hasRemoteError) {
-      return "<span class='tm-badge tm-badge-error'>오류</span>";
-    }
-    if (row.isNew) {
-      return "<div class='tm-version-stack'><span>"
-        + escapeHtml(row.remoteVersion)
-        + "</span><span class='tm-badge tm-badge-update'>신규</span></div>";
-    }
-    if (!row.hasUpdate) {
-      return escapeHtml(row.remoteVersion);
-    }
-    return "<div class='tm-version-stack'><span>"
-      + escapeHtml(row.remoteVersion)
-      + "</span><span class='tm-badge tm-badge-update'>업데이트</span></div>";
-  }
-
-  async function loadRegistry() {
-    const text = await fetchText(REGISTRY_URL);
-    setValue(REGISTRY_RAW_KEY, text);
-    setValue(REGISTRY_CHECKED_AT_KEY, nowIso());
-    return JSON.parse(text);
-  }
-
-  async function loadScriptMeta(script) {
-    const meta = await fetchJson(resolvePath(script.metaPath));
-    meta.id = meta.id || script.id;
-    return meta;
-  }
-
-  async function ensureAssetCode(scriptId, suffix, remoteVersion, url) {
-    const key = buildAssetCacheKey(scriptId, suffix);
-    const cachedPayload = safeJsonParse(getValue(key, null), null);
-    let code = cachedPayload && cachedPayload.code;
-
-    if (!cachedPayload || cachedPayload.version !== remoteVersion) {
-      code = await fetchText(resolvePath(url));
-      setValue(key, JSON.stringify({ version: remoteVersion, code }));
-    }
-
-    rememberAssetCacheKey(scriptId, key);
+  async function loadCachedOrRemoteAsset(scriptId, dependency, options) {
+    const code = await ensureAssetCode(scriptId, dependency, options);
+    evaluateLooseScript(code, options && options.window ? options.window : root, dependency.path || dependency.id || "asset.js");
     return code;
   }
 
-  async function loadCachedOrRemoteAsset(scriptId, suffix, remoteVersion, url, evaluator, context) {
-    const code = await ensureAssetCode(scriptId, suffix, remoteVersion, url);
-    return evaluator(code, context);
-  }
-
-  async function prewarmScriptAssets(script, meta) {
-    const dependencies = Array.isArray(meta.dependencies) ? meta.dependencies : [];
+  async function prewarmScriptAssets(script, meta, options) {
+    const dependencies = Array.isArray(meta && meta.dependencies) ? meta.dependencies : [];
     for (const dependency of dependencies) {
-      await ensureAssetCode(
-        script.id,
-        dependency.id,
-        dependency.version || meta.version,
-        dependency.path
-      );
+      await ensureAssetCode(script.id, dependency, { preferCache: false });
+      if (options && options.window) {
+        await loadCachedOrRemoteAsset(script.id, dependency, options);
+      }
     }
   }
 
-  async function loadScriptCode(script, meta) {
+  async function loadScriptCode(script, meta, options) {
     const keys = buildScriptStorageKeys(script.id);
+    const preferCache = !options || options.preferCache !== false;
+    const cachedCode = getValue(keys.code, "");
+    if (preferCache && cachedCode) return String(cachedCode);
+    const code = await fetchText(resolvePath(meta.entry));
+    setValue(keys.code, code);
+    const syncedMeta = buildSyncedMeta(script.id, meta, {
+      existing: readCachedScriptMeta(script.id),
+      lastSyncedAt: nowIso(),
+    });
+    if (syncedMeta) setValue(keys.meta, JSON.stringify(syncedMeta));
+    return code;
+  }
+
+  async function loadScriptMeta(script, options) {
     const cachedMeta = readCachedScriptMeta(script.id);
-    const cachedCode = getValue(keys.code, null);
-
-    if (!shouldRefreshCache(cachedMeta, meta) && cachedCode) {
-      const mergedMeta = buildSyncedMeta(script, meta, cachedMeta, cachedMeta && cachedMeta.lastSyncedAt ? cachedMeta.lastSyncedAt : nowIso());
-      setValue(keys.meta, JSON.stringify(mergedMeta));
-      setValue(keys.registry, JSON.stringify(script));
-      return cachedCode;
-    }
-
-    const codeText = await fetchText(resolvePath(meta.entry));
-    const syncedAt = nowIso();
-    const nextMeta = buildSyncedMeta(script, meta, cachedMeta, syncedAt);
-    setValue(keys.meta, JSON.stringify(nextMeta));
-    setValue(keys.code, codeText);
-    setValue(keys.registry, JSON.stringify(script));
-    return codeText;
+    if ((!options || options.preferCache !== false) && canUseCachedMeta(cachedMeta)) return cachedMeta;
+    const remoteMeta = await fetchJson(resolvePath(script.metaPath));
+    const syncedMeta = buildSyncedMeta(script.id, remoteMeta, {
+      existing: cachedMeta,
+      checkedAt: nowIso(),
+    });
+    setValue(buildScriptStorageKeys(script.id).meta, JSON.stringify(syncedMeta));
+    setValue(buildScriptStorageKeys(script.id).registry, JSON.stringify(script));
+    return syncedMeta;
   }
 
-  async function prewarmScriptBundle(script, meta) {
-    await prewarmScriptAssets(script, meta);
-    await loadScriptCode(script, meta);
+  async function prewarmScriptBundle(script) {
+    const remoteMeta = await loadScriptMeta(script, { preferCache: false });
+    await prewarmScriptAssets(script, remoteMeta);
+    await loadScriptCode(script, remoteMeta, { preferCache: false });
+    return remoteMeta;
   }
 
-  function downloadFile(details) {
-    if (typeof GM_download !== "function") throw new Error("GM_download unavailable");
-    return GM_download(details);
+  function copyTextToClipboard(text) {
+    const setClipboard = getFunction("GM_setClipboard");
+    if (typeof setClipboard === "function") {
+      setClipboard(String(text || ""));
+      return Promise.resolve();
+    }
+    const clipboard = root && root.navigator && root.navigator.clipboard;
+    if (clipboard && typeof clipboard.writeText === "function") {
+      return clipboard.writeText(String(text || ""));
+    }
+    return Promise.reject(new Error("클립보드 API를 사용할 수 없습니다."));
   }
 
-  async function copyTextToClipboard(text) {
-    const value = String(text || "");
-    if (typeof GM_setClipboard === "function") {
-      GM_setClipboard(value);
-      return;
+  function downloadFile(options) {
+    const download = getFunction("GM_download");
+    if (typeof download === "function") {
+      return new Promise((resolve, reject) => {
+        download(Object.assign({}, options, {
+          onload: resolve,
+          onerror: (error) => reject(new Error(error && error.error ? error.error : "다운로드에 실패했습니다.")),
+          ontimeout: () => reject(new Error("다운로드 시간이 초과되었습니다.")),
+        }));
+      });
     }
-    if (root.navigator && root.navigator.clipboard && typeof root.navigator.clipboard.writeText === "function") {
-      await root.navigator.clipboard.writeText(value);
-      return;
-    }
-    throw new Error("clipboard unavailable");
+    return Promise.reject(new Error("다운로드 API를 사용할 수 없습니다."));
   }
 
   function openExternalTab(url, options) {
-    if (typeof GM_openInTab === "function") return GM_openInTab(url, options);
-    return root.open(url, "_blank", "noopener");
+    const openTab = getFunction("GM_openInTab");
+    if (typeof openTab === "function") return openTab(url, options || {});
+    if (root && typeof root.open === "function") return root.open(url, "_blank");
+    return null;
+  }
+
+  function notify(options) {
+    const notifyFn = getFunction("GM_notification");
+    if (typeof notifyFn === "function") {
+      notifyFn(options);
+      return;
+    }
+    if (root && root.console && typeof root.console.log === "function") {
+      root.console.log("[VX Console]", options && options.text ? options.text : options);
+    }
   }
 
   function createLoaderApi(win, script, meta) {
+    const keys = buildScriptStorageKeys(script.id);
     return {
-      rawBaseUrl: RAW_BASE_URL,
-      registryUrl: REGISTRY_URL,
-      script,
-      meta,
       loaderApiVersion: LOADER_API_VERSION,
       request: gmRequest,
       gmRequest,
@@ -582,1131 +604,582 @@
       copyText: copyTextToClipboard,
       notify,
       openTab: openExternalTab,
-      storage: {
-        get: getValue,
-        set: setValue,
-        delete: deleteValue,
-        list: getValueList,
-      },
       capabilities: normalizeCapabilities(meta && meta.capabilities),
-      focusWindow: function () {
+      script,
+      meta,
+      focusWindow() {
         if (win && typeof win.focus === "function") win.focus();
+      },
+      storage: {
+        get(key, fallbackValue) {
+          return getValue(keys.storagePrefix + key, fallbackValue);
+        },
+        set(key, value) {
+          setValue(keys.storagePrefix + key, value);
+        },
+        delete(key) {
+          deleteValue(keys.storagePrefix + key);
+        },
+        list() {
+          return getValueList().filter((key) => key.indexOf(keys.storagePrefix) === 0);
+        },
       },
     };
   }
 
-  async function runScript(script, meta, context) {
-    const runContext = Object.assign({}, context, {
-      loader: Object.assign({}, (context && context.loader) || {}, createLoaderApi(context && context.window, script, meta)),
+  async function runScript(script, win, options) {
+    const localState = readScriptLocalState(script);
+    if (!isScriptEnabled(script, localState.enabledOverride)) return null;
+
+    const meta = await loadScriptMeta(script, {
+      preferCache: !options || options.preferCache !== false,
     });
+    if (!canUseCachedMeta(meta)) return null;
+
     const dependencies = Array.isArray(meta.dependencies) ? meta.dependencies : [];
     for (const dependency of dependencies) {
-      await loadCachedOrRemoteAsset(
-        script.id,
-        dependency.id,
-        dependency.version || meta.version,
-        dependency.path,
-        evaluateLooseScript,
-        runContext
-      );
+      await loadCachedOrRemoteAsset(script.id, dependency, {
+        preferCache: !options || options.preferCache !== false,
+        window: win,
+      });
     }
 
-    const code = await loadScriptCode(script, meta);
-    const remoteModule = evaluateModule(code, runContext);
-    if (!remoteModule || typeof remoteModule.run !== "function") {
-      throw new Error(script.id + " module does not export run(context)");
-    }
-    remoteModule.run(runContext);
+    const code = await loadScriptCode(script, meta, {
+      preferCache: !options || options.preferCache !== false,
+    });
+    const moduleApi = evaluateModule(code, win, meta.entry || script.id + ".js");
+    if (!moduleApi || typeof moduleApi.run !== "function") return null;
 
-    const statusMap = readRemoteStatusMap();
-    const statusEntry = statusMap[script.id];
-    const cachedMeta = readCachedScriptMeta(script.id);
-    if (statusEntry && cachedMeta && (!statusEntry.version || compareVersions(cachedMeta.version, statusEntry.version) >= 0)) {
-      clearRemoteStatusEntry(statusMap, script.id);
-      writeRemoteStatusMap(statusMap);
-      if (context && context.state) context.state.remoteStatusById = statusMap;
-    }
+    const context = {
+      window: win,
+      unsafeWindow: (win && win.unsafeWindow) || win,
+      document: win && win.document,
+      location: win && win.location,
+      script,
+      meta,
+      loader: createLoaderApi(win, script, meta),
+    };
+    return moduleApi.run(context);
   }
 
-  function notify(input) {
-    const payload = typeof input === "string" ? { text: input } : Object.assign({}, input || {});
-    const text = String(payload.text || payload.message || "");
-    if (!text) return;
-    if (typeof GM_notification === "function") {
-      GM_notification(Object.assign({ text, title: "VX Console", timeout: 3000 }, payload, { text, title: payload.title || "VX Console" }));
-    } else {
-      console.log("[tamp-loader]", text);
+  function getManagerRowClassName(row) {
+    const classes = ["tm-row"];
+    if (row.appliesHere) classes.push("is-current");
+    if (row.enabled === false) classes.push("is-disabled");
+    if (row.isNew) classes.push("is-new");
+    if (row.hasUpdate) classes.push("is-update");
+    return classes.join(" ");
+  }
+
+  function renderRemoteVersionCell(row) {
+    const version = escapeHtml(row.remoteVersion || "-");
+    if (row.isNew) {
+      return '<div class="tm-version-cell"><strong>' + version + '</strong><span class="tm-badge tm-badge-new">신규</span></div>';
     }
+    if (row.hasUpdate) {
+      return '<div class="tm-version-cell"><strong>' + version + '</strong><span class="tm-badge tm-badge-update">업데이트</span></div>';
+    }
+    return '<div class="tm-version-cell"><strong>' + version + "</strong></div>";
+  }
+
+  function buildManagerRows(options) {
+    const registry = options && options.registry ? options.registry : { scripts: [] };
+    const url = options && options.url ? options.url : "";
+    const localStateById = options && options.localStateById ? options.localStateById : {};
+    const remoteMetaById = options && options.remoteMetaById ? options.remoteMetaById : {};
+    const remoteStatusById = options && options.remoteStatusById ? options.remoteStatusById : {};
+    const scripts = Array.isArray(registry.scripts) ? registry.scripts : [];
+
+    return scripts.map((script) => {
+      const localState = localStateById[script.id] || {};
+      const cachedMeta = normalizeMetaCacheEntry(script.id, localState.meta);
+      const remoteMeta = normalizeMetaCacheEntry(script.id, remoteMetaById[script.id]);
+      const remoteStatus = remoteStatusById[script.id] || null;
+      const enabled = isScriptEnabled(script, localState.enabledOverride);
+      const appliesHere = Array.isArray(script.matches) && script.matches.some((pattern) => matchUrlPattern(url, pattern));
+      const remoteVersion = remoteMeta ? remoteMeta.version : (remoteStatus && remoteStatus.version ? remoteStatus.version : "");
+      const cachedVersion = cachedMeta ? cachedMeta.version : "";
+      const hasUpdate = !!(remoteMeta && cachedMeta && compareVersions(cachedVersion, remoteVersion) < 0);
+      const isNew = !!(remoteStatus && remoteStatus.kind === "new");
+      return {
+        id: script.id,
+        name: script.name || script.id,
+        appliesHere,
+        enabled,
+        enabledOverride: localState.enabledOverride,
+        cachedVersion,
+        remoteVersion,
+        lastSyncedAtLabel: formatSyncTime(cachedMeta && cachedMeta.lastSyncedAt),
+        hasUpdate,
+        isNew,
+      };
+    }).sort((left, right) => {
+      const leftPriority = (left.isNew || left.hasUpdate ? 4 : 0) + (left.appliesHere ? 2 : 0) + (left.enabled ? 1 : 0);
+      const rightPriority = (right.isNew || right.hasUpdate ? 4 : 0) + (right.appliesHere ? 2 : 0) + (right.enabled ? 1 : 0);
+      if (leftPriority !== rightPriority) return rightPriority - leftPriority;
+      return left.name.localeCompare(right.name, "ko");
+    });
   }
 
   function getManagerWindowFeatures() {
+    return "width=1160,height=860,resizable=yes,scrollbars=yes";
+  }
+
+  function buildManagerShellHtml() {
     return [
-      "popup=yes",
-      "width=1160",
-      "height=860",
-      "left=120",
-      "top=80",
-      "resizable=yes",
-      "scrollbars=yes",
-    ].join(",");
+      '<div class="tm-shell">',
+      '  <section class="tm-hero">',
+      '    <div>',
+      '      <p class="tm-kicker">VX Console</p>',
+      '      <h1>로드 화면</h1>',
+      '      <p id="tm-manager-subtitle" class="tm-subtitle"></p>',
+      "    </div>",
+      '    <div class="tm-toolbar-actions">',
+      '      <button type="button" class="tm-button tm-button-secondary" data-action="sync-current">현재 페이지만</button>',
+      '      <button type="button" class="tm-button" data-action="sync-all">전체 동기화</button>',
+      "    </div>",
+      "  </section>",
+      '  <section class="tm-summary-grid">',
+      '    <article class="tm-summary-card"><span>전체</span><strong id="tm-summary-total">0</strong></article>',
+      '    <article class="tm-summary-card"><span>현재 페이지</span><strong id="tm-summary-current">0</strong></article>',
+      '    <article class="tm-summary-card"><span>업데이트 대기</span><strong id="tm-summary-updates">0</strong></article>',
+      '    <article class="tm-summary-card"><span>신규 모듈</span><strong id="tm-summary-new">0</strong></article>',
+      "  </section>",
+      '  <section class="tm-status-card">',
+      '    <div class="tm-status-line"><span>Registry 확인</span><strong id="tm-status-registry-check">-</strong></div>',
+      '    <div class="tm-status-line"><span>Meta 예열</span><strong id="tm-status-meta-check">-</strong></div>',
+      '    <div class="tm-status-line"><span>상태</span><strong id="tm-manager-status-text">준비됨</strong></div>',
+      "  </section>",
+      '  <section class="tm-table-card">',
+      '    <div class="tm-table-actions">',
+      '      <button type="button" class="tm-button tm-button-secondary" data-action="clear-cache">전체 캐시 삭제</button>',
+      '      <button type="button" class="tm-button tm-button-ghost" data-action="refresh">새로고침</button>',
+      "    </div>",
+      '    <table class="tm-table">',
+      "      <thead><tr><th>스크립트</th><th>상태</th><th>캐시 버전</th><th>원격 버전</th><th>최근 동기화</th><th>동작</th></tr></thead>",
+      '      <tbody id="tm-manager-rows"></tbody>',
+      "    </table>",
+      "  </section>",
+      "</div>",
+    ].join("");
   }
 
   function buildManagerDocumentHtml() {
     return [
       "<!doctype html>",
-      "<html lang='ko'>",
+      '<html lang="ko">',
       "<head>",
-      "<meta charset='utf-8'>",
-      "<meta name='viewport' content='width=device-width, initial-scale=1'>",
-      "<title>VX Console</title>",
+      '  <meta charset="utf-8">',
+      '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+      "  <title>VX Console</title>",
       "</head>",
       "<body>",
-      "<div id='" + MANAGER_ROOT_ID + "'></div>",
+      '  <div id="' + MANAGER_ROOT_ID + '">' + buildManagerShellHtml() + "</div>",
       "</body>",
       "</html>",
     ].join("");
   }
 
-  function buildManagerShellHtml() {
-    return [
-      "<div class='tm-manager'>",
-      "<div class='tm-hero'>",
-      "<div class='tm-head-text tm-hero-copy'>",
-      "<span class='tm-eyebrow'>스크립트 관리</span>",
-      "<h1>VX Console</h1>",
-      "<p id='tm-loader-manager-subtitle'>현재 페이지 기준으로 로드 가능한 스크립트 상태를 확인합니다.</p>",
-      "</div>",
-      "<div class='tm-head-actions'>",
-      "<button type='button' id='tm-loader-filter-current'>현재 페이지만</button>",
-      "<button type='button' id='tm-loader-sync-all' class='tm-primary'>전체 동기화</button>",
-      "<button type='button' id='tm-loader-clear-all'>전체 캐시 삭제</button>",
-      "<button type='button' id='tm-loader-close'>닫기</button>",
-      "</div>",
-      "</div>",
-      "<div class='tm-summary-grid' id='tm-loader-summary'></div>",
-      "<div class='tm-status-card'>",
-      "<div class='tm-status-label'>동기화 상태</div>",
-      "<div class='tm-status' id='tm-loader-status'></div>",
-      "</div>",
-      "<div class='tm-table-card'>",
-      "<div class='tm-table-head'>",
-      "<div>",
-      "<span class='tm-section-kicker'>로드 표면</span>",
-      "<h2>스크립트 구성</h2>",
-      "</div>",
-      "<div class='tm-section-note'>현재 페이지 적용 여부, 캐시 버전, 원격 메타 상태를 한 번에 확인합니다.</div>",
-      "</div>",
-      "<div class='tm-table-wrap'>",
-      "<table>",
-      "<thead><tr>",
-      "<th style='width:280px'>스크립트</th>",
-      "<th style='width:96px'>현재 페이지</th>",
-      "<th style='width:90px'>상태</th>",
-      "<th style='width:104px'>캐시 버전</th>",
-      "<th style='width:104px'>원격 버전</th>",
-      "<th style='width:132px'>마지막 동기화</th>",
-      "<th style='width:220px'>동작</th>",
-      "</tr></thead>",
-      "<tbody id='tm-loader-rows'></tbody>",
-      "</table>",
-      "</div>",
-      "</div>",
-      "</div>",
-    ].join("");
-  }
-
   function applyManagerStyles(doc) {
-    if (doc.getElementById(MANAGER_STYLE_ID)) return;
-
+    if (!doc || doc.getElementById(MANAGER_STYLE_ID)) return;
     const style = doc.createElement("style");
     style.id = MANAGER_STYLE_ID;
     style.textContent = [
-      "html,body{margin:0;padding:0;background:#f9f9f9;color:#2d3435;font-family:'Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}",
-      "#" + MANAGER_ROOT_ID + "{min-height:100vh;padding:20px;box-sizing:border-box}",
-      ".tm-manager{max-width:1240px;margin:0 auto;display:grid;gap:14px}",
-      ".tm-hero,.tm-status-card,.tm-table-card{background:#ffffff;border:1px solid #dde4e5;border-radius:16px;box-shadow:none}",
-      ".tm-hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;padding:22px 24px}",
-      ".tm-eyebrow{display:inline-flex;align-items:center;gap:6px;color:#455a64;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-head-text h1{margin:8px 0 0;font-size:28px;line-height:1.05;font-weight:800;letter-spacing:-.04em;color:#2d3435}",
-      ".tm-head-text p{margin:8px 0 0;color:#5a6061;font-size:12px;line-height:1.6;word-break:break-all;max-width:none}",
-      ".tm-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}",
-      "button{height:34px;padding:0 14px;border:1px solid #dde4e5;background:#ffffff;color:#455a64;border-radius:10px;cursor:pointer;font-size:12px;line-height:1;font-family:inherit;font-weight:700;transition:transform .16s ease,border-color .16s ease,background-color .16s ease,color .16s ease}",
-      "button:hover{transform:translateY(-1px);border-color:#c4cccd;background:#f7f9f9}",
-      "button:focus{outline:2px solid rgba(84,96,103,.2);outline-offset:2px}",
-      "button:disabled{background:#f3f5f5;color:#94a0a2;border-color:#dde4e5;cursor:default;transform:none}",
-      ".tm-primary{background:linear-gradient(180deg,#5c6970 0%,#455a64 100%);border-color:#455a64;color:#fff}",
-      ".tm-filter-on{background:#f2f4f4;border-color:#cfd7d8;color:#455a64}",
-      ".tm-toggle-on{background:#edf5f1;border-color:#d1e2da;color:#2f6b57}",
-      ".tm-toggle-off{background:#f7f0e8;border-color:#e3d4c0;color:#8b6b3f}",
-      ".tm-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}",
-      ".tm-summary-item{padding:16px 18px;border:1px solid #dde4e5;border-radius:14px;background:#f2f4f4}",
-      ".tm-summary-label{display:block;color:#5a6061;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-summary-value{display:block;margin-top:8px;color:#2d3435;font-size:26px;line-height:1;font-weight:800;letter-spacing:-.04em}",
-      ".tm-summary-meta{display:block;margin-top:6px;color:#5a6061;font-size:12px}",
-      ".tm-status-card{padding:16px 18px}",
-      ".tm-status-label{display:block;color:#5a6061;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-status{margin-top:8px;padding:12px 14px;border:1px solid #dde4e5;border-radius:12px;background:#f2f4f4;color:#455a64;font-size:13px;min-height:20px;line-height:1.6}",
-      ".tm-table-card{overflow:hidden}",
-      ".tm-table-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;padding:18px 20px 14px;border-bottom:1px solid #dde4e5;background:#ffffff}",
-      ".tm-table-head h2{margin:8px 0 0;font-size:18px;line-height:1.1;color:#2d3435;letter-spacing:-.03em}",
-      ".tm-section-kicker{display:inline-flex;align-items:center;gap:6px;color:#455a64;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-section-note{color:#5a6061;font-size:12px;line-height:1.5;max-width:320px;text-align:right}",
-      ".tm-table-wrap{overflow:auto;max-height:calc(100vh - 320px)}",
-      "table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}",
-      "th,td{padding:12px 14px;border-bottom:1px solid #dde4e5;text-align:left;vertical-align:middle;word-break:break-word;font-size:12px}",
-      "th{position:sticky;top:0;background:#f2f4f4;color:#5a6061;z-index:1;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      "tr.tm-applies-row{background:#fbfcfc}",
-      "tr:hover td{background:#f7f9f9}",
-      ".tm-script-name{display:block;font-weight:800;color:#2d3435;font-size:14px;letter-spacing:-.02em}",
-      ".tm-script-id{display:block;margin-top:4px;color:#5a6061;font-size:11px}",
-      ".tm-script-desc{display:block;margin-top:6px;color:#5a6061;font-size:11px;line-height:1.55}",
-      ".tm-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;border:1px solid #dde4e5;background:#f2f4f4;color:#5a6061;font-size:11px;font-weight:800}",
-      ".tm-badge-match{background:#edf5f1;border-color:#d1e2da;color:#2f6b57}",
-      ".tm-badge-miss{background:#f7f9f9;border-color:#dde4e5;color:#5a6061}",
-      ".tm-badge-error{background:#fbefee;border-color:#e2c3c1;color:#9f403d}",
-      ".tm-badge-update{background:#fff1dc;border-color:#ecd7b0;color:#946318}",
-      ".tm-actions{display:flex;gap:6px;flex-wrap:wrap}",
-      ".tm-version-stack{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
-      ".tm-update-row td{background:#fff9f0}",
-      ".tm-update-row td:first-child{box-shadow:inset 3px 0 0 #d19a3a}",
-      ".tm-update-row:hover td{background:#fff3e2}",
-      ".tm-empty{padding:56px 16px;text-align:center;color:#5a6061}",
-      "@media (max-width:980px){#" + MANAGER_ROOT_ID + "{padding:12px}.tm-hero{padding:18px;align-items:flex-start;flex-direction:column}.tm-section-note{text-align:left;max-width:none}.tm-table-head{padding:16px;align-items:flex-start;flex-direction:column}.tm-table-wrap{max-height:none}}",
-    ].join("\n");
+      ":root{color-scheme:light;font-family:'Segoe UI Variable Text','Segoe UI','Noto Sans KR',sans-serif}",
+      "body{margin:0;background:#f5f6f7;color:#1f2427}",
+      "#" + MANAGER_ROOT_ID + "{padding:20px}",
+      ".tm-shell{display:grid;gap:16px}",
+      ".tm-hero,.tm-status-card,.tm-table-card,.tm-summary-card{background:#fff;border:1px solid #d8dee2;border-radius:16px;box-shadow:0 16px 32px rgba(31,36,39,.06)}",
+      ".tm-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:20px 22px}",
+      ".tm-kicker{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#55626a}",
+      ".tm-hero h1{margin:0;font-size:30px;line-height:1.1}",
+      ".tm-subtitle{margin:8px 0 0;color:#5d666b;font-size:13px}",
+      ".tm-toolbar-actions,.tm-table-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
+      ".tm-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}",
+      ".tm-summary-card{padding:14px 16px;display:grid;gap:6px}",
+      ".tm-summary-card span{font-size:12px;color:#5d666b}",
+      ".tm-summary-card strong{font-size:24px;line-height:1.1}",
+      ".tm-status-card{padding:14px 16px;display:grid;gap:8px}",
+      ".tm-status-line{display:flex;justify-content:space-between;gap:16px;font-size:13px}",
+      ".tm-table-card{padding:14px 16px;display:grid;gap:12px}",
+      ".tm-table{width:100%;border-collapse:collapse;font-size:13px}",
+      ".tm-table th,.tm-table td{padding:11px 12px;border-bottom:1px solid #e7ecef;text-align:left;vertical-align:middle}",
+      ".tm-table th{font-size:12px;color:#5d666b;font-weight:700}",
+      ".tm-table tr.is-current{background:#f8fafb}",
+      ".tm-table tr.is-disabled{opacity:.58}",
+      ".tm-table tr.is-update{box-shadow:inset 3px 0 0 #2f6f59}",
+      ".tm-table tr.is-new{box-shadow:inset 3px 0 0 #51666f}",
+      ".tm-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700}",
+      ".tm-badge-update{background:#ecf6f1;color:#2f6f59}",
+      ".tm-badge-new{background:#eef1f3;color:#51666f}",
+      ".tm-version-cell{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
+      ".tm-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
+      ".tm-button{height:34px;padding:0 14px;border-radius:999px;border:1px solid #51666f;background:#51666f;color:#fff;font-weight:600;cursor:pointer}",
+      ".tm-button:hover{filter:brightness(.96)}",
+      ".tm-button-secondary{background:#fff;color:#334047;border-color:#c8d0d5}",
+      ".tm-button-ghost{background:#f5f6f7;color:#334047;border-color:#e1e7ea}",
+      ".tm-button-toggle{min-width:84px}",
+      "@media (max-width: 900px){.tm-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tm-hero{flex-direction:column}}",
+    ].join("");
     doc.head.appendChild(style);
   }
 
-  function isManagerOpen(state) {
-    return !!(state.managerWindow && !state.managerWindow.closed);
+  function buildManagerStatusText(rows) {
+    const total = rows.length;
+    const updateCount = rows.filter((row) => row.hasUpdate).length;
+    const newCount = rows.filter((row) => row.isNew).length;
+    if (!total) return "불러온 스크립트가 없습니다.";
+    if (!updateCount && !newCount) return "최신 상태입니다.";
+    return "업데이트 " + updateCount + "건, 신규 " + newCount + "건";
   }
 
-  function disposeManagerRefs(state) {
-    state.managerOpen = false;
-    state.managerWindow = null;
-    state.managerDocument = null;
-    state.managerElements = null;
+  function isManagerOpen() {
+    return !!(managerState.windowRef && !managerState.windowRef.closed);
+  }
+
+  function disposeManagerRefs() {
+    managerState.windowRef = null;
+    managerState.popupReady = false;
   }
 
   function bootstrapManagerDocument(doc) {
-    if (doc.getElementById(MANAGER_ROOT_ID)) return;
+    if (!doc) return;
     doc.open();
     doc.write(buildManagerDocumentHtml());
     doc.close();
+    applyManagerStyles(doc);
   }
 
-  function bindManagerEvents(state, elements, popup) {
-    if (elements.bound) return;
-
-    elements.close.addEventListener("click", function () {
-      closeManager(state);
-    });
-
-    elements.filterCurrent.addEventListener("click", function () {
-      state.managerFilterCurrentOnly = !state.managerFilterCurrentOnly;
-      renderManager(state);
-    });
-
-    elements.syncAll.addEventListener("click", function () {
-      syncScripts(state);
-    });
-
-    elements.clearAll.addEventListener("click", function () {
-      clearAllCaches(state);
-    });
-
-    elements.root.addEventListener("click", function (event) {
-      const button = event.target.closest("button[data-action]");
-      if (!button) return;
-      const action = button.getAttribute("data-action");
-      const scriptId = button.getAttribute("data-script-id");
-      if (action === "toggle") toggleScriptEnabled(state, scriptId);
-      if (action === "sync") syncScripts(state, [scriptId]);
-      if (action === "clear") clearScriptCaches(state, [scriptId]);
-    });
-
-    popup.addEventListener("beforeunload", function () {
-      disposeManagerRefs(state);
-    });
-
-    docAddKeyListener(elements.doc, state);
-    elements.bound = true;
+  function closeManager() {
+    if (isManagerOpen()) managerState.windowRef.close();
+    disposeManagerRefs();
   }
 
-  function docAddKeyListener(doc, state) {
-    if (doc.__tmLoaderEscBound) return;
-    doc.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") closeManager(state);
-    });
-    doc.__tmLoaderEscBound = true;
-  }
-
-  function openPopupWindow(state) {
-    let popup = null;
-
-    try {
-      popup = state.win.open("about:blank", MANAGER_WINDOW_NAME, getManagerWindowFeatures());
-    } catch (error) {
-      popup = null;
-    }
-
-    if (!popup) {
-      notify("관리 창이 차단되었습니다. 팝업 차단을 해제해 주세요.");
-      return null;
-    }
-
-    try {
-      bootstrapManagerDocument(popup.document);
-    } catch (error) {
-      const fallbackName = MANAGER_WINDOW_NAME + "-" + Date.now();
-      popup = state.win.open("about:blank", fallbackName, getManagerWindowFeatures());
-      if (!popup) {
-        notify("관리 창을 열지 못했습니다.");
-        return null;
+  function bindManagerEvents(doc) {
+    if (!doc || doc.__tmManagerBound) return;
+    doc.__tmManagerBound = true;
+    doc.addEventListener("click", async (event) => {
+      const actionNode = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
+      if (!actionNode) return;
+      const action = actionNode.getAttribute("data-action");
+      const scriptId = actionNode.getAttribute("data-script-id");
+      if (action === "sync-current") {
+        await syncScripts("current-page", { window: managerState.windowRef || root });
+      } else if (action === "sync-all") {
+        await syncScripts("all", { window: managerState.windowRef || root });
+      } else if (action === "clear-cache") {
+        await clearAllCaches();
+      } else if (action === "refresh") {
+        await renderManager(managerState.windowRef || root);
+      } else if (action === "toggle-script" && scriptId) {
+        const enabled = actionNode.getAttribute("data-enabled") !== "true";
+        await toggleScriptEnabled(scriptId, enabled);
+      } else if (action === "sync-script" && scriptId) {
+        await syncScripts(scriptId, { window: managerState.windowRef || root });
+      } else if (action === "clear-script" && scriptId) {
+        await clearScriptCaches(scriptId);
       }
-      bootstrapManagerDocument(popup.document);
-    }
+    });
+  }
 
-    state.managerWindow = popup;
-    state.managerDocument = popup.document;
-    state.managerOpen = true;
-    popup.focus();
+  function openPopupWindow(win) {
+    if (!win || typeof win.open !== "function") return null;
+    return win.open("", MANAGER_WINDOW_NAME, getManagerWindowFeatures());
+  }
+
+  function ensureManagerUi(win) {
+    const popup = isManagerOpen() ? managerState.windowRef : openPopupWindow(win);
+    if (!popup) return null;
+    if (!managerState.popupReady || !popup.document.getElementById(MANAGER_ROOT_ID)) {
+      bootstrapManagerDocument(popup.document);
+      bindManagerEvents(popup.document);
+      managerState.popupReady = true;
+    }
+    managerState.windowRef = popup;
     return popup;
   }
 
-  function ensureManagerUi(state) {
-    const popup = isManagerOpen(state) ? state.managerWindow : openPopupWindow(state);
+  async function renderManager(win) {
+    const popup = ensureManagerUi(win || root);
     if (!popup) return null;
+    const registry = readCachedRegistry() || { scripts: [] };
+    const remoteStatusById = readRemoteStatusMap();
+    const remoteMetaById = {};
+    const scripts = Array.isArray(registry.scripts) ? registry.scripts : [];
+    scripts.forEach((script) => {
+      const remoteStatus = remoteStatusById[script.id];
+      if (!remoteStatus) return;
+      remoteMetaById[script.id] = { id: script.id, version: remoteStatus.version || "" };
+    });
+
+    const rows = buildManagerRows({
+      registry,
+      url: popup.location && popup.location.href ? popup.location.href : (root.location && root.location.href ? root.location.href : ""),
+      localStateById: readLocalStateMap(registry),
+      remoteMetaById,
+      remoteStatusById,
+    });
 
     const doc = popup.document;
-    bootstrapManagerDocument(doc);
-    applyManagerStyles(doc);
+    const rowsHtml = rows.map((row) => {
+      const stateLabel = row.enabled ? "사용" : "중지";
+      const appliesLabel = row.appliesHere ? '<span class="tm-badge tm-badge-new">현재 페이지</span>' : "";
+      return [
+        '<tr class="' + getManagerRowClassName(row) + '">',
+        "  <td><strong>" + escapeHtml(row.name) + "</strong><div>" + escapeHtml(row.id) + "</div></td>",
+        "  <td>" + stateLabel + " " + appliesLabel + "</td>",
+        "  <td>" + escapeHtml(row.cachedVersion || "-") + "</td>",
+        "  <td>" + renderRemoteVersionCell(row) + "</td>",
+        "  <td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
+        '  <td><div class="tm-actions">',
+        '    <button type="button" class="tm-button tm-button-secondary tm-button-toggle" data-action="toggle-script" data-script-id="' + escapeHtml(row.id) + '" data-enabled="' + String(row.enabled) + '">' + (row.enabled ? "끄기" : "켜기") + "</button>",
+        '    <button type="button" class="tm-button tm-button-ghost" data-action="sync-script" data-script-id="' + escapeHtml(row.id) + '">동기화</button>',
+        '    <button type="button" class="tm-button tm-button-ghost" data-action="clear-script" data-script-id="' + escapeHtml(row.id) + '">캐시삭제</button>',
+        "  </div></td>",
+        "</tr>",
+      ].join("");
+    }).join("");
 
-    const root = doc.getElementById(MANAGER_ROOT_ID);
-    if (!root) return null;
-
-    if (!state.managerElements || state.managerElements.doc !== doc) {
-      root.innerHTML = buildManagerShellHtml();
-      const elements = {
-        doc,
-        root,
-        subtitle: doc.getElementById("tm-loader-manager-subtitle"),
-        summary: doc.getElementById("tm-loader-summary"),
-        status: doc.getElementById("tm-loader-status"),
-        rows: doc.getElementById("tm-loader-rows"),
-        close: doc.getElementById("tm-loader-close"),
-        filterCurrent: doc.getElementById("tm-loader-filter-current"),
-        syncAll: doc.getElementById("tm-loader-sync-all"),
-        clearAll: doc.getElementById("tm-loader-clear-all"),
-        bound: false,
-      };
-      bindManagerEvents(state, elements, popup);
-      state.managerElements = elements;
-    }
-
-    return state.managerElements;
+    doc.getElementById("tm-manager-subtitle").textContent = formatManagerSubtitle(root.location && root.location.href ? root.location.href : "");
+    doc.getElementById("tm-summary-total").textContent = String(rows.length);
+    doc.getElementById("tm-summary-current").textContent = String(rows.filter((row) => row.appliesHere).length);
+    doc.getElementById("tm-summary-updates").textContent = String(rows.filter((row) => row.hasUpdate).length);
+    doc.getElementById("tm-summary-new").textContent = String(rows.filter((row) => row.isNew).length);
+    doc.getElementById("tm-status-registry-check").textContent = formatSyncTime(getValue(REGISTRY_CHECKED_AT_KEY, ""));
+    doc.getElementById("tm-status-meta-check").textContent = formatSyncTime(getValue(META_PREWARMED_AT_KEY, ""));
+    doc.getElementById("tm-manager-status-text").textContent = buildManagerStatusText(rows);
+    doc.getElementById("tm-manager-rows").innerHTML = rowsHtml || '<tr><td colspan="6">표시할 스크립트가 없습니다.</td></tr>';
+    return popup;
   }
 
-  function readLocalStateMap(registry) {
-    const scripts = Array.isArray(registry && registry.scripts) ? registry.scripts : [];
-    const result = {};
-    scripts.forEach((script) => {
-      result[script.id] = readScriptLocalState(script.id);
-    });
-    return result;
-  }
-
-  function renderManager(state) {
-    if (!isManagerOpen(state)) return;
-
-    const elements = ensureManagerUi(state);
-    if (!elements) return;
-
-    const registry = state.registry || { scripts: [] };
-    const localStateById = readLocalStateMap(registry);
-    const allRows = buildManagerRows({
-      registry,
-      url: state.url,
-      localStateById,
-      remoteMetaById: state.remoteMetaById,
-    });
-    const rows = allRows.filter((row) => !state.managerFilterCurrentOnly || row.appliesHere);
-    const totalCount = allRows.length;
-    const appliesCount = allRows.filter((row) => row.appliesHere).length;
-    const enabledCount = allRows.filter((row) => row.enabled).length;
-
-    elements.doc.title = "VX Console";
-    elements.subtitle.textContent = formatManagerSubtitle(state.url);
-    elements.filterCurrent.className = state.managerFilterCurrentOnly ? "tm-filter-on" : "";
-    elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지만";
-    elements.syncAll.disabled = !!state.managerBusy;
-    elements.clearAll.disabled = !!state.managerBusy;
-    elements.summary.innerHTML = [
-      "<div class='tm-summary-item'><span class='tm-summary-label'>전체 스크립트</span><strong class='tm-summary-value'>" + totalCount + "</strong><span class='tm-summary-meta'>등록된 표면 수</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>현재 페이지 적용</span><strong class='tm-summary-value'>" + appliesCount + "</strong><span class='tm-summary-meta'>현재 URL 매칭 기준</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>활성화</span><strong class='tm-summary-value'>" + enabledCount + "</strong><span class='tm-summary-meta'>이 PC에서 ON 상태</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>로더 버전</span><strong class='tm-summary-value'>" + escapeHtml(LOADER_VERSION) + "</strong><span class='tm-summary-meta'>관리창과 로더 동기화 기준</span></div>",
-    ].join("");
-    elements.status.textContent = state.managerStatusText || state.registryError || "로더 상태를 불러왔습니다.";
-
-    if (!rows.length) {
-      elements.rows.innerHTML = "<tr><td colspan='7' class='tm-empty'>표시할 스크립트가 없습니다.</td></tr>";
-      return;
-    }
-
-    elements.rows.innerHTML = rows.map((row) => [
-      "<tr class='" + getManagerRowClassName(row) + "'>",
-      "<td>",
-      "<span class='tm-script-name'>" + escapeHtml(row.name) + "</span>",
-      "<span class='tm-script-id'>" + escapeHtml(row.id) + "</span>",
-      (row.description ? "<span class='tm-script-desc'>" + escapeHtml(row.description) + "</span>" : ""),
-      "</td>",
-      "<td>" + (row.appliesHere
-        ? "<span class='tm-badge tm-badge-match'>적용중</span>"
-        : "<span class='tm-badge tm-badge-miss'>대기</span>") + "</td>",
-      "<td><button type='button' class='" + (row.enabled ? "tm-toggle-on" : "tm-toggle-off") + "' data-action='toggle' data-script-id='" + escapeHtml(row.id) + "'>" + (row.enabled ? "ON" : "OFF") + "</button></td>",
-      "<td>" + escapeHtml(row.cachedVersion) + "</td>",
-      "<td>" + (row.hasRemoteError
-        ? "<span class='tm-badge tm-badge-error'>오류</span>"
-        : escapeHtml(row.remoteVersion)) + "</td>",
-      "<td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
-      "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">다시 동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시 삭제</button></div></td>",
-      "</tr>",
-    ].join("")).join("");
-
-    rows.forEach((row, index) => {
-      const tableRow = elements.rows.children[index];
-      if (!tableRow) return;
-      const remoteVersionCell = tableRow.children[4];
-      if (remoteVersionCell) remoteVersionCell.innerHTML = renderRemoteVersionCell(row);
+  function notifyOnceForStatus(script, status) {
+    if (!status || !status.kind || !status.version) return;
+    const keys = buildScriptStorageKeys(script.id);
+    const notifiedVersion = String(getValue(keys.notifiedVersion, ""));
+    if (notifiedVersion === String(status.kind + ":" + status.version)) return;
+    setValue(keys.notifiedVersion, String(status.kind + ":" + status.version));
+    const title = status.kind === "new" ? "신규 모듈 감지" : "업데이트 감지";
+    notify({
+      title: "VX Console",
+      text: script.name + " " + status.version + " " + (status.kind === "new" ? "모듈이 추가되었습니다." : "업데이트가 준비되었습니다."),
+      timeout: 5000,
+      onclick() {
+        openManager(root);
+      },
     });
   }
 
-  function openManager(state) {
-    const elements = ensureManagerUi(state);
-    if (!elements) return;
-    state.managerOpen = true;
-    renderManager(state);
-    refreshRegistry(state, { refreshRemote: true });
+  function getScriptsFromRegistry(registry) {
+    return Array.isArray(registry && registry.scripts) ? registry.scripts : [];
   }
 
-  function closeManager(state) {
-    if (!isManagerOpen(state)) {
-      disposeManagerRefs(state);
-      return;
-    }
-    try {
-      state.managerWindow.close();
-    } finally {
-      disposeManagerRefs(state);
-    }
-  }
-
-  async function refreshRemoteMeta(state, scriptIds) {
-    if (!state.registry) return;
-    const scripts = (state.registry.scripts || []).filter((script) => !scriptIds || scriptIds.indexOf(script.id) !== -1);
-    await Promise.all(scripts.map(async (script) => {
-      try {
-        state.remoteMetaById[script.id] = await loadScriptMeta(script);
-      } catch (error) {
-        state.remoteMetaById[script.id] = { error: error.message };
-      }
-    }));
-  }
-
-  async function refreshRegistry(state, options) {
-    const opts = Object.assign({ refreshRemote: false }, options);
-    state.managerBusy = true;
-    state.managerStatusText = "레지스트리를 확인하는 중입니다.";
-    renderManager(state);
-
-    try {
-      state.registry = await loadRegistry();
-      state.registryError = "";
-
-      if (opts.refreshRemote) {
-        state.managerStatusText = "원격 메타 정보를 불러오는 중입니다.";
-        renderManager(state);
-        await refreshRemoteMeta(state);
-      }
-
-      state.managerStatusText = "로더 상태를 최신 정보로 갱신했습니다.";
-    } catch (error) {
-      const cachedRegistry = safeJsonParse(getValue(STORAGE_PREFIX + ":registry:raw", ""), null);
-      if (cachedRegistry) {
-        state.registry = cachedRegistry;
-        state.registryError = "원격 레지스트리 조회에 실패해 캐시를 사용합니다.";
-      } else {
-        state.registryError = "레지스트리를 불러오지 못했습니다.";
-      }
-      state.managerStatusText = state.registryError;
-    } finally {
-      state.managerBusy = false;
-      renderManager(state);
-    }
-  }
-
-  async function syncScripts(state, scriptIds) {
-    if (!state.registry) await refreshRegistry(state);
-    if (!state.registry) return;
-
-    const scripts = (state.registry.scripts || []).filter((script) => !scriptIds || scriptIds.indexOf(script.id) !== -1);
-    state.managerBusy = true;
-    state.managerStatusText = scripts.length === 1
-      ? ((scripts[0].name || scripts[0].id) + " 동기화 중입니다.")
-      : "전체 스크립트를 동기화하는 중입니다.";
-    renderManager(state);
-
-    try {
-      for (const script of scripts) {
-        const meta = await loadScriptMeta(script);
-        state.remoteMetaById[script.id] = meta;
-        await loadScriptCode(script, meta);
-      }
-      state.managerStatusText = scripts.length === 1
-        ? ((scripts[0].name || scripts[0].id) + " 동기화를 완료했습니다.")
-        : "전체 스크립트 동기화를 완료했습니다.";
-    } catch (error) {
-      state.managerStatusText = "동기화 실패: " + error.message;
-    } finally {
-      state.managerBusy = false;
-      renderManager(state);
-    }
-  }
-
-  function clearScriptCaches(state, scriptIds) {
-    const scripts = ((state.registry && state.registry.scripts) || []).filter((script) => !scriptIds || scriptIds.indexOf(script.id) !== -1);
-    scripts.forEach((script) => {
-      const keys = buildScriptStorageKeys(script.id);
-      deleteValue(keys.meta);
-      deleteValue(keys.code);
-      deleteValue(keys.registry);
-      delete state.remoteMetaById[script.id];
-    });
-    state.managerStatusText = scripts.length === 1
-      ? ((scripts[0].name || scripts[0].id) + " 캐시를 삭제했습니다.")
-      : "선택한 스크립트 캐시를 삭제했습니다.";
-    renderManager(state);
-  }
-
-  function clearAllCaches(state) {
-    clearScriptCaches(state, ((state.registry && state.registry.scripts) || []).map((script) => script.id));
-  }
-
-  function toggleScriptEnabled(state, scriptId) {
-    const script = ((state.registry && state.registry.scripts) || []).find((item) => item.id === scriptId);
-    if (!script) return;
-    const keys = buildScriptStorageKeys(scriptId);
-    const current = getValue(keys.enabled, undefined);
-    const enabled = isScriptEnabled(script, current);
-    setValue(keys.enabled, !enabled);
-    state.managerStatusText = (script.name || script.id) + " 상태를 " + (!enabled ? "활성화" : "비활성화") + "로 변경했습니다. 새로고침 후 적용됩니다.";
-    renderManager(state);
-  }
-
-  function registerMenus(state) {
-    if (typeof GM_registerMenuCommand !== "function") return;
-    GM_registerMenuCommand("VX Console 열기", function () {
-      openManager(state);
-    });
-  }
-
-  async function bootstrap(win) {
-    const state = {
-      win,
-      doc: win.document,
-      url: String(win.location.href || ""),
-      registry: safeJsonParse(getValue(STORAGE_PREFIX + ":registry:raw", ""), null),
-      registryError: "",
-      remoteMetaById: {},
-      managerBusy: false,
-      managerOpen: false,
-      managerFilterCurrentOnly: false,
-      managerStatusText: "",
-      managerWindow: null,
-      managerDocument: null,
-      managerElements: null,
-    };
-
-    registerMenus(state);
-
-    if (!state.registry) {
-      await refreshRegistry(state);
-    } else {
-      refreshRegistry(state);
-    }
-
-    const matchingScripts = findMatchingScripts(state.registry || { scripts: [] }, state.url);
-    if (!matchingScripts.length) return;
-
-    for (const script of matchingScripts) {
-      const keys = buildScriptStorageKeys(script.id);
-      const enabled = isScriptEnabled(script, getValue(keys.enabled, undefined));
-      if (!enabled) continue;
-
-      let meta;
-      try {
-        meta = await loadScriptMeta(script);
-      } catch (error) {
-        const cachedMeta = safeJsonParse(getValue(keys.meta, null), null);
-        const cachedCode = getValue(keys.code, null);
-        if (!cachedMeta || !cachedCode) {
-          console.error("[tamp-loader] meta load failed", script.id, error);
-          continue;
-        }
-        meta = cachedMeta;
-      }
-
-      try {
-        await runScript(script, meta, {
-          window: win,
-          document: win.document,
-          loader: {
-            rawBaseUrl: RAW_BASE_URL,
-            registryUrl: REGISTRY_URL,
-            script,
-            meta,
-            gmRequest,
-          },
-        });
-      } catch (error) {
-        console.error("[tamp-loader] script run failed", script.id, error);
-      }
-    }
-  }
-
-  function notifyOnceForStatus(script, entry) {
-    if (!entry) return entry;
-    const notificationKey = entry.kind === "new"
-      ? ("new:" + (entry.detectedAt || ""))
-      : (String(entry.version || ""));
-    if (!notificationKey || entry.notifiedVersion === notificationKey) return entry;
-    if (entry.kind === "update") {
-      notify({ text: (script.name || script.id) + " 새 버전 " + entry.version + "을 확인했습니다.", timeout: 5000 });
-    }
-    if (entry.kind === "new") {
-      notify({ text: (script.name || script.id) + " 모듈이 새로 추가되었습니다.", timeout: 5000 });
-    }
-    return Object.assign({}, entry, { notifiedVersion: notificationKey });
-  }
-
-  function buildManagerShellHtml() {
-    return [
-      "<div class='tm-manager'>",
-      "<div class='tm-hero'>",
-      "<div class='tm-head-text tm-hero-copy'>",
-      "<span class='tm-eyebrow'>스크립트 관리</span>",
-      "<h1>VX Console</h1>",
-      "<p id='tm-loader-manager-subtitle'>현재 페이지 기준으로 적용 가능한 스크립트 상태를 확인합니다.</p>",
-      "</div>",
-      "<div class='tm-head-actions'>",
-      "<button type='button' id='tm-loader-filter-current'>현재 페이지만</button>",
-      "<button type='button' id='tm-loader-sync-all' class='tm-primary'>전체 동기화</button>",
-      "<button type='button' id='tm-loader-clear-all'>전체 캐시 삭제</button>",
-      "<button type='button' id='tm-loader-close'>닫기</button>",
-      "</div>",
-      "</div>",
-      "<div class='tm-summary-grid' id='tm-loader-summary'></div>",
-      "<div class='tm-status-card'>",
-      "<div class='tm-status-label'>로드 상태</div>",
-      "<div class='tm-status' id='tm-loader-status'></div>",
-      "</div>",
-      "<div class='tm-table-card'>",
-      "<div class='tm-table-head'>",
-      "<div>",
-      "<span class='tm-section-kicker'>로드 표면</span>",
-      "<h2>스크립트 구성</h2>",
-      "</div>",
-      "<div class='tm-section-note'>현재 페이지 적용 여부와 캐시 버전, 원격 상태를 한 번에 확인합니다.</div>",
-      "</div>",
-      "<div class='tm-table-wrap'>",
-      "<table>",
-      "<thead><tr>",
-      "<th style='width:280px'>스크립트</th>",
-      "<th style='width:96px'>현재 페이지</th>",
-      "<th style='width:90px'>상태</th>",
-      "<th style='width:104px'>캐시 버전</th>",
-      "<th style='width:132px'>원격 상태</th>",
-      "<th style='width:132px'>마지막 동기화</th>",
-      "<th style='width:220px'>동작</th>",
-      "</tr></thead>",
-      "<tbody id='tm-loader-rows'></tbody>",
-      "</table>",
-      "</div>",
-      "</div>",
-      "</div>",
-    ].join("");
-  }
-
-  function applyManagerStyles(doc) {
-    if (doc.getElementById(MANAGER_STYLE_ID)) return;
-
-    const style = doc.createElement("style");
-    style.id = MANAGER_STYLE_ID;
-    style.textContent = [
-      "html,body{margin:0;padding:0;background:#f9f9f9;color:#2d3435;font-family:'Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}",
-      "#" + MANAGER_ROOT_ID + "{min-height:100vh;padding:20px;box-sizing:border-box}",
-      ".tm-manager{max-width:1240px;margin:0 auto;display:grid;gap:14px}",
-      ".tm-hero,.tm-status-card,.tm-table-card{background:#ffffff;border:1px solid #dde4e5;border-radius:16px;box-shadow:none}",
-      ".tm-hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;padding:22px 24px}",
-      ".tm-eyebrow{display:inline-flex;align-items:center;gap:6px;color:#455a64;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-head-text h1{margin:8px 0 0;font-size:28px;line-height:1.05;font-weight:800;letter-spacing:-.04em;color:#2d3435}",
-      ".tm-head-text p{margin:8px 0 0;color:#5a6061;font-size:12px;line-height:1.6;word-break:break-all;max-width:none}",
-      ".tm-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}",
-      "button{height:34px;padding:0 14px;border:1px solid #dde4e5;background:#ffffff;color:#455a64;border-radius:10px;cursor:pointer;font-size:12px;line-height:1;font-family:inherit;font-weight:700;transition:transform .16s ease,border-color .16s ease,background-color .16s ease,color .16s ease}",
-      "button:hover{transform:translateY(-1px);border-color:#c4cccd;background:#f7f9f9}",
-      "button:focus{outline:2px solid rgba(84,96,103,.2);outline-offset:2px}",
-      "button:disabled{background:#f3f5f5;color:#94a0a2;border-color:#dde4e5;cursor:default;transform:none}",
-      ".tm-primary{background:linear-gradient(180deg,#5c6970 0%,#455a64 100%);border-color:#455a64;color:#fff}",
-      ".tm-filter-on{background:#f2f4f4;border-color:#cfd7d8;color:#455a64}",
-      ".tm-toggle-on{background:#edf5f1;border-color:#d1e2da;color:#2f6b57}",
-      ".tm-toggle-off{background:#f7f0e8;border-color:#e3d4c0;color:#8b6b3f}",
-      ".tm-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}",
-      ".tm-summary-item{padding:16px 18px;border:1px solid #dde4e5;border-radius:14px;background:#f2f4f4}",
-      ".tm-summary-label{display:block;color:#5a6061;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-summary-value{display:block;margin-top:8px;color:#2d3435;font-size:26px;line-height:1;font-weight:800;letter-spacing:-.04em}",
-      ".tm-summary-meta{display:block;margin-top:6px;color:#5a6061;font-size:12px}",
-      ".tm-status-card{padding:16px 18px}",
-      ".tm-status-label{display:block;color:#5a6061;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-status{margin-top:8px;padding:12px 14px;border:1px solid #dde4e5;border-radius:12px;background:#f2f4f4;color:#455a64;font-size:13px;min-height:20px;line-height:1.6}",
-      ".tm-table-card{overflow:hidden}",
-      ".tm-table-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;padding:18px 20px 14px;border-bottom:1px solid #dde4e5;background:#ffffff}",
-      ".tm-table-head h2{margin:8px 0 0;font-size:18px;line-height:1.1;color:#2d3435;letter-spacing:-.03em}",
-      ".tm-section-kicker{display:inline-flex;align-items:center;gap:6px;color:#455a64;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      ".tm-section-note{color:#5a6061;font-size:12px;line-height:1.5;max-width:320px;text-align:right}",
-      ".tm-table-wrap{overflow:auto;max-height:calc(100vh - 320px)}",
-      "table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}",
-      "th,td{padding:12px 14px;border-bottom:1px solid #dde4e5;text-align:left;vertical-align:middle;word-break:break-word;font-size:12px}",
-      "th{position:sticky;top:0;background:#f2f4f4;color:#5a6061;z-index:1;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}",
-      "tr.tm-applies-row{background:#fbfcfc}",
-      "tr.tm-new-row td{background:#eef5ff}",
-      "tr.tm-new-row td:first-child{box-shadow:inset 3px 0 0 #4c79c2}",
-      "tr.tm-new-row:hover td{background:#e7f1ff}",
-      "tr:hover td{background:#f7f9f9}",
-      ".tm-script-name{display:block;font-weight:800;color:#2d3435;font-size:14px;letter-spacing:-.02em}",
-      ".tm-script-id{display:block;margin-top:4px;color:#5a6061;font-size:11px}",
-      ".tm-script-desc{display:block;margin-top:6px;color:#5a6061;font-size:11px;line-height:1.55}",
-      ".tm-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;border:1px solid #dde4e5;background:#f2f4f4;color:#5a6061;font-size:11px;font-weight:800}",
-      ".tm-badge-match{background:#edf5f1;border-color:#d1e2da;color:#2f6b57}",
-      ".tm-badge-miss{background:#f7f9f9;border-color:#dde4e5;color:#5a6061}",
-      ".tm-badge-error{background:#fbefee;border-color:#e2c3c1;color:#9f403d}",
-      ".tm-badge-update{background:#fff1dc;border-color:#ecd7b0;color:#946318}",
-      ".tm-actions{display:flex;gap:6px;flex-wrap:wrap}",
-      ".tm-version-stack{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
-      ".tm-update-row td{background:#fff9f0}",
-      ".tm-update-row td:first-child{box-shadow:inset 3px 0 0 #d19a3a}",
-      ".tm-update-row:hover td{background:#fff3e2}",
-      ".tm-empty{padding:56px 16px;text-align:center;color:#5a6061}",
-      "@media (max-width:980px){#" + MANAGER_ROOT_ID + "{padding:12px}.tm-hero{padding:18px;align-items:flex-start;flex-direction:column}.tm-section-note{text-align:left;max-width:none}.tm-table-head{padding:16px;align-items:flex-start;flex-direction:column}.tm-table-wrap{max-height:none}}",
-    ].join("\n");
-    doc.head.appendChild(style);
-  }
-
-  function getScriptsFromRegistry(state, scriptIds, onlyEnabled) {
-    const scripts = (state.registry && state.registry.scripts) || [];
-    return scripts.filter((script) => {
-      if (scriptIds && scriptIds.indexOf(script.id) === -1) return false;
-      if (!onlyEnabled) return true;
-      return isScriptEnabled(script, getValue(buildScriptStorageKeys(script.id).enabled, undefined));
-    });
-  }
-
-  function persistRemoteStatusMap(state, statusMap) {
-    state.remoteStatusById = statusMap;
+  function persistRemoteStatusMap(statusMap) {
     writeRemoteStatusMap(statusMap);
+    return statusMap;
   }
 
-  function updateScriptRemoteStatus(state, script, remoteMeta, options) {
-    const opts = Object.assign({ isNew: false, keepExisting: true, notifyChanges: true }, options);
-    const statusMap = Object.assign({}, state.remoteStatusById || {});
-    const localMeta = readCachedScriptMeta(script.id);
-    const existingStatus = statusMap[script.id] || null;
-    let nextEntry = null;
-
-    if (opts.isNew) {
-      nextEntry = {
-        kind: "new",
-        version: remoteMeta && remoteMeta.version ? remoteMeta.version : "",
-        loaderApiVersion: Number((remoteMeta && remoteMeta.loaderApiVersion) || 1) || 1,
-        capabilities: normalizeCapabilities(remoteMeta && remoteMeta.capabilities),
-      };
-    } else if (localMeta && remoteMeta && shouldRefreshCache(localMeta, remoteMeta)) {
-      nextEntry = {
-        kind: "update",
-        version: remoteMeta.version,
-        loaderApiVersion: Number(remoteMeta.loaderApiVersion || 1) || 1,
-        capabilities: normalizeCapabilities(remoteMeta.capabilities),
-      };
-    } else if (opts.keepExisting && existingStatus && existingStatus.kind === "new") {
-      nextEntry = existingStatus;
-    } else if (opts.keepExisting && existingStatus && existingStatus.kind === "update" && remoteMeta && existingStatus.version === remoteMeta.version) {
-      nextEntry = existingStatus;
-    }
-
-    if (nextEntry) {
-      updateRemoteStatusEntry(statusMap, script, nextEntry);
-      if (opts.notifyChanges) {
-        statusMap[script.id] = notifyOnceForStatus(script, statusMap[script.id]);
-      }
-    } else {
+  async function updateScriptRemoteStatus(script, remoteMeta, statusMap) {
+    const cachedMeta = readCachedScriptMeta(script.id);
+    if (!remoteMeta) {
       clearRemoteStatusEntry(statusMap, script.id);
+      return null;
     }
-
-    persistRemoteStatusMap(state, statusMap);
-  }
-
-  function buildManagerStatusText(state, counts) {
-    const parts = [];
-    if (state.registryError) parts.push(state.registryError);
-    if (state.lastRegistryCheckedAt) parts.push("registry 확인 " + formatSyncTime(state.lastRegistryCheckedAt));
-    if (state.lastMetaPrewarmedAt) parts.push("meta 예열 " + formatSyncTime(state.lastMetaPrewarmedAt));
-    if (counts.updateCount) parts.push("업데이트 대기 " + counts.updateCount + "건");
-    if (counts.newCount) parts.push("신규 모듈 " + counts.newCount + "건");
-    return parts.join(" · ") || "캐시 우선 부팅 상태입니다.";
-  }
-
-  function renderManager(state) {
-    if (!isManagerOpen(state)) return;
-
-    const elements = ensureManagerUi(state);
-    if (!elements) return;
-
-    const registry = state.registry || { scripts: [] };
-    const localStateById = readLocalStateMap(registry);
-    const allRows = buildManagerRows({
-      registry,
-      url: state.url,
-      localStateById,
-      remoteMetaById: state.remoteMetaById,
-      remoteStatusById: state.remoteStatusById,
-    });
-    const rows = allRows.filter((row) => !state.managerFilterCurrentOnly || row.appliesHere);
-    const counts = {
-      totalCount: allRows.length,
-      appliesCount: allRows.filter((row) => row.appliesHere).length,
-      enabledCount: allRows.filter((row) => row.enabled).length,
-      updateCount: allRows.filter((row) => row.hasUpdate).length,
-      newCount: allRows.filter((row) => row.isNew).length,
-    };
-
-    elements.doc.title = "VX Console";
-    elements.subtitle.textContent = formatManagerSubtitle(state.url);
-    elements.filterCurrent.className = state.managerFilterCurrentOnly ? "tm-filter-on" : "";
-    elements.filterCurrent.textContent = state.managerFilterCurrentOnly ? "전체 보기" : "현재 페이지만";
-    elements.syncAll.disabled = !!state.managerBusy;
-    elements.clearAll.disabled = !!state.managerBusy;
-    elements.summary.innerHTML = [
-      "<div class='tm-summary-item'><span class='tm-summary-label'>전체 스크립트</span><strong class='tm-summary-value'>" + counts.totalCount + "</strong><span class='tm-summary-meta'>등록된 모듈 수</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>현재 페이지 적용</span><strong class='tm-summary-value'>" + counts.appliesCount + "</strong><span class='tm-summary-meta'>현재 URL 기준</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>활성화</span><strong class='tm-summary-value'>" + counts.enabledCount + "</strong><span class='tm-summary-meta'>이 PC에서 ON 상태</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>업데이트 대기</span><strong class='tm-summary-value'>" + counts.updateCount + "</strong><span class='tm-summary-meta'>새 버전 감지</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>신규 모듈</span><strong class='tm-summary-value'>" + counts.newCount + "</strong><span class='tm-summary-meta'>최근 추가 모듈</span></div>",
-      "<div class='tm-summary-item'><span class='tm-summary-label'>로더 버전</span><strong class='tm-summary-value'>" + escapeHtml(LOADER_VERSION) + "</strong><span class='tm-summary-meta'>API " + escapeHtml(String(LOADER_API_VERSION)) + "</span></div>",
-    ].join("");
-    elements.status.textContent = state.managerStatusText || buildManagerStatusText(state, counts);
-
-    if (!rows.length) {
-      elements.rows.innerHTML = "<tr><td colspan='7' class='tm-empty'>표시할 스크립트가 없습니다.</td></tr>";
-      return;
+    if (!cachedMeta) {
+      const status = updateRemoteStatusEntry(statusMap, script.id, "new", remoteMeta.version);
+      notifyOnceForStatus(script, status);
+      return status;
     }
-
-    elements.rows.innerHTML = rows.map((row) => [
-      "<tr class='" + getManagerRowClassName(row) + "'>",
-      "<td>",
-      "<span class='tm-script-name'>" + escapeHtml(row.name) + "</span>",
-      "<span class='tm-script-id'>" + escapeHtml(row.id) + "</span>",
-      (row.description ? "<span class='tm-script-desc'>" + escapeHtml(row.description) + "</span>" : ""),
-      "</td>",
-      "<td>" + (row.appliesHere
-        ? "<span class='tm-badge tm-badge-match'>적용중</span>"
-        : "<span class='tm-badge tm-badge-miss'>대기</span>") + "</td>",
-      "<td><button type='button' class='" + (row.enabled ? "tm-toggle-on" : "tm-toggle-off") + "' data-action='toggle' data-script-id='" + escapeHtml(row.id) + "'>" + (row.enabled ? "ON" : "OFF") + "</button></td>",
-      "<td>" + escapeHtml(row.cachedVersion) + "</td>",
-      "<td>" + renderRemoteVersionCell(row) + "</td>",
-      "<td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
-      "<td><div class='tm-actions'><button type='button' data-action='sync' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">동기화</button><button type='button' data-action='clear' data-script-id='" + escapeHtml(row.id) + "' " + (state.managerBusy ? "disabled" : "") + ">캐시 삭제</button></div></td>",
-      "</tr>",
-    ].join("")).join("");
-  }
-
-  function openManager(state) {
-    const elements = ensureManagerUi(state);
-    if (!elements) return;
-    state.managerOpen = true;
-    renderManager(state);
-    refreshRegistry(state, { refreshRemote: true, force: true });
-    prewarmEnabledScripts(state, { force: true, silent: true });
-  }
-
-  async function refreshRemoteMeta(state, scriptIds, options) {
-    if (!state.registry) return;
-    const opts = Object.assign({ newScriptIds: [], notifyChanges: true }, options);
-    const newScriptIdSet = new Set(opts.newScriptIds || []);
-    const scripts = getScriptsFromRegistry(state, scriptIds, false);
-    await Promise.all(scripts.map(async (script) => {
-      try {
-        const remoteMeta = await loadScriptMeta(script);
-        state.remoteMetaById[script.id] = remoteMeta;
-        updateScriptRemoteStatus(state, script, remoteMeta, {
-          isNew: newScriptIdSet.has(script.id),
-          notifyChanges: opts.notifyChanges,
-        });
-      } catch (error) {
-        state.remoteMetaById[script.id] = { error: error.message };
-      }
-    }));
-  }
-
-  function purgeScriptCaches(state, scriptIds, options) {
-    const opts = Object.assign({ deleteEnabled: false, clearStatus: true }, options);
-    const statusMap = Object.assign({}, state.remoteStatusById || {});
-    scriptIds.forEach((scriptId) => {
-      const keys = buildScriptStorageKeys(scriptId);
-      readAssetCacheKeys(scriptId).forEach((assetKey) => deleteValue(assetKey));
-      deleteValue(keys.assets);
-      deleteValue(keys.meta);
-      deleteValue(keys.code);
-      deleteValue(keys.registry);
-      if (opts.deleteEnabled) deleteValue(keys.enabled);
-      delete state.remoteMetaById[scriptId];
-      if (opts.clearStatus) clearRemoteStatusEntry(statusMap, scriptId);
-    });
-    if (opts.clearStatus) persistRemoteStatusMap(state, statusMap);
-  }
-
-  async function refreshRegistry(state, options) {
-    const opts = Object.assign({ refreshRemote: false, force: false, silent: false, notifyChanges: true, trackNewScripts: true }, options);
-    const shouldRefresh = opts.force || shouldCheckAt(state.lastRegistryCheckedAt, REGISTRY_CHECK_INTERVAL_MS);
-
-    if (!shouldRefresh) {
-      renderManager(state);
-      return false;
+    if (compareVersions(cachedMeta.version, remoteMeta.version) < 0) {
+      const status = updateRemoteStatusEntry(statusMap, script.id, "update", remoteMeta.version);
+      notifyOnceForStatus(script, status);
+      return status;
     }
-
-    const hasLock = opts.force || acquireRefreshLock(REGISTRY_LOCK_KEY, LOCK_TTL_MS);
-    if (!hasLock) {
-      renderManager(state);
-      return false;
-    }
-
-    if (!opts.silent) {
-      state.managerBusy = true;
-      state.managerStatusText = "레지스트리를 확인하는 중입니다.";
-      renderManager(state);
-    }
-
-    try {
-      const previousRegistry = state.registry || readCachedRegistry() || { scripts: [] };
-      const nextRegistry = await loadRegistry();
-      const diff = diffRegistryScripts(previousRegistry, nextRegistry);
-      state.registry = nextRegistry;
-      state.registryError = "";
-      state.lastRegistryCheckedAt = getValue(REGISTRY_CHECKED_AT_KEY, "");
-
-      if (diff.removedIds.length) {
-        purgeScriptCaches(state, diff.removedIds, { deleteEnabled: true, clearStatus: true });
-      }
-
-      const newScriptIds = opts.trackNewScripts === false ? [] : diff.addedIds;
-      if (opts.refreshRemote || newScriptIds.length) {
-        await refreshRemoteMeta(state, null, {
-          newScriptIds,
-          notifyChanges: opts.notifyChanges,
-        });
-      }
-
-      state.managerStatusText = "registry를 최신 상태로 반영했습니다.";
-      return true;
-    } catch (error) {
-      const cachedRegistry = readCachedRegistry();
-      if (cachedRegistry) {
-        state.registry = cachedRegistry;
-        state.registryError = "원격 registry 확인에 실패해 캐시를 사용합니다.";
-      } else {
-        state.registryError = "registry를 불러오지 못했습니다.";
-      }
-      state.managerStatusText = state.registryError || ("registry 확인 실패: " + error.message);
-      return false;
-    } finally {
-      if (!opts.force) releaseRefreshLock(REGISTRY_LOCK_KEY);
-      if (!opts.silent) state.managerBusy = false;
-      renderManager(state);
-    }
+    clearRemoteStatusEntry(statusMap, script.id);
+    return null;
   }
 
-  async function prewarmEnabledScripts(state, options) {
-    const opts = Object.assign({ force: false, silent: true, notifyChanges: true }, options);
-    if (!state.registry) return false;
-    if (!opts.force && !shouldCheckAt(state.lastMetaPrewarmedAt, META_PREWARM_INTERVAL_MS)) return false;
-    if (!opts.force && !acquireRefreshLock(META_PREWARM_LOCK_KEY, LOCK_TTL_MS)) return false;
-
-    try {
-      const scripts = getScriptsFromRegistry(state, null, true);
-      await Promise.all(scripts.map(async (script) => {
-        try {
-          const remoteMeta = await loadScriptMeta(script);
-          state.remoteMetaById[script.id] = remoteMeta;
-          updateScriptRemoteStatus(state, script, remoteMeta, { notifyChanges: opts.notifyChanges });
-          const localState = readScriptLocalState(script.id);
-          if (!localState.hasCode || shouldRefreshCache(localState.meta, remoteMeta)) {
-            await prewarmScriptBundle(script, remoteMeta);
-          }
-        } catch (error) {
-          state.remoteMetaById[script.id] = { error: error.message };
-        }
-      }));
-      state.lastMetaPrewarmedAt = nowIso();
-      setValue(META_PREWARMED_AT_KEY, state.lastMetaPrewarmedAt);
-      if (!opts.silent) state.managerStatusText = "활성 모듈 예열을 완료했습니다.";
-      return true;
-    } finally {
-      if (!opts.force) releaseRefreshLock(META_PREWARM_LOCK_KEY);
-      renderManager(state);
+  async function refreshRemoteMeta(script, options) {
+    const remoteMeta = await fetchJson(resolvePath(script.metaPath));
+    const normalizedRemoteMeta = normalizeMetaCacheEntry(script.id, remoteMeta);
+    const statusMap = readRemoteStatusMap();
+    await updateScriptRemoteStatus(script, normalizedRemoteMeta, statusMap);
+    persistRemoteStatusMap(statusMap);
+    if (options && options.prewarm) {
+      const shouldSync = shouldRefreshCache(readCachedScriptMeta(script.id), normalizedRemoteMeta) || !getValue(buildScriptStorageKeys(script.id).code, "");
+      if (shouldSync) await prewarmScriptBundle(script);
     }
+    return normalizedRemoteMeta;
   }
 
-  async function syncScripts(state, scriptIds) {
-    if (!state.registry) await refreshRegistry(state, { force: true, refreshRemote: true });
-    if (!state.registry) return;
-
-    const scripts = getScriptsFromRegistry(state, scriptIds, false);
-    const statusMap = Object.assign({}, state.remoteStatusById || {});
-    state.managerBusy = true;
-    state.managerStatusText = scripts.length === 1
-      ? ((scripts[0].name || scripts[0].id) + " 동기화 중입니다.")
-      : "선택한 스크립트를 동기화하는 중입니다.";
-    renderManager(state);
-
-    try {
-      for (const script of scripts) {
-        const meta = await loadScriptMeta(script);
-        state.remoteMetaById[script.id] = meta;
-        await prewarmScriptBundle(script, meta);
-        clearRemoteStatusEntry(statusMap, script.id);
-      }
-      persistRemoteStatusMap(state, statusMap);
-      state.lastMetaPrewarmedAt = nowIso();
-      setValue(META_PREWARMED_AT_KEY, state.lastMetaPrewarmedAt);
-      state.managerStatusText = scripts.length === 1
-        ? ((scripts[0].name || scripts[0].id) + " 동기화를 완료했습니다.")
-        : "선택한 스크립트 동기화를 완료했습니다.";
-    } catch (error) {
-      state.managerStatusText = "동기화 실패: " + error.message;
-    } finally {
-      state.managerBusy = false;
-      renderManager(state);
-    }
-  }
-
-  function clearScriptCaches(state, scriptIds) {
-    const scripts = getScriptsFromRegistry(state, scriptIds, false);
-    purgeScriptCaches(state, scripts.map((script) => script.id), { deleteEnabled: false, clearStatus: true });
-    state.managerStatusText = scripts.length === 1
-      ? ((scripts[0].name || scripts[0].id) + " 캐시를 삭제했습니다.")
-      : "선택한 스크립트 캐시를 삭제했습니다.";
-    renderManager(state);
-  }
-
-  function clearAllCaches(state) {
-    clearScriptCaches(state, ((state.registry && state.registry.scripts) || []).map((script) => script.id));
-  }
-
-  function toggleScriptEnabled(state, scriptId) {
-    const script = ((state.registry && state.registry.scripts) || []).find((item) => item.id === scriptId);
-    if (!script) return;
+  function purgeScriptCaches(scriptId) {
     const keys = buildScriptStorageKeys(scriptId);
-    const current = getValue(keys.enabled, undefined);
-    const enabled = isScriptEnabled(script, current);
-    setValue(keys.enabled, !enabled);
-    state.managerStatusText = (script.name || script.id) + " 상태를 " + (!enabled ? "활성화" : "비활성화") + "로 변경했습니다.";
-    renderManager(state);
+    deleteValue(keys.enabled);
+    deleteValue(keys.meta);
+    deleteValue(keys.code);
+    deleteValue(keys.registry);
+    deleteValue(keys.assets);
+    deleteValue(keys.remoteStatus);
+    deleteValue(keys.notifiedVersion);
+    readAssetCacheKeys(scriptId).forEach((assetKey) => deleteValue(assetKey));
   }
 
-  function registerMenus(state) {
-    if (typeof GM_registerMenuCommand !== "function") return;
-    GM_registerMenuCommand("VX Console 열기", function () {
-      openManager(state);
-    });
-  }
+  async function refreshRegistry(options) {
+    const currentRegistry = readCachedRegistry();
+    const force = !!(options && options.force);
+    const nowValue = Date.now();
+    if (!force && !shouldCheckAt(getValue(REGISTRY_CHECKED_AT_KEY, ""), REGISTRY_CHECK_INTERVAL_MS, nowValue)) {
+      return currentRegistry;
+    }
+    if (!acquireRefreshLock(REGISTRY_LOCK_KEY, LOCK_TTL_MS, nowValue)) return currentRegistry;
 
-  function scheduleBackgroundRefresh(state) {
-    if (state.backgroundRefreshPending) return;
-    state.backgroundRefreshPending = true;
-    Promise.resolve().then(async function () {
-      try {
-        await refreshRegistry(state, { refreshRemote: true, silent: true });
-        await prewarmEnabledScripts(state, { silent: true });
-      } catch (error) {
-        console.error("[tamp-loader] background refresh failed", error);
-      } finally {
-        state.backgroundRefreshPending = false;
-        renderManager(state);
+    try {
+      const nextRegistry = await fetchJson(REGISTRY_URL);
+      const diff = diffRegistryScripts(currentRegistry, nextRegistry);
+      setValue(REGISTRY_RAW_KEY, JSON.stringify(nextRegistry));
+      setValue(REGISTRY_CHECKED_AT_KEY, nowIso());
+
+      diff.removedIds.forEach((scriptId) => {
+        purgeScriptCaches(scriptId);
+      });
+
+      const nextStatusMap = readRemoteStatusMap();
+      diff.removedIds.forEach((scriptId) => clearRemoteStatusEntry(nextStatusMap, scriptId));
+
+      for (const addedId of diff.addedIds) {
+        const addedScript = getScriptsFromRegistry(nextRegistry).find((script) => script.id === addedId);
+        if (!addedScript) continue;
+        const remoteMeta = normalizeMetaCacheEntry(addedScript.id, await fetchJson(resolvePath(addedScript.metaPath)));
+        const status = updateRemoteStatusEntry(nextStatusMap, addedId, "new", remoteMeta.version);
+        notifyOnceForStatus(addedScript, status);
       }
+
+      persistRemoteStatusMap(nextStatusMap);
+      return nextRegistry;
+    } finally {
+      releaseRefreshLock(REGISTRY_LOCK_KEY);
+    }
+  }
+
+  async function prewarmEnabledScripts(registry, options) {
+    const sourceRegistry = registry || readCachedRegistry();
+    if (!sourceRegistry) return [];
+    const force = !!(options && options.force);
+    const nowValue = Date.now();
+    if (!force && !shouldCheckAt(getValue(META_PREWARMED_AT_KEY, ""), META_PREWARM_INTERVAL_MS, nowValue)) {
+      return [];
+    }
+    if (!acquireRefreshLock(META_PREWARM_LOCK_KEY, LOCK_TTL_MS, nowValue)) return [];
+
+    try {
+      const targets = getScriptsFromRegistry(sourceRegistry).filter((script) => {
+        const state = readScriptLocalState(script);
+        return isScriptEnabled(script, state.enabledOverride);
+      });
+      const results = [];
+      for (const script of targets) {
+        results.push(await refreshRemoteMeta(script, { prewarm: true }));
+      }
+      setValue(META_PREWARMED_AT_KEY, nowIso());
+      return results;
+    } finally {
+      releaseRefreshLock(META_PREWARM_LOCK_KEY);
+    }
+  }
+
+  async function syncScripts(scope, options) {
+    const registry = readCachedRegistry() || await refreshRegistry({ force: true });
+    const currentUrl = options && options.window && options.window.location ? options.window.location.href : (root.location && root.location.href ? root.location.href : "");
+    const scripts = getScriptsFromRegistry(registry);
+    const targets = scope === "all"
+      ? scripts
+      : (scope === "current-page"
+        ? findMatchingScripts(registry, currentUrl)
+        : scripts.filter((script) => script.id === scope));
+    for (const script of targets) {
+      await prewarmScriptBundle(script);
+    }
+    const statusMap = readRemoteStatusMap();
+    targets.forEach((script) => clearRemoteStatusEntry(statusMap, script.id));
+    persistRemoteStatusMap(statusMap);
+    await renderManager(options && options.window ? options.window : root);
+    return targets.length;
+  }
+
+  async function clearScriptCaches(scriptId) {
+    purgeScriptCaches(scriptId);
+    const statusMap = readRemoteStatusMap();
+    clearRemoteStatusEntry(statusMap, scriptId);
+    persistRemoteStatusMap(statusMap);
+    await renderManager(root);
+  }
+
+  async function clearAllCaches() {
+    getValueList().forEach((key) => {
+      if (key.indexOf(STORAGE_PREFIX + ":") === 0) deleteValue(key);
     });
+    await renderManager(root);
+  }
+
+  async function toggleScriptEnabled(scriptId, enabled) {
+    const keys = buildScriptStorageKeys(scriptId);
+    setValue(keys.enabled, !!enabled);
+    await renderManager(root);
+  }
+
+  function openManager(win) {
+    const popup = ensureManagerUi(win || root);
+    if (popup && typeof popup.focus === "function") popup.focus();
+    renderManager(win || root);
+    return popup;
+  }
+
+  function registerMenus() {
+    const registerMenu = getFunction("GM_registerMenuCommand");
+    if (typeof registerMenu !== "function") return;
+    registerMenu("VX Console 열기", function onOpenManager() {
+      openManager(root);
+    });
+  }
+
+  function scheduleBackgroundRefresh(win, registry) {
+    const timerFn = win && typeof win.setTimeout === "function" ? win.setTimeout.bind(win) : setTimeout;
+    timerFn(async () => {
+      try {
+        const nextRegistry = await refreshRegistry();
+        await prewarmEnabledScripts(nextRegistry || registry);
+        if (isManagerOpen()) await renderManager(win || root);
+      } catch (error) {
+        if (root && root.console && typeof root.console.error === "function") {
+          root.console.error("[VX Console] background refresh failed", error);
+        }
+      }
+    }, 0);
   }
 
   async function bootstrap(win) {
-    const state = {
-      win,
-      doc: win.document,
-      url: String(win.location.href || ""),
-      registry: readCachedRegistry(),
-      registryError: "",
-      remoteMetaById: {},
-      remoteStatusById: readRemoteStatusMap(),
-      lastRegistryCheckedAt: getValue(REGISTRY_CHECKED_AT_KEY, ""),
-      lastMetaPrewarmedAt: getValue(META_PREWARMED_AT_KEY, ""),
-      managerBusy: false,
-      managerOpen: false,
-      managerFilterCurrentOnly: false,
-      managerStatusText: "",
-      managerWindow: null,
-      managerDocument: null,
-      managerElements: null,
-      backgroundRefreshPending: false,
-    };
+    const scope = win || root;
+    registerMenus();
 
-    registerMenus(state);
-
-    if (!state.registry) {
-      await refreshRegistry(state, { force: true, silent: true, notifyChanges: false, trackNewScripts: false });
+    let registry = readCachedRegistry();
+    if (!registry) {
+      registry = await refreshRegistry({ force: true });
     }
+    if (!registry) return null;
 
-    const matchingScripts = findMatchingScripts(state.registry || { scripts: [] }, state.url);
+    const currentUrl = scope.location && scope.location.href ? scope.location.href : "";
+    const matchingScripts = findMatchingScripts(registry, currentUrl);
     for (const script of matchingScripts) {
-      const keys = buildScriptStorageKeys(script.id);
-      const enabled = isScriptEnabled(script, getValue(keys.enabled, undefined));
-      if (!enabled) continue;
-
-      let meta = readCachedScriptMeta(script.id);
-      if (!canUseCachedMeta(meta)) {
-        try {
-          meta = await loadScriptMeta(script);
-        } catch (error) {
-          const cachedCode = getValue(keys.code, null);
-          if (!canUseCachedMeta(meta) || !cachedCode) {
-            console.error("[tamp-loader] meta load failed", script.id, error);
-            continue;
-          }
+      try {
+        await runScript(script, scope, { preferCache: true });
+      } catch (error) {
+        if (root && root.console && typeof root.console.error === "function") {
+          root.console.error("[VX Console] script failed:", script.id, error);
         }
       }
-
-      if (!canUseCachedMeta(meta)) {
-        console.error("[tamp-loader] cached meta unusable", script.id);
-        continue;
-      }
-
-      try {
-        await runScript(script, meta, {
-          window: win,
-          document: win.document,
-          state,
-        });
-      } catch (error) {
-        console.error("[tamp-loader] script run failed", script.id, error);
-      }
     }
 
-    scheduleBackgroundRefresh(state);
+    scheduleBackgroundRefresh(scope, registry);
+    return registry;
   }
 
   return {
@@ -1714,16 +1187,16 @@
     RAW_BASE_URL,
     bootstrap,
     buildManagerDocumentHtml,
-    buildManagerShellHtml,
     buildManagerRows,
+    buildManagerShellHtml,
     buildScriptStorageKeys,
     canUseCachedMeta,
     compareVersions,
     createLoaderApi,
     diffRegistryScripts,
     findMatchingScripts,
-    formatSyncTime,
     formatManagerSubtitle,
+    formatSyncTime,
     getManagerWindowFeatures,
     isScriptEnabled,
     matchUrlPattern,

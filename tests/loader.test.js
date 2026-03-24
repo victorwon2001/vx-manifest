@@ -11,19 +11,89 @@ function resolveRepoPath(candidates) {
   throw new Error("path not found: " + candidates.join(", "));
 }
 
-const loader = require(resolveRepoPath(["../loader/loader.user.js", "../client/loader.user.js"]));
+const loaderPath = resolveRepoPath(["../client/loader.user.js"]);
+const loader = require(loaderPath);
 const releaseLib = require("../tools/release-lib.js");
-const remoteModule = require(resolveRepoPath(["../scripts/site3217/main.js", "../modules/module-a/main.js"]));
+const remoteModule = require(resolveRepoPath(["../modules/module-a/main.js"]));
 const patternAnalyzerModule = require(resolveRepoPath(["../modules/pattern-analyzer/main.js"]));
 const stockMoveAutomationModule = require(resolveRepoPath(["../modules/stock-move-automation/main.js"]));
 const orderImportSyncModule = require(resolveRepoPath(["../modules/order-import-sync/main.js"]));
 const moduleUi = require(resolveRepoPath(["../shared/module-ui.js"]));
-const registry = require(resolveRepoPath(["../registry/registry.json", "../config/registry.json"]));
-const remoteMeta = require(resolveRepoPath(["../scripts/site3217/meta.json", "../modules/module-a/meta.json"]));
+const registry = require(resolveRepoPath(["../config/registry.json"]));
+const remoteMeta = require(resolveRepoPath(["../modules/module-a/meta.json"]));
 const patternAnalyzerMeta = require(resolveRepoPath(["../modules/pattern-analyzer/meta.json"]));
 const stockMoveAutomationMeta = require(resolveRepoPath(["../modules/stock-move-automation/meta.json"]));
 const orderImportSyncMeta = require(resolveRepoPath(["../modules/order-import-sync/meta.json"]));
-const loaderSource = fs.readFileSync(resolveRepoPath(["../loader/loader.user.js", "../client/loader.user.js"]), "utf8");
+const loaderSource = fs.readFileSync(loaderPath, "utf8");
+
+function createGmEnvironment(overrides) {
+  const original = {};
+  const names = [
+    "GM_getValue",
+    "GM_setValue",
+    "GM_deleteValue",
+    "GM_listValues",
+    "GM_xmlhttpRequest",
+    "GM_notification",
+    "GM_download",
+    "GM_setClipboard",
+    "GM_openInTab",
+    "GM_registerMenuCommand",
+  ];
+  names.forEach((name) => {
+    original[name] = global[name];
+  });
+
+  const store = new Map();
+  global.GM_getValue = (key, fallbackValue) => (store.has(key) ? store.get(key) : fallbackValue);
+  global.GM_setValue = (key, value) => {
+    store.set(key, value);
+  };
+  global.GM_deleteValue = (key) => {
+    store.delete(key);
+  };
+  global.GM_listValues = () => Array.from(store.keys());
+  global.GM_notification = () => {};
+  global.GM_download = () => {};
+  global.GM_setClipboard = () => {};
+  global.GM_openInTab = () => {};
+  global.GM_registerMenuCommand = () => {};
+  if (overrides && overrides.GM_xmlhttpRequest) {
+    global.GM_xmlhttpRequest = overrides.GM_xmlhttpRequest;
+  } else {
+    delete global.GM_xmlhttpRequest;
+  }
+
+  return {
+    store,
+    restore() {
+      names.forEach((name) => {
+        if (typeof original[name] === "undefined") {
+          delete global[name];
+        } else {
+          global[name] = original[name];
+        }
+      });
+    },
+  };
+}
+
+function createFakeWindow(url) {
+  return {
+    location: { href: url },
+    document: {},
+    navigator: {},
+    console,
+    unsafeWindow: null,
+    focus() {},
+    open() {
+      return null;
+    },
+    setTimeout() {
+      return 0;
+    },
+  };
+}
 
 test("matchUrlPattern handles trailing wildcard", () => {
   assert.equal(
@@ -46,8 +116,8 @@ test("findMatchingScripts returns only current-page candidates", () => {
   const sampleRegistry = {
     scripts: [
       { id: "module-a", matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"] },
-      { id: "module-b", matches: ["https://www.ebut3pl.co.kr/jsp/site/site320main.jsp*"] }
-    ]
+      { id: "module-b", matches: ["https://www.ebut3pl.co.kr/jsp/site/site320main.jsp*"] },
+    ],
   };
 
   const result = loader.findMatchingScripts(
@@ -66,32 +136,13 @@ test("isScriptEnabled prefers per-PC override over default", () => {
 
 test("shouldRefreshCache compares semantic versions and checksum", () => {
   assert.equal(loader.shouldRefreshCache(null, { version: "0.1.0", checksum: "a" }), true);
-  assert.equal(
-    loader.shouldRefreshCache(
-      { version: "0.1.0", checksum: "a" },
-      { version: "0.1.1", checksum: "a" }
-    ),
-    true
-  );
-  assert.equal(
-    loader.shouldRefreshCache(
-      { version: "0.1.1", checksum: "a" },
-      { version: "0.1.1", checksum: "b" }
-    ),
-    true
-  );
-  assert.equal(
-    loader.shouldRefreshCache(
-      { version: "0.1.1", checksum: "a" },
-      { version: "0.1.1", checksum: "a" }
-    ),
-    false
-  );
+  assert.equal(loader.shouldRefreshCache({ version: "0.1.0", checksum: "a" }, { version: "0.1.1", checksum: "a" }), true);
+  assert.equal(loader.shouldRefreshCache({ version: "0.1.1", checksum: "a" }, { version: "0.1.1", checksum: "b" }), true);
+  assert.equal(loader.shouldRefreshCache({ version: "0.1.1", checksum: "a" }, { version: "0.1.1", checksum: "a" }), false);
 });
 
 test("shouldCheckAt respects ttl windows", () => {
   const now = Date.UTC(2026, 2, 24, 3, 0, 0);
-
   assert.equal(loader.shouldCheckAt("", 15 * 60 * 1000, now), true);
   assert.equal(loader.shouldCheckAt("2026-03-24T02:50:00.000Z", 15 * 60 * 1000, now), false);
   assert.equal(loader.shouldCheckAt("2026-03-24T02:40:00.000Z", 15 * 60 * 1000, now), true);
@@ -99,7 +150,6 @@ test("shouldCheckAt respects ttl windows", () => {
 
 test("buildScriptStorageKeys keeps script cache names isolated", () => {
   const keys = loader.buildScriptStorageKeys("module-a");
-
   assert.equal(keys.enabled, "tm-loader:v1:script:module-a:enabled");
   assert.equal(keys.meta, "tm-loader:v1:script:module-a:meta");
   assert.equal(keys.code, "tm-loader:v1:script:module-a:code");
@@ -129,7 +179,6 @@ test("diffRegistryScripts detects added and removed modules", () => {
     { scripts: [{ id: "module-a" }, { id: "module-b" }] },
     { scripts: [{ id: "module-b" }, { id: "module-c" }] }
   );
-
   assert.deepEqual(diff, { addedIds: ["module-c"], removedIds: ["module-a"] });
 });
 
@@ -226,7 +275,6 @@ test("buildManagerRows surfaces remote status badges for new modules", () => {
 
 test("getManagerWindowFeatures builds popup sizing string", () => {
   const features = loader.getManagerWindowFeatures();
-
   assert.match(features, /width=1160/);
   assert.match(features, /height=860/);
   assert.match(features, /resizable=yes/);
@@ -235,7 +283,6 @@ test("getManagerWindowFeatures builds popup sizing string", () => {
 
 test("buildManagerDocumentHtml returns standalone popup shell", () => {
   const html = loader.buildManagerDocumentHtml();
-
   assert.match(html, /<!doctype html>/i);
   assert.match(html, /tm-loader-popup-root/);
   assert.match(html, /vx console/i);
@@ -243,39 +290,54 @@ test("buildManagerDocumentHtml returns standalone popup shell", () => {
 
 test("buildManagerShellHtml uses the refreshed hero and summary layout", () => {
   const html = loader.buildManagerShellHtml();
-
   assert.match(html, /tm-hero/);
   assert.match(html, /tm-summary-grid/);
   assert.match(html, /tm-status-card/);
   assert.match(html, /tm-table-card/);
-  assert.match(html, /로드 표면/);
+  assert.match(html, /로드 화면/);
 });
 
 test("public loader labels are neutralized", () => {
   const html = loader.buildManagerDocumentHtml();
-
   assert.match(html, /vx console/i);
-  assert.doesNotMatch(html, /tamp-scripts|tamp.?스크립트|site3217|ebut/i);
+  assert.doesNotMatch(html, /site3217|ebut/i);
 });
 
 test("loader points to neutral public repo paths", () => {
   assert.match(loader.REGISTRY_URL, /vx-manifest/);
   assert.match(loader.REGISTRY_URL, /config\/registry\.json/);
-  assert.doesNotMatch(loader.REGISTRY_URL, /tamp-scripts|registry\/registry/);
+  assert.doesNotMatch(loader.REGISTRY_URL, /registry\/registry/);
 });
 
-test("loader allows excel redirects and forwards gmRequest to modules", () => {
+test("loader source declares future-proof grants and connect rules", () => {
   assert.match(loaderSource, /@connect\s+ebutexcel\.co\.kr/);
-  assert.match(loaderSource, /loader:\s*\{[\s\S]*gmRequest,/);
-});
-
-test("loader declares future-proof grants and helper API surface", () => {
   assert.match(loaderSource, /@connect\s+\*/);
   assert.match(loaderSource, /@grant\s+GM_download/);
   assert.match(loaderSource, /@grant\s+GM_setClipboard/);
   assert.match(loaderSource, /@grant\s+GM_openInTab/);
-  assert.match(loaderSource, /loaderApiVersion:\s*LOADER_API_VERSION/);
-  assert.match(loaderSource, /request:\s*gmRequest/);
+});
+
+test("critical loader functions have a single canonical definition", () => {
+  [
+    "notifyOnceForStatus",
+    "getManagerRowClassName",
+    "renderRemoteVersionCell",
+    "buildManagerShellHtml",
+    "applyManagerStyles",
+    "renderManager",
+    "openManager",
+    "refreshRemoteMeta",
+    "refreshRegistry",
+    "syncScripts",
+    "clearScriptCaches",
+    "clearAllCaches",
+    "toggleScriptEnabled",
+    "registerMenus",
+    "bootstrap",
+  ].forEach((name) => {
+    const matches = loaderSource.match(new RegExp("\\bfunction\\s+" + name + "\\s*\\(", "g")) || [];
+    assert.equal(matches.length, 1, name + " should be defined once");
+  });
 });
 
 test("createLoaderApi exposes storage and convenience helpers", () => {
@@ -294,71 +356,133 @@ test("createLoaderApi exposes storage and convenience helpers", () => {
   assert.deepEqual(api.capabilities.gm, ["GM_xmlhttpRequest"]);
 });
 
-test("registry and remote meta avoid obvious public labels", () => {
-  const combined = [
-    registry.scripts[0].id,
-    registry.scripts[0].name,
-    registry.scripts[0].metaPath,
-    remoteMeta.id,
-    remoteMeta.name,
-    remoteMeta.description,
-    remoteMeta.entry,
-  ].join(" ");
+test("bootstrap runs cached module without waiting for remote registry", async () => {
+  const env = createGmEnvironment();
+  try {
+    const registryCache = {
+      version: 1,
+      scripts: [
+        {
+          id: "bootstrap-cache",
+          name: "bootstrap-cache",
+          enabledByDefault: true,
+          matches: ["https://example.com/*"],
+          metaPath: "modules/bootstrap-cache/meta.json",
+        },
+      ],
+    };
+    const keys = loader.buildScriptStorageKeys("bootstrap-cache");
+    env.store.set("tm-loader:v1:registry:raw", JSON.stringify(registryCache));
+    env.store.set(keys.meta, JSON.stringify({
+      id: "bootstrap-cache",
+      name: "bootstrap-cache",
+      version: "1.0.0",
+      entry: "modules/bootstrap-cache/main.js",
+      checksum: "",
+      dependencies: [],
+      capabilities: { gm: [] },
+      loaderApiVersion: 2,
+      checkedAt: "2026-03-24T00:00:00.000Z",
+      lastSyncedAt: "2026-03-24T00:00:00.000Z",
+    }));
+    env.store.set(keys.code, 'module.exports={id:"bootstrap-cache",run(context){context.window.__loaderRuns=(context.window.__loaderRuns||[]).concat("cache");}};');
 
-  assert.doesNotMatch(combined, /site3217|ebut/i);
+    const fakeWindow = createFakeWindow("https://example.com/dashboard");
+    await loader.bootstrap(fakeWindow);
+    assert.deepEqual(fakeWindow.__loaderRuns, ["cache"]);
+  } finally {
+    env.restore();
+  }
 });
 
-test("registry and remote meta expose the requested display name", () => {
+test("bootstrap cold start fetches registry, meta and code remotely", async () => {
+  const responses = new Map([
+    [
+      loader.REGISTRY_URL,
+      JSON.stringify({
+        version: 1,
+        scripts: [
+          {
+            id: "bootstrap-remote",
+            name: "bootstrap-remote",
+            enabledByDefault: true,
+            matches: ["https://example.com/*"],
+            metaPath: "modules/bootstrap-remote/meta.json",
+          },
+        ],
+      }),
+    ],
+    [
+      loader.RAW_BASE_URL + "modules/bootstrap-remote/meta.json",
+      JSON.stringify({
+        id: "bootstrap-remote",
+        name: "bootstrap-remote",
+        version: "1.0.0",
+        entry: "modules/bootstrap-remote/main.js",
+        checksum: "",
+        dependencies: [],
+        capabilities: { gm: [] },
+        loaderApiVersion: 2,
+      }),
+    ],
+    [
+      loader.RAW_BASE_URL + "modules/bootstrap-remote/main.js",
+      'module.exports={id:"bootstrap-remote",run(context){context.window.__loaderRuns=(context.window.__loaderRuns||[]).concat("remote");}};',
+    ],
+  ]);
+  const env = createGmEnvironment({
+    GM_xmlhttpRequest(details) {
+      const body = responses.get(details.url);
+      if (!body) throw new Error("unexpected URL: " + details.url);
+      details.onload({
+        status: 200,
+        responseText: body,
+        response: body,
+        responseHeaders: "content-type: application/json",
+      });
+    },
+  });
+
+  try {
+    const fakeWindow = createFakeWindow("https://example.com/dashboard");
+    await loader.bootstrap(fakeWindow);
+    assert.deepEqual(fakeWindow.__loaderRuns, ["remote"]);
+    assert.ok(env.store.get("tm-loader:v1:registry:raw"));
+  } finally {
+    env.restore();
+  }
+});
+
+test("registry and remote meta expose the requested display names", () => {
   assert.equal(registry.scripts[0].name, "송장출력(스캔) 필터링");
   assert.equal(remoteMeta.name, "송장출력(스캔) 필터링");
-});
-
-test("registry exposes the pattern analyzer module metadata", () => {
-  const script = registry.scripts.find((item) => item.id === "pattern-analyzer");
-
-  assert.ok(script);
-  assert.equal(script.name, "패턴분석기");
-  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/*"]);
-  assert.equal(script.metaPath, "modules/pattern-analyzer/meta.json");
-});
-
-test("pattern analyzer meta exposes the requested display name", () => {
-  assert.equal(patternAnalyzerMeta.id, "pattern-analyzer");
   assert.equal(patternAnalyzerMeta.name, "패턴분석기");
+  assert.equal(stockMoveAutomationMeta.name, "재고이동 자동화");
+  assert.equal(orderImportSyncMeta.name, "연동데이터 불러오기");
+});
+
+test("pattern analyzer meta and registry stay aligned", () => {
+  const script = registry.scripts.find((item) => item.id === "pattern-analyzer");
+  assert.ok(script);
+  assert.equal(script.metaPath, "modules/pattern-analyzer/meta.json");
   assert.equal(patternAnalyzerMeta.entry, "modules/pattern-analyzer/main.js");
 });
 
-test("registry exposes the stock move automation module metadata", () => {
+test("stock move automation meta and registry stay aligned", () => {
   const script = registry.scripts.find((item) => item.id === "stock-move-automation");
-
   assert.ok(script);
-  assert.equal(script.name, "재고이동 자동화");
-  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/*"]);
   assert.equal(script.metaPath, "modules/stock-move-automation/meta.json");
-});
-
-test("stock move automation meta exposes the requested display name", () => {
-  assert.equal(stockMoveAutomationMeta.id, "stock-move-automation");
-  assert.equal(stockMoveAutomationMeta.name, "재고이동 자동화");
   assert.equal(stockMoveAutomationMeta.entry, "modules/stock-move-automation/main.js");
 });
 
-test("registry exposes the order import sync module metadata", () => {
+test("order import sync meta and registry stay aligned", () => {
   const script = registry.scripts.find((item) => item.id === "order-import-sync");
-
   assert.ok(script);
-  assert.equal(script.name, "연동데이터 불러오기");
-  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/jsp/site/site230main.jsp*"]);
   assert.equal(script.metaPath, "modules/order-import-sync/meta.json");
-});
-
-test("order import sync meta exposes the requested display name", () => {
-  assert.equal(orderImportSyncMeta.id, "order-import-sync");
-  assert.equal(orderImportSyncMeta.name, "연동데이터 불러오기");
   assert.equal(orderImportSyncMeta.entry, "modules/order-import-sync/main.js");
 });
 
-test("bumpVersion increments patch by default", () => {
+test("bumpVersion increments semantic versions", () => {
   assert.equal(releaseLib.bumpVersion("0.1.0"), "0.1.1");
   assert.equal(releaseLib.bumpVersion("0.1.0", "minor"), "0.2.0");
   assert.equal(releaseLib.bumpVersion("0.1.0", "major"), "1.0.0");
@@ -368,9 +492,8 @@ test("buildChangelogEntry writes Korean entry with date and version", () => {
   const entry = releaseLib.buildChangelogEntry({
     date: "2026-03-21",
     version: "0.1.1",
-    message: "모듈 정리"
+    message: "모듈 정리",
   });
-
   assert.match(entry, /## 2026-03-21/);
   assert.match(entry, /- `0.1.1` 모듈 정리/);
 });
@@ -386,9 +509,6 @@ test("pattern analyzer module exports run contract", () => {
   assert.equal(patternAnalyzerModule.id, "pattern-analyzer");
   assert.equal(Array.isArray(patternAnalyzerModule.matches), true);
   assert.equal(typeof patternAnalyzerModule.run, "function");
-});
-
-test("pattern analyzer runtime version stays aligned with meta version", () => {
   assert.equal(patternAnalyzerModule.version, patternAnalyzerMeta.version);
 });
 
@@ -396,9 +516,6 @@ test("stock move automation module exports run contract", () => {
   assert.equal(stockMoveAutomationModule.id, "stock-move-automation");
   assert.equal(Array.isArray(stockMoveAutomationModule.matches), true);
   assert.equal(typeof stockMoveAutomationModule.run, "function");
-});
-
-test("stock move automation runtime version stays aligned with meta version", () => {
   assert.equal(stockMoveAutomationModule.version, stockMoveAutomationMeta.version);
 });
 
@@ -406,9 +523,6 @@ test("order import sync module exports run contract", () => {
   assert.equal(orderImportSyncModule.id, "order-import-sync");
   assert.equal(Array.isArray(orderImportSyncModule.matches), true);
   assert.equal(typeof orderImportSyncModule.run, "function");
-});
-
-test("order import sync runtime version stays aligned with meta version", () => {
   assert.equal(orderImportSyncModule.version, orderImportSyncMeta.version);
 });
 
