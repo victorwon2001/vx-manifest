@@ -12,6 +12,7 @@ function resolveRepoPath(candidates) {
 }
 
 const moduleA = require(resolveRepoPath(["../modules/module-a/main.js"]));
+const moduleSource = fs.readFileSync(resolveRepoPath(["../modules/module-a/main.js"]), "utf8");
 
 test("module-a toolbar html uses compact embedded shared ui classes", () => {
   const html = moduleA.buildToolbarHtml();
@@ -30,10 +31,17 @@ test("module-a toolbar html uses compact embedded shared ui classes", () => {
 test("module-a modal html uses the shared overlay and modal contract", () => {
   const html = moduleA.buildModalShellHtml();
 
+  assert.match(html, /tm-ui-root tm-ui-panel tm-ui-overlay/);
+  assert.match(html, /data-tm-density=['"]compact['"]/);
   assert.match(html, /tm-ui-overlay/);
   assert.match(html, /tm-ui-modal/);
   assert.match(html, /tm-ui-modal__head/);
   assert.match(html, /tm-ui-modal__body/);
+});
+
+test("module-a modal open state keeps shared modal classes intact", () => {
+  assert.match(moduleSource, /modalBackdrop\.classList\.toggle\("tm-open", open\)/);
+  assert.doesNotMatch(moduleSource, /modalBackdrop\.className\s*=\s*open\s*\?\s*"tm-open"\s*:\s*""/);
 });
 
 test("resolveBinaryRequestTransport prefers fetch when GM_xmlhttpRequest is unavailable", () => {

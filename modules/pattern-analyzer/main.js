@@ -332,6 +332,15 @@
     const filters = settings.filters || {};
     const batches = Array.isArray(settings.batches) ? settings.batches : [];
     const patterns = Array.isArray(settings.patterns) ? settings.patterns : [];
+    const stats = settings.stats || {};
+    const regularInvoiceCount = Math.max(parseInt(stats.regularInvoiceCount, 10) || 0, 0);
+    const leftoverInvoiceCount = Math.max(parseInt(stats.leftoverInvoiceCount, 10) || 0, 0);
+    const totalInvoiceCount = Math.max(parseInt(stats.totalInvoiceCount, 10) || 0, regularInvoiceCount + leftoverInvoiceCount);
+    const summaryItems = [
+      { label: "총건수", value: totalInvoiceCount + "건" },
+      { label: "패턴건수", value: regularInvoiceCount + "건" },
+      { label: "필터 제외 짜투리", value: leftoverInvoiceCount + "건" },
+    ];
     const metaItems = [
       settings.dateLabel ? "기준일 " + escapeHtml(settings.dateLabel) : "",
       settings.siteLabel ? "판매처 " + escapeHtml(settings.siteLabel) : "",
@@ -367,8 +376,9 @@
       "<!doctype html><html lang='ko'><head><meta charset='utf-8'><title>" + MODULE_NAME + " 인쇄</title><style>",
       "@page{size:A4 portrait;margin:6mm 5mm 7mm}",
       "body{margin:0;font-family:'Public Sans','Noto Sans KR','Segoe UI','Malgun Gothic',sans-serif;color:#1f2728;background:#fff;font-size:10.5px;line-height:1.3}",
-      ".sheet{display:grid;gap:10px}.meta-strip{display:flex;flex-wrap:wrap;gap:4px 6px}.meta-chip{display:inline-flex;align-items:center;padding:2px 7px;border:1px solid #d8dfdf;border-radius:999px;background:#f7f8f8;color:#455255;font-size:10px}.section{display:grid;gap:5px}.section h2{margin:0;font-size:12px;letter-spacing:-.02em}.batch-list{list-style:none;margin:0;padding:0;border:1px solid #d7dfdf;border-radius:10px;overflow:hidden}.batch-item{display:grid;grid-template-columns:56px minmax(78px,1fr) minmax(78px,1fr) 48px minmax(0,2fr);gap:6px;align-items:center;padding:4px 6px;border-bottom:1px solid #e3e9e9}.batch-item:last-child{border-bottom:none}.batch-no,.batch-count{font-weight:700;color:#223033}.batch-memo{color:#4e5758;white-space:normal;word-break:break-word}.table{width:100%;border-collapse:collapse}.pattern-table{table-layout:auto}.table th,.table td{padding:4px 6px;border:1px solid #d8dfdf;font-size:10px;text-align:center;vertical-align:middle;line-height:1.25}.table th{background:#eef1f1;color:#495255;font-weight:800}.table td.left,.table th.left{text-align:left}.pattern-table .product-cell,.pattern-table .management-cell{word-break:break-word}.pattern-table .col-pattern{width:34px}.pattern-table .col-product{width:38%}.pattern-table .col-option{width:18%}.pattern-table .col-qty{width:44px}.pattern-table .col-repeat{width:48px}.tone-even td,.tone-even{background:#ffffff}.tone-odd td,.tone-odd{background:#f7f8f8}",
+      ".sheet{display:grid;gap:10px}.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.summary-chip{display:grid;gap:1px;padding:6px 8px;border:1px solid #d8dfdf;border-radius:10px;background:#f7f8f8}.summary-chip .label{font-size:9px;color:#546064;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.summary-chip .value{font-size:14px;line-height:1.05;font-weight:800;color:#1f2728}.meta-strip{display:flex;flex-wrap:wrap;gap:4px 6px}.meta-chip{display:inline-flex;align-items:center;padding:2px 7px;border:1px solid #d8dfdf;border-radius:999px;background:#f7f8f8;color:#455255;font-size:10px}.section{display:grid;gap:5px}.section h2{margin:0;font-size:12px;letter-spacing:-.02em}.batch-list{list-style:none;margin:0;padding:0;border:1px solid #d7dfdf;border-radius:10px;overflow:hidden}.batch-item{display:grid;grid-template-columns:56px minmax(78px,1fr) minmax(78px,1fr) 48px minmax(0,2fr);gap:6px;align-items:center;padding:4px 6px;border-bottom:1px solid #e3e9e9}.batch-item:last-child{border-bottom:none}.batch-no,.batch-count{font-weight:700;color:#223033}.batch-memo{color:#4e5758;white-space:normal;word-break:break-word}.table{width:100%;border-collapse:collapse}.pattern-table{table-layout:auto}.table th,.table td{padding:4px 6px;border:1px solid #d8dfdf;font-size:10px;text-align:center;vertical-align:middle;line-height:1.25}.table th{background:#eef1f1;color:#495255;font-weight:800}.table td.left,.table th.left{text-align:left}.pattern-table .product-cell,.pattern-table .management-cell{word-break:break-word}.pattern-table .col-pattern{width:34px}.pattern-table .col-product{width:38%}.pattern-table .col-option{width:18%}.pattern-table .col-qty{width:44px}.pattern-table .col-repeat{width:48px}.tone-even td,.tone-even{background:#ffffff}.tone-odd td,.tone-odd{background:#f7f8f8}",
       "</style></head><body><div class='sheet'>",
+      "<div class='summary-strip'>" + summaryItems.map((item) => "<div class='summary-chip'><span class='label'>" + escapeHtml(item.label) + "</span><span class='value'>" + escapeHtml(item.value) + "</span></div>").join("") + "</div>",
       metaItems.length ? "<div class='meta-strip'>" + metaItems.map((item) => "<span class='meta-chip'>" + item + "</span>").join("") + "</div>" : "",
       "<section class='section'><h2>차수 정보</h2><ul class='batch-list'>" + batchRows + "</ul></section>",
       "<section class='section'><h2>패턴 정보</h2><table class='table pattern-table'><thead><tr><th class='col-pattern'>패턴</th><th class='col-product left'>제품명</th><th class='left'>관리명</th><th class='col-option'>옵션명</th><th class='col-qty'>수량</th><th class='col-repeat'>반복수</th></tr></thead><tbody>" + patternRows + "</tbody></table></section>",
@@ -981,6 +991,7 @@
       siteLabel: formatSelectedFilterLabel(getMultiSelectValues(popupState.popupWin.document, "site-multiselect")),
       exprLabel: formatSelectedFilterLabel(getMultiSelectValues(popupState.popupWin.document, "expr-multiselect")),
       filters,
+      stats: popupState.lastPatternResult ? popupState.lastPatternResult.stats : null,
       batches,
       patterns,
     });
@@ -1395,7 +1406,7 @@
 
   return {
     id: MODULE_ID,
-    version: "0.1.10",
+    version: "0.1.11",
     name: MODULE_NAME,
     matches: MATCHES,
     LEFTOVER_PATTERN_ID,
@@ -1418,6 +1429,7 @@
     createPopupHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

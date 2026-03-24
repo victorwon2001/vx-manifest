@@ -44,9 +44,12 @@
     return {
       ensureStyles() {},
       buildRootAttributes(options) {
+        const kind = options && options.kind === "embedded"
+          ? "tm-ui-embedded"
+          : (options && options.kind === "popup" ? "tm-ui-popup" : "tm-ui-panel");
         const density = options && options.density === "compact" ? "compact" : "normal";
         const extra = options && options.className ? " " + options.className : "";
-        return 'class="tm-ui-root tm-ui-embedded' + extra + '" data-tm-density="' + density + '"';
+        return 'class="tm-ui-root ' + kind + extra + '" data-tm-density="' + density + '"';
       },
     };
   }
@@ -806,20 +809,20 @@
       "#" + PANEL_ID + "-batch-panel .tm-mini-card{display:inline;padding:0;border:0;background:transparent;color:var(--tm-muted)}",
       "#" + PANEL_ID + "-batch-panel .tm-mini-card::after{content:' | ';color:var(--tm-muted)}",
       "#" + PANEL_ID + "-batch-panel .tm-mini-card:last-child::after{content:''}",
-      "#" + PANEL_ID + "-modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;z-index:2147483647}",
+      "#" + PANEL_ID + "-modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;z-index:2147483647;background:rgba(18,27,31,.34);backdrop-filter:blur(8px)}",
       "#" + PANEL_ID + "-modal-backdrop.tm-open{display:flex}",
-      "#" + PANEL_ID + "-modal{width:min(980px,calc(100vw - 36px));max-height:calc(100vh - 36px);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);overflow:hidden}",
-      "#" + PANEL_ID + "-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}",
-      "#" + PANEL_ID + "-modal-title{margin:0;font-size:16px;line-height:1.2;color:var(--tm-text)}",
-      "#" + PANEL_ID + "-modal-subtitle{margin-top:3px;color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-modal-summary{display:grid;gap:6px;max-height:170px;overflow:auto;background:var(--tm-surface-alt)}",
-      "#" + PANEL_ID + "-modal-summary .tm-selection-card{display:grid;grid-template-columns:140px 1fr 1fr;gap:10px;padding:8px 10px;border:1px solid var(--tm-border);border-radius:8px;background:var(--tm-surface)}",
+      "#" + PANEL_ID + "-modal{width:min(1000px,calc(100vw - 36px));max-height:calc(100vh - 36px);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);overflow:hidden;background:var(--tm-surface);border:1px solid var(--tm-border);border-radius:18px;box-shadow:0 28px 60px rgba(18,27,31,.18)}",
+      "#" + PANEL_ID + "-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;background:linear-gradient(180deg,#ffffff 0%,#f7f9f9 100%);border-bottom:1px solid var(--tm-border)}",
+      "#" + PANEL_ID + "-modal-title{margin:0;font-size:16px;line-height:1.2;color:var(--tm-text);letter-spacing:-.02em}",
+      "#" + PANEL_ID + "-modal-subtitle{margin-top:3px;color:#4f5758;line-height:1.5}",
+      "#" + PANEL_ID + "-modal-summary{display:grid;gap:8px;max-height:170px;overflow:auto;padding:12px 14px;background:var(--tm-surface-alt);border-bottom:1px solid var(--tm-border)}",
+      "#" + PANEL_ID + "-modal-summary .tm-selection-card{display:grid;grid-template-columns:140px 1fr 1fr;gap:10px;padding:10px 12px;border:1px solid var(--tm-border);border-radius:10px;background:var(--tm-surface)}",
       "#" + PANEL_ID + "-modal-summary .tm-selection-card strong{display:block;color:#17212b}",
-      "#" + PANEL_ID + "-modal-controls{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--tm-border);background:var(--tm-surface-alt)}",
-      "#" + PANEL_ID + "-modal-content{min-height:220px;overflow:auto;padding:12px 14px;background:var(--tm-surface)}",
+      "#" + PANEL_ID + "-modal-controls{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--tm-border);background:var(--tm-surface)}",
+      "#" + PANEL_ID + "-modal-content{min-height:220px;overflow:auto;padding:14px 16px;background:var(--tm-surface)}",
       "#" + PANEL_ID + "-modal-grid{display:grid;gap:6px}",
       "#" + PANEL_ID + "-detail-summary{margin-bottom:8px;color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-detail-table-wrap{border:1px solid var(--tm-border);max-height:520px;overflow:auto;border-radius:8px}",
+      "#" + PANEL_ID + "-detail-table-wrap{border:1px solid var(--tm-border);max-height:520px;overflow:auto;border-radius:12px;background:var(--tm-surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}",
       "#" + PANEL_ID + "-detail-table{width:100%;border-collapse:collapse;table-layout:fixed;background:var(--tm-surface)}",
       "#" + PANEL_ID + "-detail-table th,#" + PANEL_ID + "-detail-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
       "#" + PANEL_ID + "-detail-table th{position:sticky;top:0;background:var(--tm-surface-alt);color:var(--tm-muted);z-index:1}",
@@ -833,12 +836,12 @@
       "#" + PANEL_ID + "-modal-history-item{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--tm-border);border-radius:8px;background:var(--tm-surface-alt)}",
       "#" + PANEL_ID + "-modal-history-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--tm-muted)}",
       "#" + PANEL_ID + "-modal-history-selections{display:flex;gap:6px;flex-wrap:wrap}",
-      "#" + PANEL_ID + "-history-table-wrap{border:1px solid var(--tm-border);max-height:520px;overflow:auto;border-radius:8px}",
+      "#" + PANEL_ID + "-history-table-wrap{border:1px solid var(--tm-border);max-height:520px;overflow:auto;border-radius:12px;background:var(--tm-surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}",
       "#" + PANEL_ID + "-history-table{width:100%;border-collapse:collapse;table-layout:fixed;background:var(--tm-surface)}",
       "#" + PANEL_ID + "-history-table th,#" + PANEL_ID + "-history-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
       "#" + PANEL_ID + "-history-table th{position:sticky;top:0;background:var(--tm-surface-alt);color:var(--tm-muted);z-index:1}",
-      "#" + PANEL_ID + "-modal-empty{padding:28px 12px;text-align:center;color:var(--tm-muted)}",
-      "#" + PANEL_ID + "-modal-close{height:24px;padding:0 10px}",
+      "#" + PANEL_ID + "-modal-empty{padding:30px 14px;text-align:center;color:#4f5758;border:1px dashed #d8dfdf;border-radius:12px;background:var(--tm-surface-alt)}",
+      "#" + PANEL_ID + "-modal-close{height:30px;padding:0 12px}",
       "@media (max-width:900px){#" + PANEL_ID + " .tm-toolbar-hero,#" + PANEL_ID + " .tm-toolbar-main{grid-template-columns:1fr}#" + PANEL_ID + " .tm-toolbar-hero-meta,#" + PANEL_ID + " .tm-toolbar-actions{justify-content:flex-start}#" + PANEL_ID + "-modal-summary .tm-selection-card{grid-template-columns:1fr}}",
     ].join("\n");
 
@@ -928,8 +931,13 @@
     ].join("");
   }
   function buildModalShellHtml() {
+    const rootAttrs = getModuleUi(root).buildRootAttributes({
+      kind: "panel",
+      density: "compact",
+      className: "tm-ui-overlay",
+    });
     return [
-      "<div class='tm-ui-overlay' id='" + PANEL_ID + "-modal-backdrop'>",
+      "<div " + rootAttrs.replace(/"/g, "'") + " id='" + PANEL_ID + "-modal-backdrop'>",
       "<div class='tm-ui-modal' id='" + PANEL_ID + "-modal' role='dialog' aria-modal='true'>",
       "<div class='tm-ui-modal__head' id='" + PANEL_ID + "-modal-head'></div>",
       "<div class='tm-ui-modal__body' id='" + PANEL_ID + "-modal-summary'></div>",
@@ -1446,7 +1454,7 @@
   }
   function renderModal(state) {
     const open = !!state.modalType;
-    state.elements.modalBackdrop.className = open ? "tm-open" : "";
+    state.elements.modalBackdrop.classList.toggle("tm-open", open);
     if (!open) {
       state.elements.modalHead.innerHTML = "";
       state.elements.modalSummary.innerHTML = "";
@@ -1726,7 +1734,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.8",
+    version: "0.1.10",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1767,6 +1775,8 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
+
 
 
 
