@@ -29,6 +29,15 @@
       "metaPath": "modules/inbound-helper/meta.json"
     },
     {
+      "id": "auto-matching",
+      "name": "자동 매칭",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/jsp/site/site217edit.jsp*"
+      ],
+      "metaPath": "modules/auto-matching/meta.json"
+    },
+    {
       "id": "unshipped-checker",
       "name": "미출고 건수 체커",
       "enabledByDefault": true,

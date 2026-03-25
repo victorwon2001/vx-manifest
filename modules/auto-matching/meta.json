@@ -1,0 +1,17 @@
+﻿{
+    "id":  "auto-matching",
+    "name":  "자동 매칭",
+    "version":  "0.1.1",
+    "description":  "상품코드 기준 자동 매칭과 세트 수량 동기화를 처리하는 보조 도구",
+    "entry":  "modules/auto-matching/main.js",
+    "dependencies":  [
+                         {
+                             "id":  "module-ui",
+                             "version":  "0.2.2",
+                             "path":  "shared/module-ui.js"
+                         }
+                     ],
+    "checksum":  "",
+    "loaderApiVersion":  2,
+    "updatedAt":  "2026-03-25 09:14:18"
+}
