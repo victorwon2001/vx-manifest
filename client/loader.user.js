@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.5.0
+// @version      0.5.1
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -948,11 +948,58 @@
     if (row.hasUpdate) classes.push("is-update");
     if (row.isRedeploy) classes.push("is-redeploy");
     if (row.hasError) classes.push("is-error");
+    if (row.isNew || row.hasUpdate || row.isRedeploy || row.hasError) classes.push("is-attention");
     return classes.join(" ");
+  }
+
+  function getRowAttentionKind(row) {
+    if (row && row.isNew) return "new";
+    if (row && row.hasUpdate) return "update";
+    if (row && row.isRedeploy) return "redeploy";
+    if (row && row.hasError) return "error";
+    return "";
+  }
+
+  function getRowAttentionLabel(row) {
+    const kind = getRowAttentionKind(row);
+    if (kind === "new") return "신규";
+    if (kind === "update") return "업데이트 필요";
+    if (kind === "redeploy") return "재배포";
+    if (kind === "error") return "확인 필요";
+    return "";
+  }
+
+  function renderScriptNameCell(row) {
+    const attentionKind = getRowAttentionKind(row);
+    const attentionLabel = getRowAttentionLabel(row);
+    const note = row && row.statusMessage ? '<p class="tm-script-note">' + escapeHtml(row.statusMessage) + "</p>" : "";
+    const badge = attentionKind
+      ? '<span class="tm-badge tm-badge-' + attentionKind + '">' + attentionLabel + "</span>"
+      : "";
+    return [
+      '<div class="tm-script-cell">',
+      '  <div class="tm-script-meta"><strong>' + escapeHtml(row.name) + "</strong>" + badge + "</div>",
+      "  <div>" + escapeHtml(row.id) + "</div>",
+      note,
+      "</div>",
+    ].join("");
   }
 
   function renderRemoteVersionCell(row) {
     const version = escapeHtml(row.remoteVersion || "-");
+    const attentionKind = getRowAttentionKind(row);
+    if (attentionKind === "new") {
+      return '<div class="tm-version-cell tm-version-cell--new"><strong>' + version + '</strong><span class="tm-badge tm-badge-new">신규</span></div>';
+    }
+    if (attentionKind === "update") {
+      return '<div class="tm-version-cell tm-version-cell--update"><strong>' + version + '</strong><span class="tm-badge tm-badge-update">업데이트</span></div>';
+    }
+    if (attentionKind === "redeploy") {
+      return '<div class="tm-version-cell tm-version-cell--redeploy"><strong>' + version + '</strong><span class="tm-badge tm-badge-redeploy">재배포</span></div>';
+    }
+    if (attentionKind === "error") {
+      return '<div class="tm-version-cell tm-version-cell--error"><strong>' + version + '</strong><span class="tm-badge tm-badge-error">오류</span></div>';
+    }
     if (row.isNew) {
       return '<div class="tm-version-cell"><strong>' + version + '</strong><span class="tm-badge tm-badge-new">신규</span></div>';
     }
@@ -966,6 +1013,31 @@
       return '<div class="tm-version-cell"><strong>' + version + '</strong><span class="tm-badge tm-badge-error">오류</span></div>';
     }
     return '<div class="tm-version-cell"><strong>' + version + "</strong></div>";
+  }
+
+  function buildAttentionListHtml(rows) {
+    const attentionRows = Array.isArray(rows)
+      ? rows.filter((row) => row && (row.isNew || row.hasUpdate || row.isRedeploy || row.hasError))
+      : [];
+    if (!attentionRows.length) return "";
+    return attentionRows.map((row) => {
+      const attentionKind = getRowAttentionKind(row);
+      const label = getRowAttentionLabel(row);
+      const detail = row.isNew
+        ? "원격 버전 " + escapeHtml(row.remoteVersion || "-") + " 추가"
+        : row.hasUpdate
+          ? "캐시 " + escapeHtml(row.cachedVersion || "-") + " → 원격 " + escapeHtml(row.remoteVersion || "-")
+          : row.isRedeploy
+            ? "버전 동일, 코드 재배포 감지"
+            : (row.statusMessage ? escapeHtml(row.statusMessage) : "상태 확인이 필요합니다");
+      return [
+        '<div class="tm-attention-item tm-attention-item--' + attentionKind + '">',
+        '  <span class="tm-badge tm-badge-' + attentionKind + '">' + label + "</span>",
+        '  <div class="tm-attention-copy"><strong>' + escapeHtml(row.name) + "</strong><p>" + detail + "</p></div>",
+        row.appliesHere ? '<span class="tm-badge tm-badge-new">현재 페이지</span>' : "",
+        "</div>",
+      ].join("");
+    }).join("");
   }
 
   function buildManagerRows(options) {
@@ -1041,6 +1113,17 @@
       '    <article class="tm-summary-card"><span>업데이트 대기</span><strong id="tm-summary-updates">0</strong></article>',
       '    <article class="tm-summary-card"><span>신규 모듈</span><strong id="tm-summary-new">0</strong></article>',
       "  </section>",
+      '  <section id="tm-attention-card" class="tm-attention-card" hidden>',
+      '    <div class="tm-attention-head">',
+      "      <div>",
+      '        <p class="tm-kicker">Update Queue</p>',
+      '        <h2>반영이 필요한 항목</h2>',
+      '        <p class="tm-subtitle">업데이트, 재배포, 신규 모듈을 먼저 확인할 수 있습니다.</p>',
+      "      </div>",
+      '      <span id="tm-attention-count" class="tm-badge tm-badge-update">0건</span>',
+      "    </div>",
+      '    <div id="tm-attention-list" class="tm-attention-list"></div>',
+      "  </section>",
       '  <section class="tm-status-card">',
       '    <div class="tm-status-line"><span>Registry 확인</span><strong id="tm-status-registry-check">-</strong></div>',
       '    <div class="tm-status-line"><span>Meta 예열</span><strong id="tm-status-meta-check">-</strong></div>',
@@ -1085,7 +1168,7 @@
       "body{margin:0;background:#f5f6f7;color:#1f2427}",
       "#" + MANAGER_ROOT_ID + "{padding:20px}",
       ".tm-shell{display:grid;gap:16px}",
-      ".tm-hero,.tm-status-card,.tm-table-card,.tm-summary-card{background:#fff;border:1px solid #d8dee2;border-radius:16px;box-shadow:0 16px 32px rgba(31,36,39,.06)}",
+      ".tm-hero,.tm-status-card,.tm-table-card,.tm-summary-card,.tm-attention-card{background:#fff;border:1px solid #d8dee2;border-radius:16px;box-shadow:0 16px 32px rgba(31,36,39,.06)}",
       ".tm-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:20px 22px}",
       ".tm-kicker{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#55626a}",
       ".tm-hero h1{margin:0;font-size:30px;line-height:1.1}",
@@ -1095,6 +1178,20 @@
       ".tm-summary-card{padding:14px 16px;display:grid;gap:6px}",
       ".tm-summary-card span{font-size:12px;color:#5d666b}",
       ".tm-summary-card strong{font-size:24px;line-height:1.1}",
+      ".tm-summary-card.is-hot{border-color:#d8c27d;background:#fff9ea}",
+      ".tm-summary-card.is-hot strong{color:#8a5a00}",
+      ".tm-attention-card{padding:16px 18px;display:grid;gap:12px;background:#fff9ea;border-color:#e6d3a0}",
+      ".tm-attention-card[hidden]{display:none}",
+      ".tm-attention-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}",
+      ".tm-attention-head h2{margin:0;font-size:22px;line-height:1.15}",
+      ".tm-attention-list{display:grid;gap:10px}",
+      ".tm-attention-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;border:1px solid #e6dfe6;background:#fff}",
+      ".tm-attention-item strong{display:block;font-size:14px;margin-bottom:2px}",
+      ".tm-attention-item p{margin:0;font-size:12px;color:#5d666b}",
+      ".tm-attention-item--update{border-color:#cfe5db;background:#f6fbf8}",
+      ".tm-attention-item--new{border-color:#d5dde2;background:#f8fafb}",
+      ".tm-attention-item--redeploy{border-color:#ecd8a8;background:#fff9ec}",
+      ".tm-attention-item--error{border-color:#edc3bf;background:#fff5f4}",
       ".tm-status-card{padding:14px 16px;display:grid;gap:8px}",
       ".tm-status-line{display:flex;justify-content:space-between;gap:16px;font-size:13px}",
       ".tm-table-card{padding:14px 16px;display:grid;gap:12px}",
@@ -1103,24 +1200,34 @@
       ".tm-table th{font-size:12px;color:#5d666b;font-weight:700}",
       ".tm-table tr.is-current{background:#f8fafb}",
       ".tm-table tr.is-disabled{opacity:.58}",
-      ".tm-table tr.is-update{box-shadow:inset 3px 0 0 #2f6f59}",
-      ".tm-table tr.is-redeploy{box-shadow:inset 3px 0 0 #9a6700}",
-      ".tm-table tr.is-new{box-shadow:inset 3px 0 0 #51666f}",
-      ".tm-table tr.is-error{box-shadow:inset 3px 0 0 #b42318}",
+      ".tm-table tr.is-attention td{background:#fcfcfb}",
+      ".tm-table tr.is-update{box-shadow:inset 4px 0 0 #2f6f59}",
+      ".tm-table tr.is-update td{background:#f7fcf9}",
+      ".tm-table tr.is-redeploy{box-shadow:inset 4px 0 0 #9a6700}",
+      ".tm-table tr.is-redeploy td{background:#fffaf0}",
+      ".tm-table tr.is-new{box-shadow:inset 4px 0 0 #51666f}",
+      ".tm-table tr.is-new td{background:#f8fafb}",
+      ".tm-table tr.is-error{box-shadow:inset 4px 0 0 #b42318}",
+      ".tm-table tr.is-error td{background:#fff5f4}",
       ".tm-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700}",
       ".tm-badge-update{background:#ecf6f1;color:#2f6f59}",
       ".tm-badge-new{background:#eef1f3;color:#51666f}",
       ".tm-badge-redeploy{background:#fff7e6;color:#9a6700}",
       ".tm-badge-error{background:#fef3f2;color:#b42318}",
       ".tm-version-cell{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
+      ".tm-version-cell--update strong,.tm-version-cell--redeploy strong,.tm-version-cell--new strong{font-size:14px}",
+      ".tm-script-cell{display:grid;gap:6px}",
+      ".tm-script-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
+      ".tm-script-note{margin:0;font-size:12px;color:#5d666b}",
       ".tm-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
       ".tm-button{height:34px;padding:0 14px;border-radius:999px;border:1px solid #51666f;background:#51666f;color:#fff;font-weight:600;cursor:pointer}",
       ".tm-button:hover{filter:brightness(.96)}",
       ".tm-button:disabled{opacity:.55;cursor:not-allowed;filter:none}",
       ".tm-button-secondary{background:#fff;color:#334047;border-color:#c8d0d5}",
       ".tm-button-ghost{background:#f5f6f7;color:#334047;border-color:#e1e7ea}",
+      ".tm-button-emphasis{background:#1f6f54;border-color:#1f6f54;color:#fff}",
       ".tm-button-toggle{min-width:84px}",
-      "@media (max-width: 900px){.tm-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tm-hero{flex-direction:column}}",
+      "@media (max-width: 900px){.tm-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tm-hero,.tm-attention-head{flex-direction:column}.tm-attention-item{grid-template-columns:1fr}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -1364,31 +1471,47 @@
       const toggleDisabledAttr = isManagerActionDisabled("toggle-script", row.id) ? " disabled" : "";
       const syncDisabledAttr = isManagerActionDisabled("sync-script", row.id) ? " disabled" : "";
       const clearDisabledAttr = isManagerActionDisabled("clear-script", row.id) ? " disabled" : "";
+      const syncLabel = row.isNew ? "\uAC00\uC838\uC624\uAE30" : ((row.hasUpdate || row.isRedeploy) ? "\uC5C5\uB370\uC774\uD2B8" : "\uB3D9\uAE30\uD654");
+      const syncClass = (row.isNew || row.hasUpdate || row.isRedeploy) ? "tm-button tm-button-emphasis" : "tm-button tm-button-ghost";
       return [
         '<tr class="' + getManagerRowClassName(row) + '">',
-        "  <td><strong>" + escapeHtml(row.name) + "</strong><div>" + escapeHtml(row.id) + "</div></td>",
+        "  <td>" + renderScriptNameCell(row) + "</td>",
         "  <td>" + stateLabel + " " + appliesLabel + "</td>",
         "  <td>" + escapeHtml(row.cachedVersion || "-") + "</td>",
         "  <td>" + renderRemoteVersionCell(row) + "</td>",
         "  <td>" + escapeHtml(row.lastSyncedAtLabel) + "</td>",
         '  <td><div class="tm-actions">',
         '    <button type="button" class="tm-button tm-button-secondary tm-button-toggle" data-action="toggle-script" data-script-id="' + escapeHtml(row.id) + '" data-enabled="' + String(row.enabled) + '"' + toggleDisabledAttr + '>' + (row.enabled ? "끄기" : "켜기") + "</button>",
-        '    <button type="button" class="tm-button tm-button-ghost" data-action="sync-script" data-script-id="' + escapeHtml(row.id) + '"' + syncDisabledAttr + '>동기화</button>',
+        '    <button type="button" class="' + syncClass + '" data-action="sync-script" data-script-id="' + escapeHtml(row.id) + '"' + syncDisabledAttr + '>' + syncLabel + "</button>",
         '    <button type="button" class="tm-button tm-button-ghost" data-action="clear-script" data-script-id="' + escapeHtml(row.id) + '"' + clearDisabledAttr + '>캐시삭제</button>',
         "  </div></td>",
         "</tr>",
       ].join("");
     }).join("");
+    const attentionRows = rows.filter((row) => row.isNew || row.hasUpdate || row.isRedeploy || row.hasError);
+    const pendingCount = rows.filter((row) => row.hasUpdate || row.isRedeploy).length;
+    const newCount = rows.filter((row) => row.isNew).length;
+    const rowsHtmlWithAttention = rowsHtml.replace(/class="tm-button tm-button-ghost" data-action="sync-script" data-script-id="([^"]+)"([^>]*)>[^<]*<\/button>/g, (buttonMatch, scriptId, attrs) => {
+      const targetRow = rows.find((row) => row.id === scriptId) || {};
+      const syncLabel = targetRow.isNew ? "\uAC00\uC838\uC624\uAE30" : ((targetRow.hasUpdate || targetRow.isRedeploy) ? "\uC5C5\uB370\uC774\uD2B8" : "\uB3D9\uAE30\uD654");
+      const syncClass = (targetRow.isNew || targetRow.hasUpdate || targetRow.isRedeploy) ? "tm-button tm-button-emphasis" : "tm-button tm-button-ghost";
+      return 'class="' + syncClass + '" data-action="sync-script" data-script-id="' + escapeHtml(scriptId) + '"' + attrs + '>' + syncLabel + "</button>";
+    });
 
     doc.getElementById("tm-manager-subtitle").textContent = formatManagerSubtitle(sourceWindow.location && sourceWindow.location.href ? sourceWindow.location.href : "");
     doc.getElementById("tm-summary-total").textContent = String(rows.length);
     doc.getElementById("tm-summary-current").textContent = String(rows.filter((row) => row.appliesHere).length);
-    doc.getElementById("tm-summary-updates").textContent = String(rows.filter((row) => row.hasUpdate || row.isRedeploy).length);
-    doc.getElementById("tm-summary-new").textContent = String(rows.filter((row) => row.isNew).length);
+    doc.getElementById("tm-summary-updates").textContent = String(pendingCount);
+    doc.getElementById("tm-summary-new").textContent = String(newCount);
     doc.getElementById("tm-status-registry-check").textContent = formatSyncTime(getValue(REGISTRY_CHECKED_AT_KEY, ""));
     doc.getElementById("tm-status-meta-check").textContent = formatSyncTime(getValue(META_PREWARMED_AT_KEY, ""));
     doc.getElementById("tm-manager-status-text").textContent = buildManagerStatusText(rows);
-    doc.getElementById("tm-manager-rows").innerHTML = rowsHtml || '<tr><td colspan="6">표시할 스크립트가 없습니다.</td></tr>';
+    doc.getElementById("tm-summary-updates").parentElement.classList.toggle("is-hot", pendingCount > 0);
+    doc.getElementById("tm-summary-new").parentElement.classList.toggle("is-hot", newCount > 0);
+    doc.getElementById("tm-attention-card").hidden = attentionRows.length === 0;
+    doc.getElementById("tm-attention-count").textContent = String(attentionRows.length) + "\uAC74";
+    doc.getElementById("tm-attention-list").innerHTML = buildAttentionListHtml(attentionRows);
+    doc.getElementById("tm-manager-rows").innerHTML = rowsHtmlWithAttention || '<tr><td colspan="6">표시할 스크립트가 없습니다.</td></tr>';
     updateManagerActionState(doc);
     return popup;
   }
@@ -1779,6 +1902,7 @@
     RAW_BASE_URL,
     bootstrap,
     buildManagerDocumentHtml,
+    buildAttentionListHtml,
     buildManagerRows,
     buildManagerShellHtml,
     buildRemoteStatus,

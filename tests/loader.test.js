@@ -319,9 +319,32 @@ test("buildManagerShellHtml uses the refreshed hero and summary layout", () => {
   const html = loader.buildManagerShellHtml();
   assert.match(html, /tm-hero/);
   assert.match(html, /tm-summary-grid/);
+  assert.match(html, /tm-attention-card/);
+  assert.match(html, /tm-attention-list/);
   assert.match(html, /tm-status-card/);
   assert.match(html, /tm-table-card/);
   assert.match(html, /로드 화면/);
+});
+
+test("buildAttentionListHtml renders update-focused attention items", () => {
+  const html = loader.buildAttentionListHtml([
+    {
+      id: "module-a",
+      name: "workspace-a",
+      appliesHere: true,
+      isNew: false,
+      hasUpdate: true,
+      isRedeploy: false,
+      hasError: false,
+      cachedVersion: "0.1.0",
+      remoteVersion: "0.1.1",
+      statusMessage: "",
+    },
+  ]);
+
+  assert.match(html, /tm-attention-item--update/);
+  assert.match(html, /workspace-a/);
+  assert.match(html, /tm-badge-update/);
 });
 
 test("public loader labels are neutralized", () => {
@@ -383,6 +406,9 @@ test("loader source wires sync execution and busy status messaging", () => {
   assert.match(loaderSource, /typeof GM_getValue === "function"/);
   assert.match(loaderSource, /doc\.__tmManagerClickHandler/);
   assert.match(loaderSource, /removeEventListener\("click", doc\.__tmManagerClickHandler\)/);
+  assert.match(loaderSource, /tm-button-emphasis/);
+  assert.match(loaderSource, /tm-attention-card/);
+  assert.match(loaderSource, /renderScriptNameCell\(row\)/);
   assert.doesNotMatch(loaderSource, /openManager\(root\)/);
   assert.doesNotMatch(loaderSource, /doc\.__tmManagerBound/);
 });
