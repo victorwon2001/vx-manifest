@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.5.1
+// @version      0.5.2
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -323,6 +323,7 @@
     if (!meta.version) return null;
     return {
       id: meta.id || scriptId,
+      displayId: meta.displayId || "",
       name: meta.name || "",
       version: String(meta.version),
       description: meta.description || "",
@@ -973,13 +974,14 @@
     const attentionKind = getRowAttentionKind(row);
     const attentionLabel = getRowAttentionLabel(row);
     const note = row && row.statusMessage ? '<p class="tm-script-note">' + escapeHtml(row.statusMessage) + "</p>" : "";
+    const subtitle = row && row.displayId && row.displayId !== row.name ? '<div>' + escapeHtml(row.displayId) + "</div>" : "";
     const badge = attentionKind
       ? '<span class="tm-badge tm-badge-' + attentionKind + '">' + attentionLabel + "</span>"
       : "";
     return [
       '<div class="tm-script-cell">',
       '  <div class="tm-script-meta"><strong>' + escapeHtml(row.name) + "</strong>" + badge + "</div>",
-      "  <div>" + escapeHtml(row.id) + "</div>",
+      subtitle,
       note,
       "</div>",
     ].join("");
@@ -1066,6 +1068,7 @@
       const hasError = statusKind === "error";
       return {
         id: script.id,
+        displayId: script.displayId || (cachedMeta && cachedMeta.displayId) || (remoteMeta && remoteMeta.displayId) || script.id,
         name: script.name || script.id,
         appliesHere,
         enabled,
@@ -1907,6 +1910,7 @@
     buildManagerShellHtml,
     buildRemoteStatus,
     buildScriptStorageKeys,
+    renderScriptNameCell,
     canUseCachedMeta,
     compareVersions,
     createLoaderApi,

@@ -1,5 +1,6 @@
 ﻿{
     "id":  "module-a",
+    "displayId":  "송장출력(스캔) 필터링",
     "name":  "송장출력(스캔) 필터링",
     "version":  "0.1.10",
     "description":  "송장출력(스캔) 필터링 도구",

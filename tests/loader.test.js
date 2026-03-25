@@ -158,6 +158,7 @@ test("buildScriptStorageKeys keeps script cache names isolated", () => {
 
 test("normalizeMetaCacheEntry keeps full runnable cache metadata", () => {
   const meta = loader.normalizeMetaCacheEntry("module-a", {
+    displayId: "송장출력(스캔) 필터링",
     version: "0.2.0",
     checksum: "abc",
     entry: "modules/module-a/main.js",
@@ -169,6 +170,7 @@ test("normalizeMetaCacheEntry keeps full runnable cache metadata", () => {
   });
 
   assert.equal(meta.id, "module-a");
+  assert.equal(meta.displayId, "송장출력(스캔) 필터링");
   assert.equal(loader.canUseCachedMeta(meta), true);
   assert.deepEqual(meta.capabilities.gm, ["GM_xmlhttpRequest"]);
   assert.equal(meta.loaderApiVersion, 2);
@@ -201,6 +203,7 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
       {
         id: "module-a",
         name: "workspace-a",
+        displayId: "workspace-a",
         enabledByDefault: true,
         matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
       },
@@ -234,6 +237,7 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
 
   assert.equal(rows.length, 2);
   assert.equal(rows[0].id, "module-a");
+  assert.equal(rows[0].displayId, "workspace-a");
   assert.equal(rows[0].appliesHere, true);
   assert.equal(rows[0].enabled, true);
   assert.equal(rows[0].cachedVersion, "0.2.0");
@@ -243,6 +247,24 @@ test("buildManagerRows merges registry, page match, cache and remote meta", () =
   assert.equal(rows[1].enabled, false);
   assert.equal(rows[1].appliesHere, false);
   assert.equal(rows[1].hasUpdate, false);
+});
+
+test("renderScriptNameCell hides duplicate display id and keeps distinct aliases", () => {
+  const duplicated = loader.renderScriptNameCell({
+    id: "module-a",
+    name: "송장출력(스캔) 필터링",
+    displayId: "송장출력(스캔) 필터링",
+    statusMessage: "",
+  });
+  assert.doesNotMatch(duplicated, /module-a/);
+
+  const aliased = loader.renderScriptNameCell({
+    id: "pattern-analyzer",
+    name: "패턴분석기",
+    displayId: "pattern-analyzer",
+    statusMessage: "",
+  });
+  assert.match(aliased, /pattern-analyzer/);
 });
 
 test("buildManagerRows surfaces remote status badges for new modules", () => {
