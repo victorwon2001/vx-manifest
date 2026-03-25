@@ -39,6 +39,12 @@ test("auto matching detects set-product rows from row count or marker", () => {
   assert.equal(moduleUnderTest.isSetProductCandidate(1, "<b>ㄴ</b> 구성"), true);
 });
 
+test("auto matching log colors stay readable on the dark log surface", () => {
+  assert.equal(moduleUnderTest.getLogToneColor(), "#eef2f2");
+  assert.equal(moduleUnderTest.getLogToneColor("warning"), "#f3d98f");
+  assert.equal(moduleUnderTest.getLogToneColor("danger"), "#ffb7af");
+});
+
 test("auto matching panel html uses shared dock and panel contract", () => {
   const html = moduleUnderTest.buildPanelHtml({
     buildRootAttributes() {

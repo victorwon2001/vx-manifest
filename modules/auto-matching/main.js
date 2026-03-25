@@ -3,7 +3,7 @@
 
   const MODULE_ID = "auto-matching";
   const MODULE_NAME = "자동 매칭";
-  const MODULE_VERSION = "0.1.1";
+  const MODULE_VERSION = "0.1.2";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site217edit.jsp*"];
 
   const STATE_KEY = "__tmAutoMatchingState";
@@ -298,12 +298,18 @@
     else if (tone === "danger") node.classList.add("is-danger");
   }
 
+  function getLogToneColor(tone) {
+    if (tone === "danger") return "#ffb7af";
+    if (tone === "warning") return "#f3d98f";
+    return "#eef2f2";
+  }
+
   function appendLog(state, message, tone) {
     const logNode = state.win.document.getElementById(LOG_ID);
     if (!logNode) return;
-    const color = tone === "danger" ? "#c2403c" : tone === "warning" ? "#9a6b12" : "#2b3132";
+    const color = getLogToneColor(tone);
     const time = new Date().toLocaleTimeString("ko-KR");
-    logNode.innerHTML += "<div style='color:" + color + ";border-bottom:1px solid rgba(98,111,112,.12);padding:3px 0'>[" +
+    logNode.innerHTML += "<div style='color:" + color + ";border-bottom:1px solid rgba(255,255,255,.08);padding:3px 0'>[" +
       escapeHtml(time) + "] " + escapeHtml(message) + "</div>";
     logNode.scrollTop = logNode.scrollHeight;
   }
@@ -490,11 +496,13 @@
     selectTargetIndex,
     pickTargetRightRow,
     isSetProductCandidate,
+    getLogToneColor,
     handleSetProductQuantity,
     buildPanelHtml,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
