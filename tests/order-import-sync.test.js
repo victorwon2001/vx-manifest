@@ -91,6 +91,29 @@ test("shouldRefreshQueueFromLivePage refreshes only when idle", () => {
   }), false);
 });
 
+test("resolveNextSiteDelay skips the gap only for fully successful imports", () => {
+  assert.equal(orderImportSync.resolveNextSiteDelay({
+    total: 3,
+    success: 3,
+    fail: 0,
+    timeout: false,
+    skipped: false,
+  }), 0);
+  assert.equal(orderImportSync.resolveNextSiteDelay({
+    total: 3,
+    success: 2,
+    fail: 1,
+    timeout: false,
+    skipped: false,
+  }), 3000);
+  assert.equal(orderImportSync.resolveNextSiteDelay({
+    total: 0,
+    success: 0,
+    fail: 0,
+    timeout: true,
+  }), 3000);
+});
+
 test("buildDialogPatchScript targets page context and local storage toggle", () => {
   const script = orderImportSync.buildDialogPatchScript("EBUT_UI_AUTOYES");
 
@@ -175,6 +198,7 @@ test("module exports loader contract and order import helpers", () => {
   assert.equal(typeof orderImportSync.hasOrderCountDecreased, "function");
   assert.equal(typeof orderImportSync.isResultTextCandidate, "function");
   assert.equal(typeof orderImportSync.shouldRefreshQueueFromLivePage, "function");
+  assert.equal(typeof orderImportSync.resolveNextSiteDelay, "function");
   assert.equal(typeof orderImportSync.buildDialogPatchScript, "function");
   assert.equal(typeof orderImportSync.reduceImportState, "function");
   assert.equal(typeof orderImportSync.summarizeImportResults, "function");

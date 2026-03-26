@@ -3,7 +3,7 @@
 
   const MODULE_ID = "order-import-sync";
   const MODULE_NAME = "연동데이터 불러오기";
-  const MODULE_VERSION = "0.1.7";
+  const MODULE_VERSION = "0.1.8";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site230main.jsp*"];
   const PAGE_PATTERN = /\/jsp\/site\/site230main\.jsp/i;
   const PANEL_ID = "ebut-ui-panel";
@@ -87,6 +87,11 @@
 
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function resolveNextSiteDelay(result) {
+    if (result && !result.timeout && !result.skipped && Number(result.fail || 0) === 0) return 0;
+    return CLICK_GAP_MS;
   }
 
   function buildPreviewQueue(rowInfos) {
@@ -793,8 +798,13 @@
 
       if (!readState(runtime).active) break;
       if ((index + 1) < queue.length) {
-        log(runtime, "[대기] " + (CLICK_GAP_MS / 1000) + "초 대기 후 다음 판매처...");
-        await sleep(CLICK_GAP_MS);
+        const nextDelayMs = resolveNextSiteDelay(parsed || (readState(runtime).results || {})[item.siteCode]);
+        if (nextDelayMs > 0) {
+          log(runtime, "[대기] " + (nextDelayMs / 1000) + "초 대기 후 다음 판매처...");
+          await sleep(nextDelayMs);
+        } else {
+          log(runtime, "[이동] [" + item.name + "] 성공 처리되어 다음 판매처로 바로 진행");
+        }
       }
     }
 
@@ -979,12 +989,14 @@
     isResultTextCandidate,
     hasOrderCountDecreased,
     shouldRefreshQueueFromLivePage,
+    resolveNextSiteDelay,
     buildDialogPatchScript,
     reduceImportState,
     summarizeImportResults,
     buildPanelHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
