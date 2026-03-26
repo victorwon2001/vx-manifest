@@ -31,10 +31,10 @@
     },
     {
       "id": "invoice-list-viewer",
-      "name": "운송장 출력리스트 뷰어",
+      "name": "B2B 출고데이터 뷰어",
       "enabledByDefault": true,
       "matches": [
-        "https://www.ebut3pl.co.kr/home*"
+        "https://www.ebut3pl.co.kr/*"
       ],
       "metaPath": "modules/invoice-list-viewer/meta.json"
     },

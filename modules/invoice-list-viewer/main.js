@@ -2,17 +2,20 @@
   "use strict";
 
   const MODULE_ID = "invoice-list-viewer";
-  const MODULE_NAME = "운송장 출력리스트 뷰어";
-  const MODULE_VERSION = "0.1.1";
-  const MATCHES = ["https://www.ebut3pl.co.kr/home*"];
+  const MODULE_NAME = "B2B 출고데이터 뷰어";
+  const MODULE_VERSION = "0.1.2";
+  const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const PAGE_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/home(?:[/?#].*)?$/i;
   const LIST_ENDPOINT = "/site/site320main_jdata";
   const XLS_ENDPOINT = "/util/ExlForm_DB3";
   const STATE_KEY = "__tmInvoiceListViewerState";
   const STYLE_ID = "tm-invoice-list-viewer-style";
+  const NAV_SELECTOR = ".nav.navbar-nav.navbar-right";
   const NAV_BUTTON_ID = "tm-invoice-list-viewer-nav-button";
-  const NAV_BUTTON_LABEL = "출력리스트";
+  const NAV_BUTTON_LABEL = "B2B출고";
   const NAV_INSERT_BEFORE_LABEL = "상담전용창";
+  const NAV_RETRY_LIMIT = 30;
+  const NAV_RETRY_DELAY_MS = 500;
   const PANEL_ID = "tmInvoiceListViewerPanel";
   const STATUS_ID = "tmInvoiceListViewerStatus";
   const LIST_META_ID = "tmInvoiceListViewerListMeta";
@@ -34,12 +37,6 @@
   function getModuleUi(scope) {
     if (scope && scope.__tmModuleUi) return scope.__tmModuleUi;
     if (typeof globalThis !== "undefined" && globalThis && globalThis.__tmModuleUi) return globalThis.__tmModuleUi;
-    return null;
-  }
-
-  function getNavMenu(scope) {
-    if (scope && scope.__tmNavMenu) return scope.__tmNavMenu;
-    if (typeof globalThis !== "undefined" && globalThis && globalThis.__tmNavMenu) return globalThis.__tmNavMenu;
     return null;
   }
 
@@ -402,8 +399,8 @@
       '      <div class="tm-ui-head-meta">',
       "        <div>",
       '          <p class="tm-ui-kicker">Print List</p>',
-      '          <h3 class="tm-ui-title">운송장 출력리스트 뷰어</h3>',
-      '          <p class="tm-ui-subtitle">출력 차수 목록을 조회하고 선택 차수의 XLS를 바로 읽어 표로 확인합니다.</p>',
+      '          <h3 class="tm-ui-title">B2B 출고데이터 뷰어</h3>',
+      '          <p class="tm-ui-subtitle">B2B 출고 차수 목록을 조회하고 선택 차수의 XLS를 바로 읽어 표로 확인합니다.</p>',
       "        </div>",
       '        <button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-panel">닫기</button>',
       "      </div>",
@@ -487,7 +484,7 @@
         win: scope,
         loader: loader || null,
         initialized: false,
-        navInstall: null,
+        navReady: false,
         queryDate: todayString(),
         rows: [],
         listLoading: false,
@@ -694,20 +691,38 @@
     render(state);
   }
 
+  function addNavMenuButton(state) {
+    const doc = state.win.document;
+    const navMenu = doc.querySelector(NAV_SELECTOR);
+    if (!navMenu) return false;
+    if (doc.getElementById(NAV_BUTTON_ID)) return true;
+
+    const menuItem = doc.createElement("li");
+    menuItem.innerHTML = "<a href='javascript:void(0);' id='" + NAV_BUTTON_ID + "'><strong>" + NAV_BUTTON_LABEL + "</strong></a>";
+
+    const items = navMenu.querySelectorAll("li");
+    const beforeItem = Array.prototype.find.call(items, (item) => safeTrim(item.textContent).indexOf(NAV_INSERT_BEFORE_LABEL) !== -1);
+    if (beforeItem) navMenu.insertBefore(menuItem, beforeItem);
+    else navMenu.appendChild(menuItem);
+
+    doc.getElementById(NAV_BUTTON_ID).addEventListener("click", () => togglePanel(state));
+    return true;
+  }
+
   function installNavButton(state) {
-    if (state.navInstall) return;
+    if (state.navReady) return;
 
-    const navMenu = getNavMenu(state.win);
-    if (!navMenu || typeof navMenu.installNavButton !== "function") return;
+    let attempts = 0;
+    const install = () => {
+      if (addNavMenuButton(state)) {
+        state.navReady = true;
+        return;
+      }
+      attempts += 1;
+      if (attempts < NAV_RETRY_LIMIT) state.win.setTimeout(install, NAV_RETRY_DELAY_MS);
+    };
 
-    state.navInstall = navMenu.installNavButton(state.win, {
-      buttonId: NAV_BUTTON_ID,
-      label: NAV_BUTTON_LABEL,
-      insertBeforeLabel: NAV_INSERT_BEFORE_LABEL,
-      onClick() {
-        togglePanel(state);
-      },
-    });
+    install();
   }
 
   function shouldRun(win) {
@@ -716,7 +731,8 @@
 
   function start(context) {
     const win = context && context.window ? context.window : root;
-    if (!win || !win.document || !shouldRun(win)) return;
+    if (!win || !win.document || !shouldRun(win) || win.__tmInvoiceListViewerStarted) return;
+    win.__tmInvoiceListViewerStarted = true;
 
     const loader = context && context.loader ? context.loader : null;
     const state = getState(win, loader);
@@ -752,4 +768,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 

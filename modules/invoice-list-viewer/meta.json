@@ -1,19 +1,14 @@
 ﻿{
     "id":  "invoice-list-viewer",
-    "name":  "운송장 출력리스트 뷰어",
-    "version":  "0.1.1",
-    "description":  "출력 차수 목록을 조회하고 선택 차수 XLS를 표로 정리하는 도구",
+    "name":  "B2B 출고데이터 뷰어",
+    "version":  "0.1.2",
+    "description":  "B2B 출고 차수 목록을 조회하고 선택 차수 XLS를 표로 정리하는 도구",
     "entry":  "modules/invoice-list-viewer/main.js",
     "dependencies":  [
                          {
                              "id":  "module-ui",
                              "version":  "0.2.2",
                              "path":  "shared/module-ui.js"
-                         },
-                         {
-                             "id":  "nav-menu",
-                             "version":  "0.1.0",
-                             "path":  "shared/nav-menu.js"
                          },
                          {
                              "id":  "xlsx",
@@ -23,5 +18,5 @@
                      ],
     "checksum":  "",
     "loaderApiVersion":  2,
-    "updatedAt":  "2026-03-26 16:41:09"
+    "updatedAt":  "2026-03-26 16:47:26"
 }

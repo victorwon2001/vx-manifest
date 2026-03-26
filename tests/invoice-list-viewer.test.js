@@ -9,7 +9,7 @@ test("invoice list viewer exports loader contract", () => {
   assert.equal(moduleUnderTest.id, "invoice-list-viewer");
   assert.equal(moduleUnderTest.name, meta.name);
   assert.equal(moduleUnderTest.version, meta.version);
-  assert.deepEqual(moduleUnderTest.matches, ["https://www.ebut3pl.co.kr/home*"]);
+  assert.deepEqual(moduleUnderTest.matches, ["https://www.ebut3pl.co.kr/*"]);
   assert.equal(typeof moduleUnderTest.run, "function");
   assert.equal(typeof moduleUnderTest.start, "function");
 });
@@ -102,7 +102,7 @@ test("invoice list viewer panel html uses shared panel and table contract", () =
 
   assert.doesNotMatch(html, /tmInvoiceListViewerDock/);
   assert.match(html, /id="tmInvoiceListViewerPanel"/);
-  assert.match(html, /운송장 출력리스트 뷰어/);
+  assert.match(html, /B2B 출고데이터 뷰어/);
   assert.match(html, /출력 차수 목록/);
   assert.match(html, /XLS 데이터/);
   assert.match(html, /tm-ui-table/);
@@ -112,9 +112,9 @@ test("invoice list viewer registry and dependencies stay aligned", () => {
   const script = registry.scripts.find((item) => item.id === "invoice-list-viewer");
   assert.ok(script);
   assert.equal(script.name, meta.name);
-  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/home*"]);
+  assert.deepEqual(script.matches, ["https://www.ebut3pl.co.kr/*"]);
   assert.equal(script.metaPath, "modules/invoice-list-viewer/meta.json");
   assert.equal(meta.entry, "modules/invoice-list-viewer/main.js");
   const dependencyIds = (meta.dependencies || []).map((item) => item.id).sort();
-  assert.deepEqual(dependencyIds, ["module-ui", "nav-menu", "xlsx"]);
+  assert.deepEqual(dependencyIds, ["module-ui", "xlsx"]);
 });
