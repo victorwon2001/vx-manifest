@@ -3,7 +3,7 @@
 
   const MODULE_ID = "invoice-list-viewer";
   const MODULE_NAME = "B2B 출고데이터 뷰어";
-  const MODULE_VERSION = "0.1.4";
+  const MODULE_VERSION = "0.1.5";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const HOME_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/home(?:[/?#].*)?$/i;
   const LIST_ENDPOINT = "/site/site320main_jdata";
@@ -451,7 +451,7 @@
       "          </div>",
       '          <div class="tm-ui-scroll tm-invoice-list-viewer__list-scroll">',
       '            <table class="tm-ui-table">',
-      '              <thead><tr><th data-tm-align="center">차수</th><th>택배사</th><th>판매처</th><th data-tm-align="right">건수</th><th>메모</th><th data-tm-align="center">동작</th></tr></thead>',
+      '              <thead><tr><th data-tm-align="center">차수</th><th data-tm-align="center">택배사</th><th data-tm-align="center">판매처</th><th data-tm-align="center">건수</th><th data-tm-align="center">메모</th><th data-tm-align="center">동작</th></tr></thead>',
       '              <tbody id="' + LIST_BODY_ID + '"><tr><td colspan="6" class="tm-ui-empty">조회된 출력 차수가 없습니다.</td></tr></tbody>',
       "            </table>",
       "          </div>",
@@ -466,7 +466,7 @@
       "          </div>",
       '          <div class="tm-ui-scroll tm-invoice-list-viewer__result-scroll">',
       '            <table class="tm-ui-table">',
-      '              <thead><tr><th data-tm-align="center">송장번호</th><th data-tm-align="center">발송일</th><th>쇼핑몰</th><th data-tm-align="center">주문번호</th><th>매칭관리명</th><th>매칭상품명</th><th data-tm-align="right">매칭수량</th></tr></thead>',
+      '              <thead><tr><th data-tm-align="center">송장번호</th><th data-tm-align="center">발송일</th><th data-tm-align="center">쇼핑몰</th><th data-tm-align="center">주문번호</th><th data-tm-align="center">매칭관리명</th><th data-tm-align="center">매칭상품명</th><th data-tm-align="center">매칭수량</th></tr></thead>',
       '              <tbody id="' + RESULT_BODY_ID + '"><tr><td colspan="7" class="tm-ui-empty">차수를 선택하면 여기에서 결과를 볼 수 있습니다.</td></tr></tbody>',
       "            </table>",
       "          </div>",
@@ -497,13 +497,15 @@
       "#" + PANEL_ID + " .tm-invoice-list-viewer__section{padding:12px}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll{max-height:300px}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll{max-height:380px}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll thead th,#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll thead th{position:sticky;top:0;z-index:2;background:var(--tm-surface-strong);text-align:center}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll tbody td,#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll tbody td{text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(1),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(1){width:78px;text-align:center}",
-      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(4),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(4){width:76px;text-align:right}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(4),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(4){width:76px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(6),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(6){width:92px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(1),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(1){width:120px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(2),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(2){width:94px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(4),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(4){width:120px;text-align:center}",
-      "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(7),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(7){width:84px;text-align:right}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(7),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(7){width:84px;text-align:center}",
       "@media (max-width: 900px){.tm-invoice-list-viewer__shell{padding:10px}.tm-invoice-list-viewer__body{padding:12px}#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:flex-start}}",
     ].join("");
     doc.head.appendChild(style);
@@ -588,10 +590,10 @@
       return [
         "<tr" + (selected ? " class='tm-row-selected'" : "") + ">",
         "<td data-tm-align='center'>" + escapeHtml(row.ivmstr_ivno ? row.ivmstr_ivno + "차" : "-") + "</td>",
-        "<td>" + escapeHtml(row.expr_name || "-") + "</td>",
-        "<td>" + escapeHtml(row.site_name || "-") + "</td>",
-        "<td data-tm-align='right'>" + escapeHtml(row.ivcnt || "-") + "</td>",
-        "<td title='" + escapeHtml(row.ivmstr_memo || "-") + "'>" + escapeHtml(row.ivmstr_memo || "-") + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(row.expr_name || "-") + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(row.site_name || "-") + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(row.ivcnt || "-") + "</td>",
+        "<td data-tm-align='center' title='" + escapeHtml(row.ivmstr_memo || "-") + "'>" + escapeHtml(row.ivmstr_memo || "-") + "</td>",
         "<td data-tm-align='center'><button type='button' class='tm-ui-btn " + (selected ? "tm-ui-btn--success" : "tm-ui-btn--secondary") + "' data-action='load-row' data-row-id='" + escapeHtml(row.id) + "'>" + (selected ? "다시 불러오기" : "불러오기") + "</button></td>",
         "</tr>",
       ].join("");
@@ -614,11 +616,11 @@
       "<tr>",
       "<td data-tm-align='center'>" + escapeHtml(row.invoiceNumber || "") + "</td>",
       "<td data-tm-align='center'>" + escapeHtml(row.shippedAt || "") + "</td>",
-      "<td>" + escapeHtml(row.mall || "") + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(row.mall || "") + "</td>",
       "<td data-tm-align='center'>" + escapeHtml(row.orderNumber || "") + "</td>",
-      "<td>" + escapeHtml(row.matchedNicn || "") + "</td>",
-      "<td>" + escapeHtml(row.matchedName || "") + "</td>",
-      "<td data-tm-align='right'>" + escapeHtml(row.matchedQty || "") + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(row.matchedNicn || "") + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(row.matchedName || "") + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(row.matchedQty || "") + "</td>",
       "</tr>",
     ].join("")).join("");
   }
@@ -826,6 +828,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

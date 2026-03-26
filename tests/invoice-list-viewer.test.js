@@ -116,6 +116,8 @@ test("invoice list viewer panel html uses popup shell and table contract", () =>
   assert.match(html, /tm-ui-popup/);
   assert.match(html, /data-action="close-window"/);
   assert.match(html, /id="tmInvoiceListViewerDate"/);
+  assert.match(html, /<th data-tm-align="center">건수<\/th>/);
+  assert.match(html, /<th data-tm-align="center">매칭수량<\/th>/);
   assert.match(html, /B2B 출고데이터 뷰어/);
   assert.match(html, /출력 차수 목록/);
   assert.match(html, /XLS 데이터/);
