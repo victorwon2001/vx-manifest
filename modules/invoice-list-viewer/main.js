@@ -3,7 +3,7 @@
 
   const MODULE_ID = "invoice-list-viewer";
   const MODULE_NAME = "B2B 출고데이터 뷰어";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const HOME_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/home(?:[/?#].*)?$/i;
   const LIST_ENDPOINT = "/site/site320main_jdata";
@@ -16,6 +16,8 @@
   const NAV_INSERT_BEFORE_LABEL = "상담전용창";
   const NAV_RETRY_LIMIT = 30;
   const NAV_RETRY_DELAY_MS = 500;
+  const POPUP_NAME = "tm-invoice-list-viewer-window";
+  const POPUP_FEATURES = "width=1520,height=920,resizable=yes,scrollbars=yes";
   const PANEL_ID = "tmInvoiceListViewerPanel";
   const STATUS_ID = "tmInvoiceListViewerStatus";
   const LIST_META_ID = "tmInvoiceListViewerListMeta";
@@ -414,59 +416,63 @@
 
   function buildPanelHtml(moduleUi) {
     const rootAttrs = moduleUi
-      ? moduleUi.buildRootAttributes({ kind: "panel", className: "tm-invoice-list-viewer", density: "compact" })
-      : 'class="tm-ui-root tm-ui-panel tm-invoice-list-viewer" data-tm-density="compact"';
+      ? moduleUi.buildRootAttributes({ kind: "popup", className: "tm-invoice-list-viewer-popup", density: "compact" })
+      : 'class="tm-ui-root tm-ui-popup tm-invoice-list-viewer-popup" data-tm-density="compact"';
 
     return [
-      '<div id="' + PANEL_ID + '" ' + rootAttrs + ' style="display:none">',
-      '  <div class="tm-ui-card tm-invoice-list-viewer__shell">',
-      '    <div class="tm-ui-panel-head tm-ui-panel-head--compact">',
-      '      <div class="tm-ui-head-meta">',
-      "        <div>",
-      '          <p class="tm-ui-kicker">Print List</p>',
-      '          <h3 class="tm-ui-title">B2B 출고데이터 뷰어</h3>',
-      '          <p class="tm-ui-subtitle">B2B 출고 차수 목록을 조회하고 선택 차수의 XLS를 바로 읽어 표로 확인합니다.</p>',
-      "        </div>",
-      '        <button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-panel">닫기</button>',
-      "      </div>",
-      "    </div>",
-      '    <div class="tm-invoice-list-viewer__body tm-ui-stack">',
-      '      <div class="tm-ui-statusbar tm-invoice-list-viewer__filters">',
-      '        <label class="tm-ui-label"><span>출력일</span><input id="' + DATE_INPUT_ID + '" type="date" class="tm-ui-input"></label>',
-      '        <button type="button" data-action="refresh-list" class="tm-ui-btn tm-ui-btn--primary">리스트 조회</button>',
-      "      </div>",
-      '      <div id="' + STATUS_ID + '" class="tm-ui-message">준비됨. 날짜를 선택하고 리스트를 조회하세요.</div>',
-      '      <div class="tm-ui-card tm-invoice-list-viewer__section">',
-      '        <div class="tm-ui-section-head">',
+      '<div id="' + PANEL_ID + '" ' + rootAttrs + '>',
+      '  <div class="tm-ui-shell tm-invoice-list-viewer__shell">',
+      '    <section class="tm-ui-card tm-invoice-list-viewer__card">',
+      '      <div class="tm-ui-panel-head">',
+      '        <div class="tm-ui-head-meta">',
       "          <div>",
-      '            <div class="tm-ui-section-title">출력 차수 목록</div>',
-      '            <p class="tm-ui-section-subtitle">차수, 택배사, 판매처, 건수, 메모 기준으로 표시합니다.</p>',
+      '            <p class="tm-ui-kicker">B2B Outbound</p>',
+      '            <h1 class="tm-ui-title">B2B 출고데이터 뷰어</h1>',
+      '            <p class="tm-ui-subtitle">B2B 출고 차수 목록을 조회하고 선택 차수의 XLS를 바로 읽어 표로 확인합니다.</p>',
       "          </div>",
-      '          <span id="' + LIST_META_ID + '" class="tm-ui-inline-note">0건</span>',
-      "        </div>",
-      '        <div class="tm-ui-scroll tm-invoice-list-viewer__list-scroll">',
-      '          <table class="tm-ui-table">',
-      '            <thead><tr><th data-tm-align="center">차수</th><th>택배사</th><th>판매처</th><th data-tm-align="right">건수</th><th>메모</th><th data-tm-align="center">동작</th></tr></thead>',
-      '            <tbody id="' + LIST_BODY_ID + '"><tr><td colspan="6" class="tm-ui-empty">조회된 출력 차수가 없습니다.</td></tr></tbody>',
-      "          </table>",
+      '          <div class="tm-invoice-list-viewer__head-actions">',
+      '            <button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-window">창 닫기</button>',
+      "          </div>",
       "        </div>",
       "      </div>",
-      '      <div class="tm-ui-card tm-invoice-list-viewer__section">',
-      '        <div class="tm-ui-section-head">',
-      "          <div>",
-      '            <div class="tm-ui-section-title">XLS 데이터</div>',
-      '            <p class="tm-ui-section-subtitle">송장번호는 중복을 제거하되 행 위치는 유지합니다.</p>',
-      "          </div>",
-      '          <span id="' + RESULT_META_ID + '" class="tm-ui-inline-note">선택된 차수 없음</span>',
+      '      <div class="tm-invoice-list-viewer__body tm-ui-stack">',
+      '        <div class="tm-ui-statusbar tm-invoice-list-viewer__filters">',
+      '          <label class="tm-ui-label"><span>출력일</span><input id="' + DATE_INPUT_ID + '" type="date" class="tm-ui-input"></label>',
+      '          <button type="button" data-action="refresh-list" class="tm-ui-btn tm-ui-btn--primary" id="tm-invoice-list-viewer-refresh">조회</button>',
       "        </div>",
-      '        <div class="tm-ui-scroll tm-invoice-list-viewer__result-scroll">',
-      '          <table class="tm-ui-table">',
-      '            <thead><tr><th data-tm-align="center">송장번호</th><th data-tm-align="center">발송일</th><th>쇼핑몰</th><th data-tm-align="center">주문번호</th><th>매칭관리명</th><th>매칭상품명</th><th data-tm-align="right">매칭수량</th></tr></thead>',
-      '            <tbody id="' + RESULT_BODY_ID + '"><tr><td colspan="7" class="tm-ui-empty">차수를 선택하면 여기에서 결과를 볼 수 있습니다.</td></tr></tbody>',
-      "          </table>",
+      '        <div id="' + STATUS_ID + '" class="tm-ui-message">준비됨. 오늘 날짜 기준으로 자동 조회합니다.</div>',
+      '        <div class="tm-ui-card tm-invoice-list-viewer__section">',
+      '          <div class="tm-ui-section-head">',
+      "            <div>",
+      '              <div class="tm-ui-section-title">출력 차수 목록</div>',
+      '              <p class="tm-ui-section-subtitle">차수, 택배사, 판매처, 건수, 메모 기준으로 표시합니다.</p>',
+      "            </div>",
+      '            <span id="' + LIST_META_ID + '" class="tm-ui-inline-note">0건</span>',
+      "          </div>",
+      '          <div class="tm-ui-scroll tm-invoice-list-viewer__list-scroll">',
+      '            <table class="tm-ui-table">',
+      '              <thead><tr><th data-tm-align="center">차수</th><th>택배사</th><th>판매처</th><th data-tm-align="right">건수</th><th>메모</th><th data-tm-align="center">동작</th></tr></thead>',
+      '              <tbody id="' + LIST_BODY_ID + '"><tr><td colspan="6" class="tm-ui-empty">조회된 출력 차수가 없습니다.</td></tr></tbody>',
+      "            </table>",
+      "          </div>",
+      "        </div>",
+      '        <div class="tm-ui-card tm-invoice-list-viewer__section">',
+      '          <div class="tm-ui-section-head">',
+      "            <div>",
+      '              <div class="tm-ui-section-title">XLS 데이터</div>',
+      '              <p class="tm-ui-section-subtitle">송장번호는 중복을 제거하되 행 위치는 유지합니다.</p>',
+      "            </div>",
+      '            <span id="' + RESULT_META_ID + '" class="tm-ui-inline-note">선택된 차수 없음</span>',
+      "          </div>",
+      '          <div class="tm-ui-scroll tm-invoice-list-viewer__result-scroll">',
+      '            <table class="tm-ui-table">',
+      '              <thead><tr><th data-tm-align="center">송장번호</th><th data-tm-align="center">발송일</th><th>쇼핑몰</th><th data-tm-align="center">주문번호</th><th>매칭관리명</th><th>매칭상품명</th><th data-tm-align="right">매칭수량</th></tr></thead>',
+      '              <tbody id="' + RESULT_BODY_ID + '"><tr><td colspan="7" class="tm-ui-empty">차수를 선택하면 여기에서 결과를 볼 수 있습니다.</td></tr></tbody>',
+      "            </table>",
+      "          </div>",
       "        </div>",
       "      </div>",
-      "    </div>",
+      "    </section>",
       "  </div>",
       "</div>",
     ].join("");
@@ -482,9 +488,11 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      "#" + PANEL_ID + "{position:fixed;top:56px;right:12px;z-index:9999;width:min(920px,calc(100vw - 24px));max-height:calc(90vh - 64px);overflow:auto}",
-      "#" + PANEL_ID + " .tm-invoice-list-viewer__shell{display:grid;gap:0;overflow:hidden}",
-      "#" + PANEL_ID + " .tm-invoice-list-viewer__body{padding:14px 16px}",
+      ".tm-invoice-list-viewer-popup{background:#f4f6f6;min-height:100vh}",
+      ".tm-invoice-list-viewer__shell{padding:18px;max-width:1480px;margin:0 auto}",
+      ".tm-invoice-list-viewer__card{overflow:hidden}",
+      ".tm-invoice-list-viewer__body{padding:14px 16px}",
+      ".tm-invoice-list-viewer__head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:space-between;gap:10px;align-items:end}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__section{padding:12px}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll{max-height:300px}",
@@ -496,45 +504,56 @@
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(2),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(2){width:94px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(4),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(4){width:120px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(7),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(7){width:84px;text-align:right}",
-      "#" + NAV_BUTTON_ID + ".is-open strong{color:var(--tm-primary-strong)}",
-      "@media (max-width: 900px){#" + PANEL_ID + "{width:min(100vw - 16px,920px)}#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:flex-start}}",
+      "@media (max-width: 900px){.tm-invoice-list-viewer__shell{padding:10px}.tm-invoice-list-viewer__body{padding:12px}#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:flex-start}}",
     ].join("");
     doc.head.appendChild(style);
   }
 
-  function getState(win, loader) {
+  function getPageState(win, loader) {
     const scope = win || root;
     if (!scope[STATE_KEY]) {
       scope[STATE_KEY] = {
-        win: scope,
+        pageWin: scope,
         loader: loader || null,
-        initialized: false,
         navReady: false,
-        queryDate: todayString(),
-        rows: [],
-        listLoading: false,
-        selectedRowId: "",
-        resultRows: [],
-        resultMetaText: "선택된 차수 없음",
+        lastQueryDate: todayString(),
+        popupWin: null,
+        popupState: null,
       };
     }
     if (loader) scope[STATE_KEY].loader = loader;
     return scope[STATE_KEY];
   }
 
-  function syncPanelState(state, isOpen) {
-    const doc = state.win.document;
+  function syncNavButtonState(pageState, isOpen) {
+    const doc = pageState.pageWin.document;
     const button = doc.getElementById(NAV_BUTTON_ID);
-    const panel = doc.getElementById(PANEL_ID);
     if (button) {
       button.classList.toggle("is-open", !!isOpen);
       button.setAttribute("aria-expanded", isOpen ? "true" : "false");
     }
-    if (panel) panel.style.display = isOpen ? "block" : "none";
   }
 
-  function setStatus(state, text, tone) {
-    const node = state.win.document.getElementById(STATUS_ID);
+  function getPopupDocument(popupState) {
+    return popupState && popupState.popupWin ? popupState.popupWin.document : null;
+  }
+
+  function createPopupState(pageState, popupWin) {
+    return {
+      pageState,
+      popupWin,
+      queryDate: pageState.lastQueryDate || todayString(),
+      rows: [],
+      listLoading: false,
+      selectedRowId: "",
+      resultRows: [],
+      resultMetaText: "선택된 차수 없음",
+    };
+  }
+
+  function setStatus(popupState, text, tone) {
+    const doc = getPopupDocument(popupState);
+    const node = doc && doc.getElementById(STATUS_ID);
     if (!node) return;
     node.textContent = text;
     node.className = "tm-ui-message";
@@ -544,20 +563,28 @@
     else node.style.color = "";
   }
 
-  function renderListTable(state) {
-    const doc = state.win.document;
+  function setRefreshing(popupState, refreshing) {
+    const doc = getPopupDocument(popupState);
+    const button = doc && doc.getElementById("tm-invoice-list-viewer-refresh");
+    if (!button) return;
+    button.disabled = !!refreshing;
+    button.textContent = refreshing ? "조회 중..." : "조회";
+  }
+
+  function renderListTable(popupState) {
+    const doc = getPopupDocument(popupState);
     const tbody = doc.getElementById(LIST_BODY_ID);
     const meta = doc.getElementById(LIST_META_ID);
     if (!tbody || !meta) return;
 
-    meta.textContent = state.rows.length + "건";
-    if (!state.rows.length) {
+    meta.textContent = popupState.rows.length + "건";
+    if (!popupState.rows.length) {
       tbody.innerHTML = '<tr><td colspan="6" class="tm-ui-empty">조회된 출력 차수가 없습니다.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = state.rows.map((row) => {
-      const selected = row.id === state.selectedRowId;
+    tbody.innerHTML = popupState.rows.map((row) => {
+      const selected = row.id === popupState.selectedRowId;
       return [
         "<tr" + (selected ? " class='tm-row-selected'" : "") + ">",
         "<td data-tm-align='center'>" + escapeHtml(row.ivmstr_ivno ? row.ivmstr_ivno + "차" : "-") + "</td>",
@@ -571,19 +598,19 @@
     }).join("");
   }
 
-  function renderResultTable(state) {
-    const doc = state.win.document;
+  function renderResultTable(popupState) {
+    const doc = getPopupDocument(popupState);
     const tbody = doc.getElementById(RESULT_BODY_ID);
     const meta = doc.getElementById(RESULT_META_ID);
     if (!tbody || !meta) return;
 
-    meta.textContent = state.resultMetaText || "선택된 차수 없음";
-    if (!state.resultRows.length) {
+    meta.textContent = popupState.resultMetaText || "선택된 차수 없음";
+    if (!popupState.resultRows.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="tm-ui-empty">차수를 선택하면 여기에서 결과를 볼 수 있습니다.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = state.resultRows.map((row) => [
+    tbody.innerHTML = popupState.resultRows.map((row) => [
       "<tr>",
       "<td data-tm-align='center'>" + escapeHtml(row.invoiceNumber || "") + "</td>",
       "<td data-tm-align='center'>" + escapeHtml(row.shippedAt || "") + "</td>",
@@ -596,85 +623,90 @@
     ].join("")).join("");
   }
 
-  function render(state) {
-    const doc = state.win.document;
+  function render(popupState) {
+    const doc = getPopupDocument(popupState);
+    if (!doc) return;
     const dateInput = doc.getElementById(DATE_INPUT_ID);
-    if (dateInput) dateInput.value = state.queryDate;
-    renderListTable(state);
-    renderResultTable(state);
+    if (dateInput) dateInput.value = popupState.queryDate;
+    renderListTable(popupState);
+    renderResultTable(popupState);
   }
 
-  async function refreshList(state) {
-    state.listLoading = true;
-    state.rows = [];
-    state.selectedRowId = "";
-    state.resultRows = [];
-    state.resultMetaText = "선택된 차수 없음";
-    setStatus(state, "출력 차수 목록을 조회하는 중입니다.", "");
-    render(state);
+  async function refreshList(popupState) {
+    if (!popupState || popupState.listLoading) return;
+
+    popupState.listLoading = true;
+    popupState.rows = [];
+    popupState.selectedRowId = "";
+    popupState.resultRows = [];
+    popupState.resultMetaText = "선택된 차수 없음";
+    popupState.pageState.lastQueryDate = popupState.queryDate;
+    setRefreshing(popupState, true);
+    setStatus(popupState, "출력 차수 목록을 조회하는 중입니다.", "");
+    render(popupState);
 
     try {
-      state.rows = await fetchAllRows(state.win, state.queryDate);
-      setStatus(state, "출력 차수 " + state.rows.length + "건을 불러왔습니다.", "success");
+      popupState.rows = await fetchAllRows(popupState.pageState.pageWin, popupState.queryDate);
+      setStatus(popupState, "출력 차수 " + popupState.rows.length + "건을 불러왔습니다.", "success");
     } catch (error) {
-      setStatus(state, error && error.message ? error.message : "출력 차수 조회에 실패했습니다.", "danger");
+      setStatus(popupState, error && error.message ? error.message : "출력 차수 조회에 실패했습니다.", "danger");
     } finally {
-      state.listLoading = false;
-      render(state);
+      popupState.listLoading = false;
+      setRefreshing(popupState, false);
+      render(popupState);
     }
   }
 
-  async function loadSelection(state, rowId) {
-    const selection = state.rows.find((row) => row.id === rowId);
+  async function loadSelection(popupState, rowId) {
+    const selection = popupState.rows.find((row) => row.id === rowId);
     if (!selection) return;
 
     const dateLabel = formatBatchDateLabel(selection.ivmstr_date);
-    state.selectedRowId = selection.id;
-    state.resultRows = [];
-    state.resultMetaText = dateLabel + " / " + selection.ivmstr_ivno + "차 적재 중";
-    setStatus(state, selection.ivmstr_ivno + "차 XLS를 내려받아 파싱하는 중입니다.", "");
-    render(state);
+    popupState.selectedRowId = selection.id;
+    popupState.resultRows = [];
+    popupState.resultMetaText = dateLabel + " / " + selection.ivmstr_ivno + "차 적재 중";
+    setStatus(popupState, selection.ivmstr_ivno + "차 XLS를 내려받아 파싱하는 중입니다.", "");
+    render(popupState);
 
     try {
-      const rows = parseWorkbookBuffer(await downloadWorkbookBuffer(state, selection), state.win);
+      const rows = parseWorkbookBuffer(await downloadWorkbookBuffer({
+        win: popupState.pageState.pageWin,
+        loader: popupState.pageState.loader,
+      }, selection), popupState.pageState.pageWin);
       const summary = summarizeWorkbookRows(rows);
-      state.resultRows = rows;
-      state.resultMetaText = [
+      popupState.resultRows = rows;
+      popupState.resultMetaText = [
         dateLabel,
         selection.ivmstr_ivno + "차",
         selection.site_name || "",
         "총 " + summary.totalRows + "건 / 고유 송장 " + summary.uniqueInvoiceCount + "건",
       ].filter(Boolean).join(" / ");
-      setStatus(state, selection.ivmstr_ivno + "차 XLS를 " + summary.totalRows + "행으로 정리했습니다.", "success");
+      setStatus(popupState, selection.ivmstr_ivno + "차 XLS를 " + summary.totalRows + "행으로 정리했습니다.", "success");
     } catch (error) {
-      state.resultRows = [];
-      state.resultMetaText = selection.ivmstr_ivno + "차 적재 실패";
-      setStatus(state, error && error.message ? error.message : "XLS를 처리하지 못했습니다.", "danger");
+      popupState.resultRows = [];
+      popupState.resultMetaText = selection.ivmstr_ivno + "차 적재 실패";
+      setStatus(popupState, error && error.message ? error.message : "XLS를 처리하지 못했습니다.", "danger");
     } finally {
-      render(state);
+      render(popupState);
     }
   }
 
-  function openPanel(state) {
-    syncPanelState(state, true);
-    if (!state.rows.length && !state.listLoading) void refreshList(state);
+  function renderPopupShell(popupState) {
+    const popupWin = popupState.popupWin;
+    const doc = popupWin.document;
+    doc.open();
+    doc.write("<!doctype html><html><head><meta charset=\"utf-8\"><title>B2B 출고데이터 뷰어</title></head><body></body></html>");
+    doc.close();
+    ensureStyles(doc);
+    doc.body.innerHTML = buildPanelHtml(getModuleUi(root));
+    render(popupState);
   }
 
-  function closePanel(state) {
-    syncPanelState(state, false);
-  }
-
-  function togglePanel(state) {
-    const panel = state.win.document.getElementById(PANEL_ID);
-    const isOpen = !!(panel && panel.style.display !== "none");
-    if (isOpen) closePanel(state);
-    else openPanel(state);
-  }
-
-  function bindEvents(state) {
-    const doc = state.win.document;
-    const panel = doc.getElementById(PANEL_ID);
+  function bindPopupEvents(popupState) {
+    const popupWin = popupState.popupWin;
+    const doc = popupWin.document;
     const dateInput = doc.getElementById(DATE_INPUT_ID);
+    const panel = doc.getElementById(PANEL_ID);
 
     if (!panel || !dateInput) return;
 
@@ -683,47 +715,59 @@
       if (!actionTarget) return;
 
       const action = actionTarget.getAttribute("data-action");
-      if (action === "close-panel") {
-        closePanel(state);
+      if (action === "close-window") {
+        popupWin.close();
         return;
       }
       if (action === "refresh-list") {
-        state.queryDate = dateInput.value || todayString();
-        void refreshList(state);
+        popupState.queryDate = dateInput.value || todayString();
+        void refreshList(popupState);
         return;
       }
       if (action === "load-row") {
-        void loadSelection(state, actionTarget.getAttribute("data-row-id"));
+        void loadSelection(popupState, actionTarget.getAttribute("data-row-id"));
       }
     });
 
     dateInput.addEventListener("change", (event) => {
-      state.queryDate = event.target.value || todayString();
+      popupState.queryDate = event.target.value || todayString();
+      popupState.pageState.lastQueryDate = popupState.queryDate;
+    });
+
+    popupWin.addEventListener("beforeunload", () => {
+      popupState.pageState.popupWin = null;
+      popupState.pageState.popupState = null;
+      syncNavButtonState(popupState.pageState, false);
     });
   }
 
-  function mount(state) {
-    if (state.initialized) return;
-
-    ensureStyles(state.win.document);
-    const moduleUi = getModuleUi(root);
-    if (!state.win.document.getElementById(PANEL_ID)) {
-      state.win.document.body.insertAdjacentHTML("beforeend", buildPanelHtml(moduleUi));
+  function openDashboard(pageState) {
+    if (pageState.popupWin && !pageState.popupWin.closed) {
+      pageState.popupWin.focus();
+      return;
     }
-    bindEvents(state);
-    state.initialized = true;
-    syncPanelState(state, false);
-    render(state);
+
+    const popupWin = pageState.pageWin.open("", POPUP_NAME, POPUP_FEATURES);
+    if (!popupWin) return;
+
+    const popupState = createPopupState(pageState, popupWin);
+    pageState.popupWin = popupWin;
+    pageState.popupState = popupState;
+    renderPopupShell(popupState);
+    bindPopupEvents(popupState);
+    syncNavButtonState(pageState, true);
+    popupWin.focus();
+    void refreshList(popupState);
   }
 
-  function installNavButton(state) {
-    if (state.navReady) return;
+  function installNavButton(pageState) {
+    if (pageState.navReady) return;
 
-    const navMenu = getNavMenu(state.win);
+    const navMenu = getNavMenu(pageState.pageWin);
     if (!navMenu || typeof navMenu.installNavButton !== "function") return;
 
-    state.navReady = true;
-    navMenu.installNavButton(state.win, {
+    pageState.navReady = true;
+    navMenu.installNavButton(pageState.pageWin, {
       navSelector: NAV_SELECTOR,
       retryLimit: NAV_RETRY_LIMIT,
       retryDelayMs: NAV_RETRY_DELAY_MS,
@@ -731,7 +775,7 @@
       label: NAV_BUTTON_LABEL,
       insertBeforeLabel: NAV_INSERT_BEFORE_LABEL,
       onClick() {
-        togglePanel(state);
+        openDashboard(pageState);
       },
     });
   }
@@ -749,10 +793,9 @@
     win.__tmInvoiceListViewerStarted = true;
 
     const loader = context && context.loader ? context.loader : null;
-    const state = getState(win, loader);
+    const pageState = getPageState(win, loader);
     const mountAndInstall = function mountAndInstall() {
-      mount(state);
-      installNavButton(state);
+      installNavButton(pageState);
     };
 
     if (win.document.readyState === "loading") {
@@ -783,6 +826,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
