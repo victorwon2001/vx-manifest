@@ -30,6 +30,15 @@
       "metaPath": "modules/inbound-helper/meta.json"
     },
     {
+      "id": "invoice-list-viewer",
+      "name": "운송장 출력리스트 뷰어",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/home*"
+      ],
+      "metaPath": "modules/invoice-list-viewer/meta.json"
+    },
+    {
       "id": "auto-matching",
       "name": "자동 매칭",
       "enabledByDefault": true,
