@@ -41,6 +41,17 @@ test("invoice list viewer formats compact batch dates", () => {
   assert.equal(moduleUnderTest.formatBatchDateLabel("2026-03-18"), "2026-03-18");
 });
 
+test("invoice list viewer resolves the top frame home url for nav injection", () => {
+  const scope = {
+    location: { href: "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp" },
+    top: {
+      location: { href: "https://www.ebut3pl.co.kr/home" },
+    },
+  };
+
+  assert.equal(moduleUnderTest.resolveTopHref(scope), "https://www.ebut3pl.co.kr/home");
+});
+
 test("invoice list viewer dedupes invoice numbers while preserving row positions", () => {
   const rows = moduleUnderTest.dedupeInvoiceRows([
     { invoiceNumber: "A", orderNumber: "1" },
@@ -116,5 +127,5 @@ test("invoice list viewer registry and dependencies stay aligned", () => {
   assert.equal(script.metaPath, "modules/invoice-list-viewer/meta.json");
   assert.equal(meta.entry, "modules/invoice-list-viewer/main.js");
   const dependencyIds = (meta.dependencies || []).map((item) => item.id).sort();
-  assert.deepEqual(dependencyIds, ["module-ui", "xlsx"]);
+  assert.deepEqual(dependencyIds, ["module-ui", "nav-menu", "xlsx"]);
 });

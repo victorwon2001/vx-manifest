@@ -56,6 +56,68 @@
     return doc.querySelector(selector || DEFAULT_SELECTOR);
   }
 
+  function pushUniqueWindow(target, win) {
+    if (!win || target.indexOf(win) !== -1) return;
+    target.push(win);
+  }
+
+  function collectAccessibleFrameWindows(win, target) {
+    if (!win) return;
+    pushUniqueWindow(target, win);
+    let frames = null;
+    try {
+      frames = win.frames;
+    } catch (error) {
+      frames = null;
+    }
+    if (!frames || !Number.isFinite(frames.length)) return;
+    for (let index = 0; index < frames.length; index += 1) {
+      let child = null;
+      try {
+        child = frames[index];
+        if (child && child.location) collectAccessibleFrameWindows(child, target);
+      } catch (error) {
+        child = null;
+      }
+    }
+  }
+
+  function resolveNavTargetWindow(win, rawOptions) {
+    const scope = win || root;
+    const options = rawOptions || {};
+    const candidates = [];
+
+    if (typeof options.resolveWindow === "function") {
+      try {
+        const resolved = options.resolveWindow(scope);
+        if (resolved && resolved.document) pushUniqueWindow(candidates, resolved);
+      } catch (error) {
+        // Ignore resolver errors and fall back to auto discovery.
+      }
+    }
+
+    pushUniqueWindow(candidates, scope);
+    try {
+      if (scope && scope.top && scope.top.document) pushUniqueWindow(candidates, scope.top);
+    } catch (error) {
+      // Ignore cross-frame access issues.
+    }
+
+    const expanded = [];
+    candidates.forEach((candidate) => collectAccessibleFrameWindows(candidate, expanded));
+    if (!expanded.length) collectAccessibleFrameWindows(scope, expanded);
+
+    for (let index = 0; index < expanded.length; index += 1) {
+      const candidate = expanded[index];
+      const navMenu = findNavMenu(candidate && candidate.document, options.navSelector);
+      if (navMenu) return { win: candidate, navMenu };
+    }
+
+    const fallbackMenu = findNavMenu(scope && scope.document, options.navSelector);
+    if (fallbackMenu) return { win: scope, navMenu: fallbackMenu };
+    return { win: scope, navMenu: null };
+  }
+
   function createButtonElement(doc, options) {
     const item = doc.createElement("li");
     const anchor = doc.createElement("a");
@@ -82,9 +144,11 @@
   }
 
   function ensureNavButton(win, options) {
-    const doc = win && win.document;
+    const resolved = resolveNavTargetWindow(win, options);
+    const targetWin = resolved && resolved.win ? resolved.win : win;
+    const doc = targetWin && targetWin.document;
     if (!doc) return false;
-    const navMenu = findNavMenu(doc, options.navSelector);
+    const navMenu = resolved && resolved.navMenu ? resolved.navMenu : findNavMenu(doc, options.navSelector);
     if (!navMenu) return false;
     if (doc.getElementById(options.buttonId)) return true;
     removeMatchingMenuItems(navMenu, options.removeLabels, options.label);
@@ -92,14 +156,16 @@
     insertButton(navMenu, created.item, options);
     created.anchor.addEventListener("click", (event) => {
       event.preventDefault();
-      if (typeof options.onClick === "function") options.onClick(event);
+      if (typeof options.onClick === "function") options.onClick(event, targetWin);
     });
     return true;
   }
 
   function installNavButton(win, rawOptions) {
     const scope = win || root;
-    const doc = scope && scope.document;
+    const resolved = resolveNavTargetWindow(scope, rawOptions || {});
+    const targetWin = resolved && resolved.win ? resolved.win : scope;
+    const doc = targetWin && targetWin.document;
     if (!doc) return null;
     const options = Object.assign({
       navSelector: DEFAULT_SELECTOR,
@@ -112,7 +178,7 @@
     }, rawOptions || {});
     if (!options.buttonId || typeof options.onClick !== "function") return null;
 
-    const state = getState(scope);
+    const state = getState(targetWin);
     const existing = state.installs[options.buttonId];
     if (existing) {
       if (typeof existing.ensure === "function") existing.ensure();
@@ -126,7 +192,7 @@
     const scheduleEnsure = function scheduleEnsure(delayMs) {
       if (pending) return;
       pending = true;
-      scope.setTimeout(() => {
+      targetWin.setTimeout(() => {
         pending = false;
         ensure();
       }, Math.max(0, Number(delayMs) || 0));
@@ -142,8 +208,8 @@
       return false;
     };
 
-    if (typeof scope.MutationObserver === "function" && doc.body) {
-      observer = new scope.MutationObserver(() => {
+    if (typeof targetWin.MutationObserver === "function" && doc.body) {
+      observer = new targetWin.MutationObserver(() => {
         if (doc.getElementById(options.buttonId)) return;
         scheduleEnsure(Math.max(options.retryDelayMs, 1500));
       });
@@ -173,6 +239,7 @@
     DEFAULT_RETRY_DELAY_MS,
     safeTrim,
     findTargetItem,
+    resolveNavTargetWindow,
     removeMatchingMenuItems,
     ensureNavButton,
     installNavButton,

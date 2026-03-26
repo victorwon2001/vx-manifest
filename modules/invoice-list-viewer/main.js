@@ -3,9 +3,9 @@
 
   const MODULE_ID = "invoice-list-viewer";
   const MODULE_NAME = "B2B 출고데이터 뷰어";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
-  const PAGE_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/home(?:[/?#].*)?$/i;
+  const HOME_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/home(?:[/?#].*)?$/i;
   const LIST_ENDPOINT = "/site/site320main_jdata";
   const XLS_ENDPOINT = "/util/ExlForm_DB3";
   const STATE_KEY = "__tmInvoiceListViewerState";
@@ -40,6 +40,12 @@
     return null;
   }
 
+  function getNavMenu(scope) {
+    if (scope && scope.__tmNavMenu) return scope.__tmNavMenu;
+    if (typeof globalThis !== "undefined" && globalThis && globalThis.__tmNavMenu) return globalThis.__tmNavMenu;
+    return null;
+  }
+
   function getXlsx(scope) {
     if (scope && scope.XLSX) return scope.XLSX;
     if (typeof globalThis !== "undefined" && globalThis && globalThis.XLSX) return globalThis.XLSX;
@@ -48,6 +54,25 @@
 
   function safeTrim(value) {
     return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+  }
+
+  function resolveTopHref(win) {
+    if (!win) return "";
+    try {
+      if (win.top && win.top.location && win.top.location.href) return String(win.top.location.href);
+    } catch (error) {
+      // Ignore cross-frame access issues and fall back to the current window.
+    }
+    return String(win.location && win.location.href || "");
+  }
+
+  function resolveUiWindow(win) {
+    const navMenu = getNavMenu(win);
+    if (navMenu && typeof navMenu.resolveNavTargetWindow === "function") {
+      const resolved = navMenu.resolveNavTargetWindow(win, { navSelector: NAV_SELECTOR });
+      if (resolved && resolved.win && resolved.win.document) return resolved.win;
+    }
+    return win;
   }
 
   function escapeHtml(value) {
@@ -691,52 +716,41 @@
     render(state);
   }
 
-  function addNavMenuButton(state) {
-    const doc = state.win.document;
-    const navMenu = doc.querySelector(NAV_SELECTOR);
-    if (!navMenu) return false;
-    if (doc.getElementById(NAV_BUTTON_ID)) return true;
-
-    const menuItem = doc.createElement("li");
-    menuItem.innerHTML = "<a href='javascript:void(0);' id='" + NAV_BUTTON_ID + "'><strong>" + NAV_BUTTON_LABEL + "</strong></a>";
-
-    const items = navMenu.querySelectorAll("li");
-    const beforeItem = Array.prototype.find.call(items, (item) => safeTrim(item.textContent).indexOf(NAV_INSERT_BEFORE_LABEL) !== -1);
-    if (beforeItem) navMenu.insertBefore(menuItem, beforeItem);
-    else navMenu.appendChild(menuItem);
-
-    doc.getElementById(NAV_BUTTON_ID).addEventListener("click", () => togglePanel(state));
-    return true;
-  }
-
   function installNavButton(state) {
     if (state.navReady) return;
 
-    let attempts = 0;
-    const install = () => {
-      if (addNavMenuButton(state)) {
-        state.navReady = true;
-        return;
-      }
-      attempts += 1;
-      if (attempts < NAV_RETRY_LIMIT) state.win.setTimeout(install, NAV_RETRY_DELAY_MS);
-    };
+    const navMenu = getNavMenu(state.win);
+    if (!navMenu || typeof navMenu.installNavButton !== "function") return;
 
-    install();
+    state.navReady = true;
+    navMenu.installNavButton(state.win, {
+      navSelector: NAV_SELECTOR,
+      retryLimit: NAV_RETRY_LIMIT,
+      retryDelayMs: NAV_RETRY_DELAY_MS,
+      buttonId: NAV_BUTTON_ID,
+      label: NAV_BUTTON_LABEL,
+      insertBeforeLabel: NAV_INSERT_BEFORE_LABEL,
+      onClick() {
+        togglePanel(state);
+      },
+    });
   }
 
   function shouldRun(win) {
-    return !!(win && win.location && PAGE_PATTERN.test(String(win.location.href || "")));
+    return !!(win && HOME_PATTERN.test(resolveTopHref(win)));
   }
 
   function start(context) {
-    const win = context && context.window ? context.window : root;
-    if (!win || !win.document || !shouldRun(win) || win.__tmInvoiceListViewerStarted) return;
+    const sourceWin = context && context.window ? context.window : root;
+    if (!sourceWin || !sourceWin.document || !shouldRun(sourceWin)) return;
+
+    const win = resolveUiWindow(sourceWin);
+    if (!win || !win.document || win.__tmInvoiceListViewerStarted) return;
     win.__tmInvoiceListViewerStarted = true;
 
     const loader = context && context.loader ? context.loader : null;
     const state = getState(win, loader);
-    const mountAndInstall = () => {
+    const mountAndInstall = function mountAndInstall() {
       mount(state);
       installNavButton(state);
     };
@@ -764,9 +778,11 @@
     dedupeInvoiceRows,
     buildPanelHtml,
     formatBatchDateLabel,
+    resolveTopHref,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
