@@ -3,9 +3,10 @@
 
   const MODULE_ID = "invoice-list-viewer";
   const MODULE_NAME = "B2B 출고데이터 뷰어";
-  const MODULE_VERSION = "0.1.5";
+  const MODULE_VERSION = "0.1.6";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
-  const HOME_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/home(?:[/?#].*)?$/i;
+  const SITE_URL_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\//i;
+  const EXCLUDED_PAGE_PATTERNS = [/\/jsp\/site\/site3217main\.jsp(?:[?#].*)?$/i];
   const LIST_ENDPOINT = "/site/site320main_jdata";
   const XLS_ENDPOINT = "/util/ExlForm_DB3";
   const STATE_KEY = "__tmInvoiceListViewerState";
@@ -66,6 +67,11 @@
       // Ignore cross-frame access issues and fall back to the current window.
     }
     return String(win.location && win.location.href || "");
+  }
+
+  function isExcludedPageHref(href) {
+    const value = String(href || "");
+    return EXCLUDED_PAGE_PATTERNS.some((pattern) => pattern.test(value));
   }
 
   function resolveUiWindow(win) {
@@ -783,7 +789,11 @@
   }
 
   function shouldRun(win) {
-    return !!(win && HOME_PATTERN.test(resolveTopHref(win)));
+    if (!win) return false;
+    const currentHref = String(win.location && win.location.href || "");
+    const topHref = resolveTopHref(win);
+    if (isExcludedPageHref(currentHref) || isExcludedPageHref(topHref)) return false;
+    return SITE_URL_PATTERN.test(currentHref) || SITE_URL_PATTERN.test(topHref);
   }
 
   function start(context) {
@@ -823,11 +833,14 @@
     dedupeInvoiceRows,
     buildPanelHtml,
     formatBatchDateLabel,
+    shouldRun,
     resolveTopHref,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
+
 
 
 

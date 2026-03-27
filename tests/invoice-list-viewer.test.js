@@ -52,6 +52,23 @@ test("invoice list viewer resolves the top frame home url for nav injection", ()
   assert.equal(moduleUnderTest.resolveTopHref(scope), "https://www.ebut3pl.co.kr/home");
 });
 
+test("invoice list viewer shouldRun follows nav pages and excludes site3217", () => {
+  assert.equal(moduleUnderTest.shouldRun({
+    location: { href: "https://www.ebut3pl.co.kr/jsp/main_new.jsp" },
+    top: { location: { href: "https://www.ebut3pl.co.kr/jsp/main_new.jsp" } },
+  }), true);
+
+  assert.equal(moduleUnderTest.shouldRun({
+    location: { href: "https://www.ebut3pl.co.kr/home" },
+    top: { location: { href: "https://www.ebut3pl.co.kr/home" } },
+  }), true);
+
+  assert.equal(moduleUnderTest.shouldRun({
+    location: { href: "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp" },
+    top: { location: { href: "https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp" } },
+  }), false);
+});
+
 test("invoice list viewer dedupes invoice numbers while preserving row positions", () => {
   const rows = moduleUnderTest.dedupeInvoiceRows([
     { invoiceNumber: "A", orderNumber: "1" },
