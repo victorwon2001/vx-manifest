@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const ROOT_ID = "tmStockLocationHelperRoot";
@@ -386,10 +386,7 @@
     const headerRow = getHeaderRow(parts);
     if (!footRow || !headerRow) return;
 
-    const widthSourceTable = parts.bodyTable || parts.headerTable;
-    if (widthSourceTable && widthSourceTable.style && widthSourceTable.style.width) {
-      parts.footTable.style.width = widthSourceTable.style.width;
-    }
+    syncFooterColGroup(parts, columnDefs, visibility);
 
     (Array.isArray(columnDefs) ? columnDefs : []).forEach((column) => {
       const columnId = column.id;
@@ -402,11 +399,92 @@
       footCell.style.display = visible ? "" : "none";
       if (!visible) return;
 
-      const headerWidth = Math.round(headerCell.getBoundingClientRect().width);
-      if (headerWidth > 0) footCell.style.width = headerWidth + "px";
+      const computedWidth = statefulHeaderWidth(headerCell);
+      if (computedWidth) {
+        footCell.style.width = computedWidth;
+        footCell.setAttribute("width", computedWidth);
+      }
       footCell.style.minWidth = "";
       footCell.style.maxWidth = "";
     });
+
+    alignFooterTable(parts, columnDefs, visibility);
+  }
+
+  function syncFooterColGroup(parts, columnDefs, visibility) {
+    if (!parts.footTable) return;
+    let colgroup = parts.footTable.querySelector("colgroup");
+    if (!colgroup) {
+      colgroup = parts.footTable.ownerDocument.createElement("colgroup");
+      parts.footTable.insertBefore(colgroup, parts.footTable.firstChild);
+    }
+
+    const desired = [];
+    (Array.isArray(columnDefs) ? columnDefs : []).forEach((column) => {
+      const columnId = column.id;
+      if (!columnId) return;
+      const headerCell = columnId === "gridList_cb"
+        ? getHeaderRow(parts) && getHeaderRow(parts).children[0]
+        : parts.headerTable.querySelector("#" + columnId);
+      if (!headerCell) return;
+      desired.push({
+        columnId,
+        width: statefulHeaderWidth(headerCell),
+        visible: visibility ? visibility[columnId] !== false : true,
+      });
+    });
+
+    while (colgroup.children.length < desired.length) {
+      colgroup.appendChild(parts.footTable.ownerDocument.createElement("col"));
+    }
+    while (colgroup.children.length > desired.length) {
+      colgroup.removeChild(colgroup.lastChild);
+    }
+
+    desired.forEach((item, index) => {
+      const col = colgroup.children[index];
+      col.style.width = item.width || "";
+      col.style.display = item.visible ? "" : "none";
+    });
+
+    const headerWidth = Math.round(parts.headerTable.getBoundingClientRect().width);
+    if (headerWidth > 0) parts.footTable.style.width = headerWidth + "px";
+    parts.footTable.style.tableLayout = "fixed";
+  }
+
+  function statefulHeaderWidth(headerCell) {
+    if (!headerCell) return "";
+    const inlineWidth = safeTrim(headerCell.style && headerCell.style.width);
+    if (inlineWidth) return inlineWidth;
+    const widthAttr = safeTrim(headerCell.getAttribute && headerCell.getAttribute("width"));
+    if (widthAttr) return widthAttr;
+    if (headerCell.ownerDocument && headerCell.ownerDocument.defaultView) {
+      const width = headerCell.ownerDocument.defaultView.getComputedStyle(headerCell).width;
+      if (safeTrim(width) && width !== "auto") return width;
+    }
+    const rectWidth = Math.round(headerCell.getBoundingClientRect().width);
+    return rectWidth > 0 ? rectWidth + "px" : "";
+  }
+
+  function alignFooterTable(parts, columnDefs, visibility) {
+    if (!parts.footTable || !parts.headerTable) return;
+    const visibleColumns = (Array.isArray(columnDefs) ? columnDefs : []).filter((column) => {
+      if (!column.id || column.id === "gridList_cb") return false;
+      return !visibility || visibility[column.id] !== false;
+    });
+    const firstColumn = visibleColumns[0];
+    if (!firstColumn) {
+      parts.footTable.style.marginLeft = "";
+      return;
+    }
+    const headerCell = parts.headerTable.querySelector("#" + firstColumn.id);
+    const footCell = parts.footTable.querySelector('td[aria-describedby="' + firstColumn.id + '"]');
+    if (!headerCell || !footCell) {
+      parts.footTable.style.marginLeft = "";
+      return;
+    }
+    const offset = Math.round(headerCell.getBoundingClientRect().left - footCell.getBoundingClientRect().left);
+    parts.footTable.style.marginLeft = offset ? offset + "px" : "";
   }
 
   function syncSettingsInputs(state) {
@@ -574,6 +652,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
