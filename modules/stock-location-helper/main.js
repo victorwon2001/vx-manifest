@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.10";
+  const MODULE_VERSION = "0.1.11";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const STATE_KEY = "__tmStockLocationHelperState";
@@ -330,36 +330,88 @@
     return rectWidth > 0 ? rectWidth + "px" : "";
   }
 
+  function resolveColumnWidth(parts, columnId) {
+    const bodyCells = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll('td[aria-describedby="' + columnId + '"]')) : [];
+    const visibleBodyCell = bodyCells.find((cell) => {
+      return cell && cell.style && cell.style.display !== "none";
+    });
+    if (visibleBodyCell) {
+      const width = visibleBodyCell.ownerDocument && visibleBodyCell.ownerDocument.defaultView
+        ? visibleBodyCell.ownerDocument.defaultView.getComputedStyle(visibleBodyCell).width
+        : "";
+      if (safeTrim(width) && width !== "auto") return width;
+      const rectWidth = Math.round(visibleBodyCell.getBoundingClientRect().width * 1000) / 1000;
+      if (rectWidth > 0) return rectWidth + "px";
+    }
+
+    const headerCell = parts.headerTable ? parts.headerTable.querySelector("#" + columnId) : null;
+    return statefulHeaderWidth(headerCell);
+  }
+
+  function applyVisibleCellWidth(cell, width) {
+    if (!cell || !cell.style) return;
+    if (!safeTrim(width)) {
+      cell.style.width = "";
+      cell.style.minWidth = "";
+      cell.style.maxWidth = "";
+      cell.style.boxSizing = "";
+      cell.removeAttribute("width");
+      return;
+    }
+
+    cell.style.width = width;
+    cell.style.minWidth = width;
+    cell.style.maxWidth = width;
+    cell.style.boxSizing = "border-box";
+    cell.setAttribute("width", width);
+  }
+
   function syncFooterLayout(parts, columnDefs) {
-    if (!parts.footTable || !parts.headerTable) return;
+    if (!parts.footTable || !parts.headerTable || !parts.bodyTable) return;
 
     (Array.isArray(columnDefs) ? columnDefs : []).forEach((column) => {
       const columnId = column.id;
       if (!columnId || columnId === "gridList_cb") return;
 
       const headerCell = parts.headerTable.querySelector("#" + columnId);
+      const bodyCells = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll('td[aria-describedby="' + columnId + '"]')) : [];
       const footCell = parts.footTable.querySelector('td[aria-describedby="' + columnId + '"]');
       if (!headerCell || !footCell) return;
 
       if (column.hiddenByDefault) {
+        setCollapsedCellStyle(headerCell, false);
+        bodyCells.forEach((cell) => setCollapsedCellStyle(cell, false));
         setCollapsedCellStyle(footCell, false);
+        headerCell.removeAttribute("width");
+        bodyCells.forEach((cell) => cell.removeAttribute("width"));
         footCell.removeAttribute("width");
         return;
       }
 
+      setCollapsedCellStyle(headerCell, true);
+      bodyCells.forEach((cell) => setCollapsedCellStyle(cell, true));
       setCollapsedCellStyle(footCell, true);
-      const computedWidth = statefulHeaderWidth(headerCell);
-      if (computedWidth) {
-        footCell.style.width = computedWidth;
-        footCell.setAttribute("width", computedWidth);
-      }
-      footCell.style.boxSizing = "border-box";
-      footCell.style.minWidth = "";
-      footCell.style.maxWidth = "";
+      const computedWidth = resolveColumnWidth(parts, columnId);
+      applyVisibleCellWidth(headerCell, computedWidth);
+      bodyCells.forEach((cell) => applyVisibleCellWidth(cell, computedWidth));
+      applyVisibleCellWidth(footCell, computedWidth);
     });
 
-    const headerWidth = Math.round(parts.headerTable.getBoundingClientRect().width);
-    if (headerWidth > 0) parts.footTable.style.width = headerWidth + "px";
+    const synchronizedWidth = Math.max(
+      Math.round(parts.headerTable.scrollWidth || 0),
+      Math.round(parts.bodyTable.scrollWidth || 0),
+      Math.round(parts.footTable.scrollWidth || 0),
+      Math.round(parts.headerTable.getBoundingClientRect().width || 0),
+      Math.round(parts.bodyTable.getBoundingClientRect().width || 0),
+      Math.round(parts.footTable.getBoundingClientRect().width || 0)
+    );
+    if (synchronizedWidth > 0) {
+      parts.headerTable.style.width = synchronizedWidth + "px";
+      parts.bodyTable.style.width = synchronizedWidth + "px";
+      parts.footTable.style.width = synchronizedWidth + "px";
+    }
+    parts.headerTable.style.tableLayout = "fixed";
+    parts.bodyTable.style.tableLayout = "fixed";
     parts.footTable.style.tableLayout = "fixed";
     alignFooterTable(parts, columnDefs);
   }
@@ -486,6 +538,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
