@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.6";
+  const MODULE_VERSION = "0.1.7";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const STATE_KEY = "__tmStockLocationHelperState";
@@ -177,14 +177,43 @@
     return { headerCell, bodyCells, footCell };
   }
 
+  function setCollapsedCellStyle(node, visible) {
+    if (!node || !node.style) return;
+    if (visible) {
+      node.style.display = "";
+      node.style.width = "";
+      node.style.minWidth = "";
+      node.style.maxWidth = "";
+      node.style.padding = "";
+      node.style.border = "";
+      node.style.overflow = "";
+      node.style.visibility = "";
+      node.style.boxSizing = "";
+    } else {
+      node.style.display = "none";
+      node.style.width = "0px";
+      node.style.minWidth = "0px";
+      node.style.maxWidth = "0px";
+      node.style.padding = "0";
+      node.style.border = "0";
+      node.style.overflow = "hidden";
+      node.style.visibility = "hidden";
+      node.style.boxSizing = "border-box";
+    }
+
+    Array.prototype.forEach.call(node.children || [], (child) => {
+      if (!child || !child.style) return;
+      child.style.display = visible ? "" : "none";
+    });
+  }
+
   function setColumnDisplay(parts, columnId, visible) {
     const nodes = getColumnNodes(parts, columnId);
-    const display = visible ? "" : "none";
-    if (nodes.headerCell) nodes.headerCell.style.display = display;
+    setCollapsedCellStyle(nodes.headerCell, visible);
     nodes.bodyCells.forEach((cell) => {
-      cell.style.display = display;
+      setCollapsedCellStyle(cell, visible);
     });
-    if (nodes.footCell) nodes.footCell.style.display = display;
+    setCollapsedCellStyle(nodes.footCell, visible);
   }
 
   function mirrorCellPresentation(sourceCell, targetCell, roleClassName) {
@@ -305,13 +334,12 @@
       if (!headerCell || !footCell) return;
 
       if (column.hiddenByDefault) {
-        footCell.style.display = "none";
-        footCell.style.width = "";
+        setCollapsedCellStyle(footCell, false);
         footCell.removeAttribute("width");
         return;
       }
 
-      footCell.style.display = "";
+      setCollapsedCellStyle(footCell, true);
       const computedWidth = statefulHeaderWidth(headerCell);
       if (computedWidth) {
         footCell.style.width = computedWidth;
@@ -450,4 +478,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
