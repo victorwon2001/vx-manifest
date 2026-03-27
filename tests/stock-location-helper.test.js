@@ -85,6 +85,29 @@ test("stock location helper settings modal html renders saved visibility state",
   assert.match(html, /테이블설정/);
   assert.match(html, /가용-할당수량/);
   assert.match(html, /data-column-id="gridList_locastock_bqty"/);
+  assert.match(html, /data-action="close-settings"/);
+});
+
+test("stock location helper settings button uses site button structure", () => {
+  const html = moduleUnderTest.buildSettingsButtonHtml();
+
+  assert.match(html, /class="button medium icon tm-stock-location-helper__settings-wrap"/);
+  assert.match(html, /data-action="open-settings"/);
+  assert.match(html, /테이블설정/);
+});
+
+test("stock location helper settings rows keep hidden columns unchecked", () => {
+  const html = moduleUnderTest.buildSettingsOptionRowsHtml([
+    { id: "gridList_locastock_qty", label: "가용수량" },
+    { id: "gridList_locastock_bqty", label: "안전수량" },
+  ], {
+    gridList_locastock_qty: true,
+    gridList_locastock_bqty: false,
+  });
+
+  assert.match(html, /data-column-id="gridList_locastock_qty" checked/);
+  assert.match(html, /data-column-id="gridList_locastock_bqty"/);
+  assert.doesNotMatch(html, /data-column-id="gridList_locastock_bqty" checked/);
 });
 
 test("stock location helper registry and dependencies stay aligned", () => {

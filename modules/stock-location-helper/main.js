@@ -3,12 +3,13 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.1";
+  const MODULE_VERSION = "0.1.2";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const ROOT_ID = "tmStockLocationHelperRoot";
   const MODAL_ID = "tmStockLocationHelperModal";
   const SETTINGS_BUTTON_ID = "tmStockLocationHelperSettingsButton";
+  const SETTINGS_BUTTON_LABEL_ID = "tmStockLocationHelperSettingsLink";
   const STORAGE_KEY = "tmStockLocationHelper:columnVisibility";
   const STATE_KEY = "__tmStockLocationHelperState";
   const GRID_VIEW_ID = "gview_gridList";
@@ -127,16 +128,7 @@
   }
 
   function buildSettingsModalHtml(columnDefs, visibility) {
-    const rows = (Array.isArray(columnDefs) ? columnDefs : [])
-      .filter((column) => column.id !== "gridList_cb")
-      .map((column) => [
-        '<label class="tm-stock-location-helper__option">',
-        '  <input type="checkbox" data-column-id="' + escapeHtml(column.id) + '"' + (visibility && visibility[column.id] !== false ? " checked" : "") + ">",
-        '  <span>' + escapeHtml(column.label) + "</span>",
-        "</label>",
-      ].join(""))
-      .join("");
-
+    const rows = buildSettingsOptionRowsHtml(columnDefs, visibility);
     return [
       '<div id="' + MODAL_ID + '" class="tm-ui-overlay" style="display:none">',
       '  <div class="tm-ui-modal tm-stock-location-helper__modal">',
@@ -151,6 +143,28 @@
     ].join("");
   }
 
+  function buildSettingsOptionRowsHtml(columnDefs, visibility) {
+    const rows = (Array.isArray(columnDefs) ? columnDefs : [])
+      .filter((column) => column.id !== "gridList_cb")
+      .map((column) => [
+        '<label class="tm-stock-location-helper__option">',
+        '  <input type="checkbox" data-column-id="' + escapeHtml(column.id) + '"' + (visibility && visibility[column.id] !== false ? " checked" : "") + ">",
+        '  <span>' + escapeHtml(column.label) + "</span>",
+        "</label>",
+      ].join(""))
+      .join("");
+    return rows;
+  }
+
+  function buildSettingsButtonHtml() {
+    return [
+      '<span id="' + SETTINGS_BUTTON_ID + '" class="button medium icon tm-stock-location-helper__settings-wrap" data-action="open-settings">',
+      '  <span class="check"></span>',
+      '  <a id="' + SETTINGS_BUTTON_LABEL_ID + '" href="javascript:void(0)" data-action="open-settings">테이블설정</a>',
+      "</span>",
+    ].join("");
+  }
+
   function getState(win) {
     const scope = win || root;
     if (!scope[STATE_KEY]) {
@@ -161,6 +175,7 @@
         columnDefs: [],
         visibility: {},
         gridBound: false,
+        renderingModal: false,
       };
     }
     return scope[STATE_KEY];
@@ -197,9 +212,9 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      ".tm-stock-location-helper__settings-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:28px;padding:0 10px;margin-left:6px;border:1px solid #c8d0d2;border-radius:10px;background:#fff;color:#334346;font:600 12px 'Public Sans','Noto Sans KR','Malgun Gothic',sans-serif;cursor:pointer;vertical-align:middle}",
-      ".tm-stock-location-helper__settings-button:hover{background:#f4f6f6}",
       ".tm-stock-location-helper{position:relative;z-index:9999}",
+      ".tm-stock-location-helper__settings-wrap{margin-left:6px}",
+      ".tm-stock-location-helper__settings-wrap>a{text-decoration:none}",
       ".tm-stock-location-helper__modal{width:min(520px,92vw)}",
       ".tm-stock-location-helper__modal-copy{margin:6px 0 0;color:var(--tm-muted);font-size:12px}",
       ".tm-stock-location-helper__options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}",
@@ -248,12 +263,15 @@
     const actionAnchor = doc.querySelector('a[href="' + ORDLOOKUP_HREF + '"]');
     if (!actionAnchor) return;
     if (doc.getElementById(SETTINGS_BUTTON_ID)) return;
-    const button = doc.createElement("button");
-    button.type = "button";
-    button.id = SETTINGS_BUTTON_ID;
-    button.className = "tm-stock-location-helper__settings-button";
-    button.textContent = "테이블설정";
-    actionAnchor.insertAdjacentElement("afterend", button);
+    const wrapper = doc.createElement("span");
+    wrapper.innerHTML = buildSettingsButtonHtml();
+    const buttonNode = wrapper.firstElementChild;
+    const anchorWrap = actionAnchor.closest(".button.medium.icon");
+    if (anchorWrap && buttonNode) {
+      anchorWrap.insertAdjacentElement("afterend", buttonNode);
+      return;
+    }
+    if (buttonNode) actionAnchor.insertAdjacentElement("afterend", buttonNode);
   }
 
   function getColumnNodes(parts, columnId) {
@@ -271,6 +289,17 @@
     if (nodes.footCell) nodes.footCell.style.display = display;
   }
 
+  function mirrorCellPresentation(sourceCell, targetCell, roleClassName) {
+    if (!sourceCell || !targetCell) return;
+    targetCell.className = (sourceCell.className || "") + (roleClassName ? " " + roleClassName : "");
+    targetCell.style.cssText = sourceCell.style && sourceCell.style.cssText ? sourceCell.style.cssText : "";
+    const width = sourceCell.getAttribute("width");
+    if (width) targetCell.setAttribute("width", width);
+    else targetCell.removeAttribute("width");
+    if (sourceCell.colSpan) targetCell.colSpan = sourceCell.colSpan;
+    targetCell.setAttribute("role", sourceCell.getAttribute("role") || "gridcell");
+  }
+
   function ensureComputedColumn(parts) {
     const headerRow = getHeaderRow(parts);
     const allocatedHead = parts.headerTable && parts.headerTable.querySelector("#" + ALLOCATED_COLUMN_ID);
@@ -281,10 +310,12 @@
       headerCell = allocatedHead.cloneNode(false);
       headerCell.id = DELTA_COLUMN_ID;
       headerCell.setAttribute("aria-describedby", DELTA_COLUMN_ID);
-      headerCell.className = (allocatedHead.className || "") + " tm-stock-location-helper__delta-head";
-      headerCell.style.width = "86px";
+      mirrorCellPresentation(allocatedHead, headerCell, "tm-stock-location-helper__delta-head");
       headerCell.textContent = DELTA_COLUMN_LABEL;
       allocatedHead.insertAdjacentElement("afterend", headerCell);
+    } else {
+      mirrorCellPresentation(allocatedHead, headerCell, "tm-stock-location-helper__delta-head");
+      headerCell.textContent = DELTA_COLUMN_LABEL;
     }
 
     const bodyRows = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll("tbody tr.jqgrow")) : [];
@@ -296,10 +327,9 @@
       if (!deltaCell) {
         deltaCell = allocatedCell.cloneNode(false);
         deltaCell.setAttribute("aria-describedby", DELTA_COLUMN_ID);
-        deltaCell.className = (allocatedCell.className || "") + " tm-stock-location-helper__delta-cell";
-        deltaCell.style.width = "86px";
         allocatedCell.insertAdjacentElement("afterend", deltaCell);
       }
+      mirrorCellPresentation(allocatedCell, deltaCell, "tm-stock-location-helper__delta-cell");
       const deltaValue = parseNumericText(availableCell.title || availableCell.textContent) - parseNumericText(allocatedCell.title || allocatedCell.textContent);
       deltaCell.textContent = formatNumber(deltaValue);
       deltaCell.title = formatNumber(deltaValue);
@@ -313,10 +343,9 @@
     if (!deltaFoot) {
       deltaFoot = allocatedFoot.cloneNode(false);
       deltaFoot.setAttribute("aria-describedby", DELTA_COLUMN_ID);
-      deltaFoot.className = (allocatedFoot.className || "") + " tm-stock-location-helper__delta-foot";
-      deltaFoot.style.width = "86px";
       allocatedFoot.insertAdjacentElement("afterend", deltaFoot);
     }
+    mirrorCellPresentation(allocatedFoot, deltaFoot, "tm-stock-location-helper__delta-foot");
   }
 
   function collectVisibleRowMetrics(parts) {
@@ -356,12 +385,16 @@
     const doc = state.win.document;
     const rootNode = ensureRoot(doc);
     const overlay = doc.getElementById(MODAL_ID);
-    const isOpen = !!(overlay && overlay.style.display !== "none");
-    if (!overlay) return;
-    overlay.outerHTML = buildSettingsModalHtml(state.columnDefs, state.visibility);
-    if (isOpen) {
-      const nextOverlay = doc.getElementById(MODAL_ID);
-      if (nextOverlay) nextOverlay.style.display = "flex";
+    state.renderingModal = true;
+    try {
+      if (!overlay) {
+        rootNode.innerHTML = buildSettingsModalHtml(state.columnDefs, state.visibility);
+        return;
+      }
+      const options = overlay.querySelector(".tm-stock-location-helper__options");
+      if (options) options.innerHTML = buildSettingsOptionRowsHtml(state.columnDefs, state.visibility);
+    } finally {
+      state.renderingModal = false;
     }
   }
 
@@ -402,11 +435,28 @@
     state.refreshTimer = state.win.setTimeout(() => refreshGrid(state), 80);
   }
 
+  function shouldIgnoreMutations(state, mutations) {
+    const doc = state.win.document;
+    const rootNode = doc.getElementById(ROOT_ID);
+    const settingsNode = doc.getElementById(SETTINGS_BUTTON_ID);
+    return (Array.isArray(mutations) ? mutations : []).every((mutation) => {
+      const target = mutation && mutation.target;
+      return !!(
+        target &&
+        (
+          (rootNode && rootNode.contains(target)) ||
+          (settingsNode && settingsNode.contains(target))
+        )
+      );
+    });
+  }
+
   function bindEvents(state) {
     if (state.gridBound) return;
     state.gridBound = true;
     if (typeof state.win.MutationObserver === "function") {
-      state.observer = new state.win.MutationObserver(() => {
+      state.observer = new state.win.MutationObserver((mutations) => {
+        if (state.renderingModal || shouldIgnoreMutations(state, mutations)) return;
         scheduleRefresh(state);
       });
       state.observer.observe(state.win.document.body, { childList: true, subtree: true });
@@ -466,9 +516,12 @@
     buildColumnDefinitions,
     normalizeColumnVisibility,
     computeInventorySummary,
+    buildSettingsOptionRowsHtml,
     buildSettingsModalHtml,
+    buildSettingsButtonHtml,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
