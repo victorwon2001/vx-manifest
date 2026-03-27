@@ -75,6 +75,15 @@
       "metaPath": "modules/stock-move-automation/meta.json"
     },
     {
+      "id": "stock-location-helper",
+      "name": "로케이션별 재고도우미",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"
+      ],
+      "metaPath": "modules/stock-location-helper/meta.json"
+    },
+    {
       "id": "order-import-sync",
       "name": "연동데이터 불러오기",
       "enabledByDefault": true,
