@@ -24,36 +24,58 @@ test("stock location helper parses numeric text and formats totals", () => {
   assert.equal(moduleUnderTest.formatNumber(4321), "4,321");
 });
 
+test("stock location helper hides requested columns by default", () => {
+  const hiddenIds = moduleUnderTest.getHiddenColumnIds();
+
+  assert.deepEqual(hiddenIds, [
+    "gridList_cust_name",
+    "gridList_basic_sptyp",
+    "gridList_basic_gbn",
+    "gridList_locastock_edate",
+    "gridList_loca_sqty",
+    "gridList_locastock_impot",
+    "gridList_bsadd_qpb",
+    "gridList_box_qty",
+    "gridList_pallet_qty",
+    "gridList_boptcode_weight_total",
+    "gridList_boptcode_ucode",
+    "gridList_depth1_name",
+  ]);
+});
+
 test("stock location helper builds column definitions with computed delta after allocated qty", () => {
   const columns = moduleUnderTest.buildColumnDefinitions([
     { id: "gridList_cb", text: "" },
+    { id: "gridList_cust_name", text: "고객사" },
     { id: "gridList_locastock_qty", text: "가용수량" },
     { id: "gridList_locastock_aqty", text: "할당수량(가용)" },
-    { id: "gridList_locastock_bqty", text: "안전수량" },
+    { id: "gridList_locastock_impot", text: "할당우선순위" },
   ]);
 
   assert.deepEqual(columns.map((column) => column.id), [
     "gridList_cb",
+    "gridList_cust_name",
     "gridList_locastock_qty",
     "gridList_locastock_aqty",
     "gridList_available_minus_allocated",
-    "gridList_locastock_bqty",
+    "gridList_locastock_impot",
   ]);
-  assert.equal(columns[3].label, "가용-할당수량");
-  assert.equal(columns[4].hiddenByDefault, true);
+  assert.equal(columns[1].hiddenByDefault, true);
+  assert.equal(columns[4].label, "가용-할당수량");
+  assert.equal(columns[5].hiddenByDefault, true);
 });
 
-test("stock location helper normalizes visibility with safe stock hidden by default", () => {
+test("stock location helper normalizes visibility from fixed defaults", () => {
   const visibility = moduleUnderTest.normalizeColumnVisibility([
     { id: "gridList_locastock_qty", hiddenByDefault: false },
     { id: "gridList_available_minus_allocated", hiddenByDefault: false },
-    { id: "gridList_locastock_bqty", hiddenByDefault: true },
-  ], {});
+    { id: "gridList_cust_name", hiddenByDefault: true },
+  ]);
 
   assert.deepEqual(visibility, {
     gridList_locastock_qty: true,
     gridList_available_minus_allocated: true,
-    gridList_locastock_bqty: false,
+    gridList_cust_name: false,
   });
 });
 
@@ -69,45 +91,6 @@ test("stock location helper computes available, allocated and delta totals", () 
     allocatedQty: 5,
     deltaQty: 15,
   });
-});
-
-test("stock location helper settings modal html renders saved visibility state", () => {
-  const html = moduleUnderTest.buildSettingsModalHtml([
-    { id: "gridList_locastock_qty", label: "가용수량" },
-    { id: "gridList_available_minus_allocated", label: "가용-할당수량" },
-    { id: "gridList_locastock_bqty", label: "안전수량" },
-  ], {
-    gridList_locastock_qty: true,
-    gridList_available_minus_allocated: true,
-    gridList_locastock_bqty: false,
-  });
-
-  assert.match(html, /테이블설정/);
-  assert.match(html, /가용-할당수량/);
-  assert.match(html, /data-column-id="gridList_locastock_bqty"/);
-  assert.match(html, /data-action="close-settings"/);
-});
-
-test("stock location helper settings button uses site button structure", () => {
-  const html = moduleUnderTest.buildSettingsButtonHtml();
-
-  assert.match(html, /class="button medium icon tm-stock-location-helper__settings-wrap"/);
-  assert.match(html, /data-action="open-settings"/);
-  assert.match(html, /테이블설정/);
-});
-
-test("stock location helper settings rows keep hidden columns unchecked", () => {
-  const html = moduleUnderTest.buildSettingsOptionRowsHtml([
-    { id: "gridList_locastock_qty", label: "가용수량" },
-    { id: "gridList_locastock_bqty", label: "안전수량" },
-  ], {
-    gridList_locastock_qty: true,
-    gridList_locastock_bqty: false,
-  });
-
-  assert.match(html, /data-column-id="gridList_locastock_qty" checked/);
-  assert.match(html, /data-column-id="gridList_locastock_bqty"/);
-  assert.doesNotMatch(html, /data-column-id="gridList_locastock_bqty" checked/);
 });
 
 test("stock location helper registry and dependencies stay aligned", () => {
