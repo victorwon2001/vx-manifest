@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.7";
+  const MODULE_VERSION = "0.1.8";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const STATE_KEY = "__tmStockLocationHelperState";
@@ -12,20 +12,7 @@
   const ALLOCATED_COLUMN_ID = "gridList_locastock_aqty";
   const DELTA_COLUMN_ID = "gridList_available_minus_allocated";
   const DELTA_COLUMN_LABEL = "가용-할당수량";
-  const HIDDEN_COLUMN_IDS = [
-    "gridList_cust_name",
-    "gridList_basic_sptyp",
-    "gridList_basic_gbn",
-    "gridList_locastock_edate",
-    "gridList_loca_sqty",
-    "gridList_locastock_impot",
-    "gridList_bsadd_qpb",
-    "gridList_box_qty",
-    "gridList_pallet_qty",
-    "gridList_boptcode_weight_total",
-    "gridList_boptcode_ucode",
-    "gridList_depth1_name",
-  ];
+  const HIDDEN_COLUMN_IDS = [];
 
   function shouldRun(win) {
     return /^https:\/\/www\.ebut3pl\.co\.kr\/jsp\/stm\/stm410main4\.jsp/i.test(String(win && win.location && win.location.href || ""));
@@ -478,5 +465,6 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
