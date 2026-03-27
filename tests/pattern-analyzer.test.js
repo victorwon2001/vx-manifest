@@ -160,6 +160,12 @@ test("shipping mode theme separates ship and cancel visuals", () => {
   assert.notEqual(ship.progressBackground, cancel.progressBackground);
 });
 
+test("getPatternToneClass alternates by pattern group and keeps leftovers distinct", () => {
+  assert.equal(analyzer.getPatternToneClass({ id: 1 }, 0), "tone-even");
+  assert.equal(analyzer.getPatternToneClass({ id: 2 }, 1), "tone-odd");
+  assert.equal(analyzer.getPatternToneClass({ id: 999999 }, 3), "tone-leftover");
+});
+
 test("buildPatternPrintDocumentHtml returns standalone print document", () => {
   const html = analyzer.buildPatternPrintDocumentHtml({
     stats: {
@@ -187,6 +193,14 @@ test("buildPatternPrintDocumentHtml returns standalone print document", () => {
           { productName: "사과", managementName: "사과 1kg", optionName: "빨강", quantity: 2 },
         ],
       },
+      {
+        batchNumbers: ["13"],
+        count: 1,
+        invoices: ["INV-003"],
+        items: [
+          { productName: "BANANA", managementName: "BANANA 1KG", optionName: "BASIC", quantity: 1 },
+        ],
+      },
     ],
   });
 
@@ -201,6 +215,8 @@ test("buildPatternPrintDocumentHtml returns standalone print document", () => {
   assert.match(html, /패턴 정보/);
   assert.match(html, /스토어A/);
   assert.match(html, /tone-even/);
+  assert.match(html, /tone-odd/);
+  assert.match(html, /background:#eef2f2/);
   assert.match(html, /window\.print/);
   assert.doesNotMatch(html, /Pattern Print/);
   assert.doesNotMatch(html, /송장수/);
