@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.4";
+  const MODULE_VERSION = "0.1.5";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const ROOT_ID = "tmStockLocationHelperRoot";
@@ -176,6 +176,7 @@
         visibility: {},
         gridBound: false,
         renderingModal: false,
+        alignFrame: null,
       };
     }
     return scope[STATE_KEY];
@@ -487,6 +488,18 @@
     parts.footTable.style.marginLeft = offset ? offset + "px" : "";
   }
 
+  function scheduleFooterAlignment(state, parts) {
+    alignFooterTable(parts, state.columnDefs, state.visibility);
+    if (typeof state.win.cancelAnimationFrame === "function" && state.alignFrame != null) {
+      state.win.cancelAnimationFrame(state.alignFrame);
+    }
+    if (typeof state.win.requestAnimationFrame !== "function") return;
+    state.alignFrame = state.win.requestAnimationFrame(() => {
+      alignFooterTable(parts, state.columnDefs, state.visibility);
+      state.alignFrame = null;
+    });
+  }
+
   function syncSettingsInputs(state) {
     const overlay = state.win.document.getElementById(MODAL_ID);
     if (!overlay) return;
@@ -504,6 +517,7 @@
     applyVisibility(nextParts, state.columnDefs, state.visibility);
     syncFooterLayout(nextParts, state.columnDefs, state.visibility);
     updateFooterSummary(nextParts);
+    scheduleFooterAlignment(state, nextParts);
   }
 
   function renderSettingsModal(state) {
@@ -652,6 +666,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
