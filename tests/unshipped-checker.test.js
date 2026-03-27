@@ -95,7 +95,8 @@ test("unshipped checker site table html keeps compact toggle and fixed count col
   ]);
 
   assert.match(html, /tm-unshipped-checker__table-wrap/);
-  assert.match(html, /tm-unshipped-checker__toggle-label/);
+  assert.match(html, /data-action="open-detail"/);
+  assert.match(html, /tm-unshipped-checker__detail-link/);
   assert.match(html, /tm-unshipped-checker__count-cell/);
 });
 
@@ -105,8 +106,30 @@ test("unshipped checker courier table html uses the same compact table wrapper",
   ]);
 
   assert.match(html, /tm-unshipped-checker__table-wrap/);
-  assert.match(html, /tm-unshipped-checker__toggle-label/);
+  assert.match(html, /data-group-type="courier"/);
   assert.match(html, /tm-unshipped-checker__count-cell/);
+});
+
+test("unshipped checker detail window html renders order tables for site and courier views", () => {
+  const siteHtml = moduleUnderTest.buildDetailWindowHtml({
+    title: "STORE - CJ",
+    subtitle: "판매처와 택배사 기준 상세 주문 목록",
+    summaryLabel: "2건",
+    showSite: false,
+    orders: [{ orderNo: "1001", invoiceNo: "INV-1" }],
+  });
+  const courierHtml = moduleUnderTest.buildDetailWindowHtml({
+    title: "CJ",
+    subtitle: "택배사 기준 판매처별 상세 주문 목록",
+    summaryLabel: "2건",
+    showSite: true,
+    orders: [{ site: "STORE", orderNo: "1001", invoiceNo: "INV-1" }],
+  });
+
+  assert.match(siteHtml, /STORE - CJ/);
+  assert.doesNotMatch(siteHtml, /<th[^>]*>판매처<\/th>/);
+  assert.match(courierHtml, /<th[^>]*>판매처<\/th>/);
+  assert.match(courierHtml, /INV-1/);
 });
 
 test("unshipped checker registry and dependencies stay aligned", () => {

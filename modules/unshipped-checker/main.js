@@ -3,7 +3,7 @@
 
   const MODULE_ID = "unshipped-checker";
   const MODULE_NAME = "미출고 건수 체커";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const DATA_ENDPOINT = "/site/site210main_jdata";
   const NAV_BUTTON_ID = "tm-unshipped-checker-nav-button";
@@ -11,6 +11,8 @@
   const NAV_INSERT_BEFORE_LABEL = "상담전용창";
   const POPUP_NAME = "tm-unshipped-checker-window";
   const POPUP_FEATURES = "width=1180,height=860,resizable=yes,scrollbars=yes";
+  const DETAIL_POPUP_NAME = "tm-unshipped-checker-detail-window";
+  const DETAIL_POPUP_FEATURES = "width=920,height=760,resizable=yes,scrollbars=yes";
   const STYLE_ID = "tm-unshipped-checker-style";
   const STATE_KEY = "__tmUnshippedCheckerState";
   const PAGE_SIZE = 500;
@@ -211,11 +213,13 @@
     ].join("");
   }
 
-  function buildOrdersTableHtml(orders) {
+  function buildOrdersTableHtml(orders, options) {
+    const settings = options || {};
     const rows = (Array.isArray(orders) ? orders : []).map((order, index) => {
       return [
         "<tr>",
         '<td data-tm-align="center">' + escapeHtml(index + 1) + "</td>",
+        settings.showSite ? '<td data-tm-align="left">' + escapeHtml(order.site || "-") + "</td>" : "",
         '<td data-tm-align="center">' + escapeHtml(order.orderNo) + "</td>",
         '<td data-tm-align="center">' + escapeHtml(order.invoiceNo) + "</td>",
         "</tr>",
@@ -224,26 +228,67 @@
     return [
       '<div class="tm-unshipped-checker__nested">',
       '  <table class="tm-ui-table">',
-      "    <thead><tr><th data-tm-align=\"center\">No.</th><th data-tm-align=\"center\">주문번호</th><th data-tm-align=\"center\">송장번호</th></tr></thead>",
+      "    <thead><tr><th data-tm-align=\"center\">No.</th>" + (settings.showSite ? "<th data-tm-align=\"left\">판매처</th>" : "") + "<th data-tm-align=\"center\">주문번호</th><th data-tm-align=\"center\">송장번호</th></tr></thead>",
       "    <tbody>",
-      rows || '<tr><td colspan="3" class="tm-ui-empty">표시할 주문이 없습니다.</td></tr>',
+      rows || '<tr><td colspan="' + (settings.showSite ? "4" : "3") + '" class="tm-ui-empty">표시할 주문이 없습니다.</td></tr>',
       "    </tbody>",
       "  </table>",
       "</div>",
     ].join("");
   }
 
+  function flattenCourierOrders(group) {
+    return (Array.isArray(group && group.sites) ? group.sites : []).reduce((result, siteGroup) => {
+      const rows = (Array.isArray(siteGroup.orders) ? siteGroup.orders : []).map((order) => ({
+        site: siteGroup.site,
+        orderNo: order.orderNo,
+        invoiceNo: order.invoiceNo,
+      }));
+      return result.concat(rows);
+    }, []);
+  }
+
+  function buildDetailWindowHtml(options) {
+    const settings = options || {};
+    const orders = Array.isArray(settings.orders) ? settings.orders : [];
+    const summaryLabel = settings.summaryLabel ? '<span class="tm-ui-badge">' + escapeHtml(settings.summaryLabel) + "</span>" : "";
+    const subtitle = settings.subtitle ? '<p class="tm-ui-subtitle">' + escapeHtml(settings.subtitle) + "</p>" : "";
+    const moduleUi = getModuleUi(root);
+    const rootAttrs = moduleUi
+      ? moduleUi.buildRootAttributes({ kind: "popup", className: "tm-unshipped-checker tm-unshipped-checker--detail", density: "compact" })
+      : 'class="tm-unshipped-checker tm-unshipped-checker--detail"';
+    return [
+      '<div ' + rootAttrs + '>',
+      '  <div class="tm-ui-shell tm-unshipped-checker__shell">',
+      '    <section class="tm-ui-card tm-unshipped-checker__card">',
+      '      <div class="tm-ui-panel-head">',
+      '        <div class="tm-ui-head-meta">',
+      "          <div>",
+      '            <p class="tm-ui-kicker">Operations</p>',
+      '            <h1 class="tm-ui-title">' + escapeHtml(settings.title || "미출고 상세") + "</h1>",
+      subtitle,
+      "          </div>",
+      '          <div class="tm-unshipped-checker__head-actions">' + summaryLabel + '<button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-window">창 닫기</button></div>',
+      "        </div>",
+      "      </div>",
+      '      <div class="tm-unshipped-checker__content tm-ui-stack">',
+      buildOrdersTableHtml(orders, { showSite: !!settings.showSite }),
+      "      </div>",
+      "    </section>",
+      "  </div>",
+      "</div>",
+    ].join("");
+  }
+
   function buildSiteTableHtml(groups) {
     const rows = (Array.isArray(groups) ? groups : []).map((group, index) => {
-      const detailId = "tm-unshipped-site-detail-" + index;
       return [
-        '<tr class="tm-unshipped-checker__row" data-group="site">',
+        '<tr class="tm-unshipped-checker__row tm-unshipped-checker__row--interactive" data-action="open-detail" data-group-type="site" data-group-index="' + index + '">',
         '  <td data-tm-align="left">',
-        '    <button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(group.site) + " - " + escapeHtml(group.courier) + "</span></button>",
+        '    <div class="tm-unshipped-checker__cell-main"><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(group.site) + " - " + escapeHtml(group.courier) + '</span><span class="tm-unshipped-checker__detail-link">행 클릭 시 상세</span></div>',
         "  </td>",
         '  <td data-tm-align="center" class="tm-unshipped-checker__count-cell"><span class="tm-ui-badge">' + escapeHtml(group.count) + "건</span></td>",
         "</tr>",
-        '<tr id="' + detailId + '" class="tm-unshipped-checker__detail" hidden><td colspan="2">' + buildOrdersTableHtml(group.orders) + "</td></tr>",
       ].join("");
     }).join("");
     return [
@@ -283,13 +328,11 @@
 
   function buildCourierTableHtml(groups) {
     const rows = (Array.isArray(groups) ? groups : []).map((group, index) => {
-      const detailId = "tm-unshipped-courier-detail-" + index;
       return [
-        '<tr class="tm-unshipped-checker__row" data-group="courier">',
-        '  <td data-tm-align="left"><button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(group.courier) + "</span></button></td>",
+        '<tr class="tm-unshipped-checker__row tm-unshipped-checker__row--interactive" data-action="open-detail" data-group-type="courier" data-group-index="' + index + '">',
+        '  <td data-tm-align="left"><div class="tm-unshipped-checker__cell-main"><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(group.courier) + '</span><span class="tm-unshipped-checker__detail-link">행 클릭 시 상세</span></div></td>',
         '  <td data-tm-align="center" class="tm-unshipped-checker__count-cell"><span class="tm-ui-badge">' + escapeHtml(group.count) + "건</span></td>",
         "</tr>",
-        '<tr id="' + detailId + '" class="tm-unshipped-checker__detail" hidden><td colspan="2">' + buildNestedSiteTableHtml(group.sites, "tm-unshipped-courier-" + index) + "</td></tr>",
       ].join("");
     }).join("");
     return [
@@ -366,19 +409,18 @@
       ".tm-unshipped-checker__table-wrap .tm-ui-table{table-layout:fixed}",
       ".tm-unshipped-checker__table-wrap .tm-ui-table th:last-child,.tm-unshipped-checker__table-wrap .tm-ui-table td:last-child{width:120px}",
       ".tm-unshipped-checker__row td{vertical-align:middle;padding:10px 12px}",
-      ".tm-unshipped-checker__toggle{display:inline-flex;align-items:center;gap:10px;max-width:min(100%,720px);padding:10px 14px;background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:14px;box-shadow:none;color:var(--tm-text);text-align:left;font-weight:700;min-height:0}",
-      ".tm-unshipped-checker__toggle:hover{transform:none;color:var(--tm-primary-strong);background:#fff}",
+      ".tm-unshipped-checker__row--interactive{cursor:pointer}",
+      ".tm-unshipped-checker__row--interactive td{transition:background-color .16s ease,color .16s ease}",
+      ".tm-unshipped-checker__row--interactive:hover td{background:rgba(84,96,103,.06)}",
+      ".tm-unshipped-checker__cell-main{display:inline-grid;gap:4px;max-width:min(100%,720px)}",
       ".tm-unshipped-checker__toggle-label{display:block;min-width:0;white-space:normal;word-break:break-word;line-height:1.35}",
-      ".tm-unshipped-checker__chevron{display:inline-flex;width:16px;justify-content:center;transition:transform .16s ease}",
-      ".tm-unshipped-checker__toggle[aria-expanded='true'] .tm-unshipped-checker__chevron{transform:rotate(90deg)}",
-      ".tm-unshipped-checker__chevron::before{content:'▸';font-size:11px}",
+      ".tm-unshipped-checker__detail-link{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--tm-muted);font-weight:600}",
+      ".tm-unshipped-checker__detail-link::before{content:'↗';font-size:11px}",
       ".tm-unshipped-checker__count-cell{width:120px}",
-      ".tm-unshipped-checker__detail td{padding:0;border-bottom:1px solid var(--tm-border);background:rgba(84,96,103,.02)}",
       ".tm-unshipped-checker__nested{padding:10px 12px 12px 22px}",
       ".tm-unshipped-checker__nested .tm-ui-table{width:auto;min-width:420px;max-width:760px;border:1px solid var(--tm-border);border-radius:10px;overflow:hidden}",
       ".tm-unshipped-checker__nested .tm-ui-table th,.tm-unshipped-checker__nested .tm-ui-table td{padding:7px 8px}",
-      ".tm-unshipped-checker__row--nested td:first-child{padding-left:12px}",
-      "@media (max-width: 768px){.tm-unshipped-checker__shell{padding:10px}.tm-unshipped-checker__content{padding:12px}.tm-unshipped-checker__head-actions{width:100%}.tm-unshipped-checker__head-actions > *{width:100%}.tm-unshipped-checker__tabs{display:grid;grid-template-columns:1fr 1fr}.tm-unshipped-checker__table-wrap,.tm-unshipped-checker__panel,#tm-unshipped-summary,#tm-unshipped-status,#tm-unshipped-tabs{max-width:none}.tm-unshipped-checker__toggle{max-width:100%}}",
+      "@media (max-width: 768px){.tm-unshipped-checker__shell{padding:10px}.tm-unshipped-checker__content{padding:12px}.tm-unshipped-checker__head-actions{width:100%}.tm-unshipped-checker__head-actions > *{width:100%}.tm-unshipped-checker__tabs{display:grid;grid-template-columns:1fr 1fr}.tm-unshipped-checker__table-wrap,.tm-unshipped-checker__panel,#tm-unshipped-summary,#tm-unshipped-status,#tm-unshipped-tabs{max-width:none}.tm-unshipped-checker__cell-main{max-width:100%}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -405,12 +447,12 @@
 
   function renderDashboard(popupState) {
     const doc = popupState.popupWin.document;
-    const siteGroups = groupBySite(popupState.rows);
-    const courierGroups = groupByCourier(popupState.rows);
-    const summary = summarizeGroups(popupState.rows, siteGroups, courierGroups);
+    popupState.siteGroups = groupBySite(popupState.rows);
+    popupState.courierGroups = groupByCourier(popupState.rows);
+    const summary = summarizeGroups(popupState.rows, popupState.siteGroups, popupState.courierGroups);
     doc.getElementById("tm-unshipped-summary").innerHTML = buildSummaryHtml(summary);
-    doc.getElementById("tm-unshipped-panel-site").innerHTML = buildSiteTableHtml(siteGroups);
-    doc.getElementById("tm-unshipped-panel-courier").innerHTML = buildCourierTableHtml(courierGroups);
+    doc.getElementById("tm-unshipped-panel-site").innerHTML = buildSiteTableHtml(popupState.siteGroups);
+    doc.getElementById("tm-unshipped-panel-courier").innerHTML = buildCourierTableHtml(popupState.courierGroups);
   }
 
   async function fetchUnshippedRows(win, popupState) {
@@ -470,14 +512,56 @@
     courierPanel.hidden = tab !== "courier";
   }
 
-  function toggleDetail(doc, button) {
-    const detailId = button && button.getAttribute("data-detail-id");
-    if (!detailId) return;
-    const detailRow = doc.getElementById(detailId);
-    if (!detailRow) return;
-    const expanded = button.getAttribute("aria-expanded") === "true";
-    button.setAttribute("aria-expanded", expanded ? "false" : "true");
-    detailRow.hidden = expanded;
+  function getDetailPayload(popupState, type, index) {
+    const safeIndex = Number(index);
+    if (!Number.isFinite(safeIndex) || safeIndex < 0) return null;
+    if (type === "site") {
+      const group = popupState.siteGroups[safeIndex];
+      if (!group) return null;
+      return {
+        title: group.site + " - " + group.courier,
+        subtitle: "판매처와 택배사 기준 상세 주문 목록",
+        summaryLabel: group.count + "건",
+        showSite: false,
+        orders: group.orders,
+      };
+    }
+    if (type === "courier") {
+      const group = popupState.courierGroups[safeIndex];
+      if (!group) return null;
+      return {
+        title: group.courier,
+        subtitle: "택배사 기준 판매처별 상세 주문 목록",
+        summaryLabel: group.count + "건",
+        showSite: true,
+        orders: flattenCourierOrders(group),
+      };
+    }
+    return null;
+  }
+
+  function openDetailWindow(popupState, payload) {
+    if (!payload) return;
+    let detailWin = popupState.pageState.detailWin;
+    if (!detailWin || detailWin.closed) {
+      detailWin = popupState.pageWin.open("", DETAIL_POPUP_NAME, DETAIL_POPUP_FEATURES);
+      if (!detailWin) return;
+      popupState.pageState.detailWin = detailWin;
+      detailWin.addEventListener("beforeunload", () => {
+        popupState.pageState.detailWin = null;
+      });
+    }
+    const doc = detailWin.document;
+    doc.open();
+    doc.write("<!doctype html><html><head><meta charset=\"utf-8\"><title>미출고 상세</title></head><body></body></html>");
+    doc.close();
+    ensureStyles(doc);
+    doc.body.innerHTML = buildDetailWindowHtml(payload);
+    doc.body.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action='close-window']");
+      if (button) detailWin.close();
+    }, { once: true });
+    detailWin.focus();
   }
 
   function bindPopupEvents(popupState) {
@@ -492,9 +576,16 @@
       openTab(popupState, button.getAttribute("data-tab"));
     });
     doc.body.addEventListener("click", (event) => {
-      const toggle = event.target.closest("button[data-action='toggle-detail']");
-      if (!toggle) return;
-      toggleDetail(doc, toggle);
+      const row = event.target.closest("[data-action='open-detail']");
+      if (!row) return;
+      openDetailWindow(
+        popupState,
+        getDetailPayload(
+          popupState,
+          row.getAttribute("data-group-type"),
+          row.getAttribute("data-group-index")
+        )
+      );
     });
     popupWin.addEventListener("beforeunload", () => {
       popupState.pageState.popupWin = null;
@@ -508,6 +599,8 @@
       popupWin,
       pageState,
       rows: [],
+      siteGroups: [],
+      courierGroups: [],
       dateRange: createDateRange(),
       refreshing: false,
     };
@@ -546,6 +639,7 @@
       scope[STATE_KEY] = {
         popupWin: null,
         popupState: null,
+        detailWin: null,
         navInstall: null,
       };
     }
@@ -588,13 +682,16 @@
     buildDataUrl,
     groupBySite,
     groupByCourier,
+    flattenCourierOrders,
     summarizeGroups,
+    buildDetailWindowHtml,
     buildSiteTableHtml,
     buildCourierTableHtml,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
