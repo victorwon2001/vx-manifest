@@ -3,7 +3,7 @@
 
   const MODULE_ID = "unshipped-checker";
   const MODULE_NAME = "미출고 건수 체커";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const DATA_ENDPOINT = "/site/site210main_jdata";
   const NAV_BUTTON_ID = "tm-unshipped-checker-nav-button";
@@ -239,15 +239,15 @@
       return [
         '<tr class="tm-unshipped-checker__row" data-group="site">',
         '  <td data-tm-align="left">',
-        '    <button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span>' + escapeHtml(group.site) + " - " + escapeHtml(group.courier) + "</button>",
+        '    <button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(group.site) + " - " + escapeHtml(group.courier) + "</span></button>",
         "  </td>",
-        '  <td data-tm-align="center"><span class="tm-ui-badge">' + escapeHtml(group.count) + "건</span></td>",
+        '  <td data-tm-align="center" class="tm-unshipped-checker__count-cell"><span class="tm-ui-badge">' + escapeHtml(group.count) + "건</span></td>",
         "</tr>",
         '<tr id="' + detailId + '" class="tm-unshipped-checker__detail" hidden><td colspan="2">' + buildOrdersTableHtml(group.orders) + "</td></tr>",
       ].join("");
     }).join("");
     return [
-      '<div class="tm-ui-scroll">',
+      '<div class="tm-ui-scroll tm-unshipped-checker__table-wrap">',
       '  <table class="tm-ui-table">',
       "    <thead><tr><th data-tm-align=\"left\">판매처 - 택배사</th><th data-tm-align=\"center\">미출고 건수</th></tr></thead>",
       "    <tbody>",
@@ -263,8 +263,8 @@
       const detailId = prefix + "-site-detail-" + index;
       return [
         '<tr class="tm-unshipped-checker__row tm-unshipped-checker__row--nested" data-group="site-detail">',
-        '  <td data-tm-align="left"><button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span>' + escapeHtml(siteGroup.site) + "</button></td>",
-        '  <td data-tm-align="center"><span class="tm-ui-badge">' + escapeHtml(siteGroup.count) + "건</span></td>",
+        '  <td data-tm-align="left"><button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(siteGroup.site) + "</span></button></td>",
+        '  <td data-tm-align="center" class="tm-unshipped-checker__count-cell"><span class="tm-ui-badge">' + escapeHtml(siteGroup.count) + "건</span></td>",
         "</tr>",
         '<tr id="' + detailId + '" class="tm-unshipped-checker__detail" hidden><td colspan="2">' + buildOrdersTableHtml(siteGroup.orders) + "</td></tr>",
       ].join("");
@@ -286,14 +286,14 @@
       const detailId = "tm-unshipped-courier-detail-" + index;
       return [
         '<tr class="tm-unshipped-checker__row" data-group="courier">',
-        '  <td data-tm-align="left"><button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span>' + escapeHtml(group.courier) + "</button></td>",
-        '  <td data-tm-align="center"><span class="tm-ui-badge">' + escapeHtml(group.count) + "건</span></td>",
+        '  <td data-tm-align="left"><button type="button" class="tm-unshipped-checker__toggle" data-action="toggle-detail" data-detail-id="' + detailId + '" aria-expanded="false"><span class="tm-unshipped-checker__chevron" aria-hidden="true"></span><span class="tm-unshipped-checker__toggle-label">' + escapeHtml(group.courier) + "</span></button></td>",
+        '  <td data-tm-align="center" class="tm-unshipped-checker__count-cell"><span class="tm-ui-badge">' + escapeHtml(group.count) + "건</span></td>",
         "</tr>",
         '<tr id="' + detailId + '" class="tm-unshipped-checker__detail" hidden><td colspan="2">' + buildNestedSiteTableHtml(group.sites, "tm-unshipped-courier-" + index) + "</td></tr>",
       ].join("");
     }).join("");
     return [
-      '<div class="tm-ui-scroll">',
+      '<div class="tm-ui-scroll tm-unshipped-checker__table-wrap">',
       '  <table class="tm-ui-table">',
       "    <thead><tr><th data-tm-align=\"left\">택배사</th><th data-tm-align=\"center\">총 미출고 건수</th></tr></thead>",
       "    <tbody>",
@@ -352,26 +352,33 @@
     style.id = STYLE_ID;
     style.textContent = [
       ".tm-unshipped-checker{background:#f4f6f6;min-height:100vh}",
-      ".tm-unshipped-checker__shell{padding:18px;max-width:1240px;margin:0 auto}",
+      ".tm-unshipped-checker__shell{padding:18px;max-width:1120px;margin:0 auto}",
       ".tm-unshipped-checker__card{overflow:hidden}",
       ".tm-unshipped-checker__content{padding:14px 16px 16px}",
       ".tm-unshipped-checker__head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
+      "#tm-unshipped-status,#tm-unshipped-summary,#tm-unshipped-tabs,.tm-unshipped-checker__panel{max-width:980px}",
+      "#tm-unshipped-summary{grid-template-columns:repeat(auto-fit,minmax(220px,280px));justify-content:start}",
       ".tm-unshipped-checker__tabs{display:flex;gap:8px;flex-wrap:wrap}",
       ".tm-unshipped-checker__tab{background:#fff;color:var(--tm-primary-strong);border-color:var(--tm-border)}",
       ".tm-unshipped-checker__tab.is-active{background:var(--tm-accent-wash);color:#fff;border-color:var(--tm-primary-strong)}",
       ".tm-unshipped-checker__panel{display:grid;gap:12px}",
-      ".tm-unshipped-checker__row td{vertical-align:middle}",
-      ".tm-unshipped-checker__toggle{display:flex;align-items:center;gap:8px;width:100%;padding:0;background:transparent;border:none;box-shadow:none;color:var(--tm-text);text-align:left;font-weight:700;min-height:0}",
-      ".tm-unshipped-checker__toggle:hover{transform:none;color:var(--tm-primary-strong)}",
+      ".tm-unshipped-checker__table-wrap{max-width:980px;width:100%;justify-self:start}",
+      ".tm-unshipped-checker__table-wrap .tm-ui-table{table-layout:fixed}",
+      ".tm-unshipped-checker__table-wrap .tm-ui-table th:last-child,.tm-unshipped-checker__table-wrap .tm-ui-table td:last-child{width:120px}",
+      ".tm-unshipped-checker__row td{vertical-align:middle;padding:10px 12px}",
+      ".tm-unshipped-checker__toggle{display:inline-flex;align-items:center;gap:10px;max-width:min(100%,720px);padding:10px 14px;background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:14px;box-shadow:none;color:var(--tm-text);text-align:left;font-weight:700;min-height:0}",
+      ".tm-unshipped-checker__toggle:hover{transform:none;color:var(--tm-primary-strong);background:#fff}",
+      ".tm-unshipped-checker__toggle-label{display:block;min-width:0;white-space:normal;word-break:break-word;line-height:1.35}",
       ".tm-unshipped-checker__chevron{display:inline-flex;width:16px;justify-content:center;transition:transform .16s ease}",
       ".tm-unshipped-checker__toggle[aria-expanded='true'] .tm-unshipped-checker__chevron{transform:rotate(90deg)}",
       ".tm-unshipped-checker__chevron::before{content:'▸';font-size:11px}",
+      ".tm-unshipped-checker__count-cell{width:120px}",
       ".tm-unshipped-checker__detail td{padding:0;border-bottom:1px solid var(--tm-border);background:rgba(84,96,103,.02)}",
-      ".tm-unshipped-checker__nested{padding:10px 12px}",
-      ".tm-unshipped-checker__nested .tm-ui-table{border:1px solid var(--tm-border);border-radius:10px;overflow:hidden}",
+      ".tm-unshipped-checker__nested{padding:10px 12px 12px 22px}",
+      ".tm-unshipped-checker__nested .tm-ui-table{width:auto;min-width:420px;max-width:760px;border:1px solid var(--tm-border);border-radius:10px;overflow:hidden}",
       ".tm-unshipped-checker__nested .tm-ui-table th,.tm-unshipped-checker__nested .tm-ui-table td{padding:7px 8px}",
-      ".tm-unshipped-checker__row--nested td:first-child{padding-left:14px}",
-      "@media (max-width: 768px){.tm-unshipped-checker__shell{padding:10px}.tm-unshipped-checker__content{padding:12px}.tm-unshipped-checker__head-actions{width:100%}.tm-unshipped-checker__head-actions > *{width:100%}.tm-unshipped-checker__tabs{display:grid;grid-template-columns:1fr 1fr}}",
+      ".tm-unshipped-checker__row--nested td:first-child{padding-left:12px}",
+      "@media (max-width: 768px){.tm-unshipped-checker__shell{padding:10px}.tm-unshipped-checker__content{padding:12px}.tm-unshipped-checker__head-actions{width:100%}.tm-unshipped-checker__head-actions > *{width:100%}.tm-unshipped-checker__tabs{display:grid;grid-template-columns:1fr 1fr}.tm-unshipped-checker__table-wrap,.tm-unshipped-checker__panel,#tm-unshipped-summary,#tm-unshipped-status,#tm-unshipped-tabs{max-width:none}.tm-unshipped-checker__toggle{max-width:100%}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -588,5 +595,6 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 

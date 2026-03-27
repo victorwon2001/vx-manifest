@@ -89,6 +89,26 @@ test("unshipped checker summary reflects grouped counts", () => {
   });
 });
 
+test("unshipped checker site table html keeps compact toggle and fixed count column", () => {
+  const html = moduleUnderTest.buildSiteTableHtml([
+    { site: "STORE", courier: "CJ", count: 12, orders: [{ orderNo: "1001", invoiceNo: "INV-1" }] },
+  ]);
+
+  assert.match(html, /tm-unshipped-checker__table-wrap/);
+  assert.match(html, /tm-unshipped-checker__toggle-label/);
+  assert.match(html, /tm-unshipped-checker__count-cell/);
+});
+
+test("unshipped checker courier table html uses the same compact table wrapper", () => {
+  const html = moduleUnderTest.buildCourierTableHtml([
+    { courier: "CJ", count: 12, sites: [{ site: "STORE", count: 12, orders: [{ orderNo: "1001", invoiceNo: "INV-1" }] }] },
+  ]);
+
+  assert.match(html, /tm-unshipped-checker__table-wrap/);
+  assert.match(html, /tm-unshipped-checker__toggle-label/);
+  assert.match(html, /tm-unshipped-checker__count-cell/);
+});
+
 test("unshipped checker registry and dependencies stay aligned", () => {
   const script = registry.scripts.find((item) => item.id === "unshipped-checker");
   assert.ok(script);
