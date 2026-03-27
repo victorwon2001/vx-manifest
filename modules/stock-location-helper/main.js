@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.9";
+  const MODULE_VERSION = "0.1.10";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const STATE_KEY = "__tmStockLocationHelperState";
@@ -214,20 +214,41 @@
     targetCell.setAttribute("role", sourceCell.getAttribute("role") || "gridcell");
   }
 
+  function buildDeltaHeaderCell(allocatedHead) {
+    const headerCell = allocatedHead.cloneNode(true);
+    headerCell.id = DELTA_COLUMN_ID;
+    headerCell.setAttribute("aria-describedby", DELTA_COLUMN_ID);
+
+    const labelNode = headerCell.querySelector("[id]");
+    if (labelNode) {
+      labelNode.id = "jqgh_" + DELTA_COLUMN_ID;
+      labelNode.textContent = DELTA_COLUMN_LABEL;
+    } else {
+      headerCell.textContent = DELTA_COLUMN_LABEL;
+    }
+
+    return headerCell;
+  }
+
   function ensureComputedColumn(parts) {
     const headerRow = getHeaderRow(parts);
     const allocatedHead = parts.headerTable && parts.headerTable.querySelector("#" + ALLOCATED_COLUMN_ID);
     if (!headerRow || !allocatedHead) return;
 
     let headerCell = parts.headerTable.querySelector("#" + DELTA_COLUMN_ID);
+    const nextCell = allocatedHead.nextElementSibling;
+    const rebuiltHeaderCell = buildDeltaHeaderCell(allocatedHead);
     if (!headerCell) {
-      headerCell = allocatedHead.cloneNode(false);
-      headerCell.id = DELTA_COLUMN_ID;
-      headerCell.setAttribute("aria-describedby", DELTA_COLUMN_ID);
-      allocatedHead.insertAdjacentElement("afterend", headerCell);
+      allocatedHead.insertAdjacentElement("afterend", rebuiltHeaderCell);
+      headerCell = rebuiltHeaderCell;
+    } else {
+      headerCell.replaceWith(rebuiltHeaderCell);
+      headerCell = rebuiltHeaderCell;
+      if (nextCell && nextCell !== headerCell && nextCell !== rebuiltHeaderCell) {
+        allocatedHead.insertAdjacentElement("afterend", headerCell);
+      }
     }
     mirrorCellPresentation(allocatedHead, headerCell, "tm-stock-location-helper__delta-head");
-    headerCell.textContent = DELTA_COLUMN_LABEL;
 
     const bodyRows = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll("tbody tr.jqgrow")) : [];
     bodyRows.forEach((row) => {
@@ -465,6 +486,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

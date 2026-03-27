@@ -1,7 +1,7 @@
 ﻿{
     "id":  "stock-location-helper",
     "name":  "로케이션별 재고도우미",
-    "version":  "0.1.9",
+    "version":  "0.1.10",
     "description":  "로케이션별 재고현황의 합계 보정과 컬럼 표시 설정을 제공하는 도구",
     "entry":  "modules/stock-location-helper/main.js",
     "dependencies":  [
@@ -13,5 +13,5 @@
                      ],
     "checksum":  "",
     "loaderApiVersion":  2,
-    "updatedAt":  "2026-03-27 11:48:23"
+    "updatedAt":  "2026-03-27 12:20:11"
 }
