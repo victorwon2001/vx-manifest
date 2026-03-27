@@ -24,10 +24,10 @@ test("stock location helper parses numeric text and formats totals", () => {
   assert.equal(moduleUnderTest.formatNumber(4321), "4,321");
 });
 
-test("stock location helper no longer hides stock columns by default", () => {
+test("stock location helper hides only safe stock by default", () => {
   const hiddenIds = moduleUnderTest.getHiddenColumnIds();
 
-  assert.deepEqual(hiddenIds, []);
+  assert.deepEqual(hiddenIds, ["gridList_locastock_bqty"]);
 });
 
 test("stock location helper builds column definitions with computed delta after allocated qty", () => {
@@ -56,13 +56,13 @@ test("stock location helper normalizes visibility from fixed defaults", () => {
   const visibility = moduleUnderTest.normalizeColumnVisibility([
     { id: "gridList_locastock_qty", hiddenByDefault: false },
     { id: "gridList_available_minus_allocated", hiddenByDefault: false },
-    { id: "gridList_cust_name", hiddenByDefault: false },
+    { id: "gridList_locastock_bqty", hiddenByDefault: true },
   ]);
 
   assert.deepEqual(visibility, {
     gridList_locastock_qty: true,
     gridList_available_minus_allocated: true,
-    gridList_cust_name: true,
+    gridList_locastock_bqty: false,
   });
 });
 
