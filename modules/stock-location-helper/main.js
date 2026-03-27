@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.11";
+  const MODULE_VERSION = "0.1.12";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const STATE_KEY = "__tmStockLocationHelperState";
@@ -11,8 +11,9 @@
   const AVAILABLE_COLUMN_ID = "gridList_locastock_qty";
   const ALLOCATED_COLUMN_ID = "gridList_locastock_aqty";
   const DELTA_COLUMN_ID = "gridList_available_minus_allocated";
+  const SAFE_STOCK_COLUMN_ID = "gridList_locastock_bqty";
   const DELTA_COLUMN_LABEL = "가용-할당수량";
-  const HIDDEN_COLUMN_IDS = ["gridList_locastock_bqty"];
+  const HIDDEN_COLUMN_IDS = [SAFE_STOCK_COLUMN_ID];
 
   function shouldRun(win) {
     return /^https:\/\/www\.ebut3pl\.co\.kr\/jsp\/stm\/stm410main4\.jsp/i.test(String(win && win.location && win.location.href || ""));
@@ -231,24 +232,14 @@
   }
 
   function ensureComputedColumn(parts) {
-    const headerRow = getHeaderRow(parts);
-    const allocatedHead = parts.headerTable && parts.headerTable.querySelector("#" + ALLOCATED_COLUMN_ID);
-    if (!headerRow || !allocatedHead) return;
+    const headerCell = parts.headerTable && parts.headerTable.querySelector("#" + SAFE_STOCK_COLUMN_ID);
+    if (!headerCell) return;
 
-    let headerCell = parts.headerTable.querySelector("#" + DELTA_COLUMN_ID);
-    const nextCell = allocatedHead.nextElementSibling;
-    const rebuiltHeaderCell = buildDeltaHeaderCell(allocatedHead);
-    if (!headerCell) {
-      allocatedHead.insertAdjacentElement("afterend", rebuiltHeaderCell);
-      headerCell = rebuiltHeaderCell;
-    } else {
-      headerCell.replaceWith(rebuiltHeaderCell);
-      headerCell = rebuiltHeaderCell;
-      if (nextCell && nextCell !== headerCell && nextCell !== rebuiltHeaderCell) {
-        allocatedHead.insertAdjacentElement("afterend", headerCell);
-      }
+    const labelNode = headerCell.querySelector("[id]") || headerCell.querySelector("div") || headerCell;
+    if (labelNode) {
+      labelNode.textContent = DELTA_COLUMN_LABEL;
     }
-    mirrorCellPresentation(allocatedHead, headerCell, "tm-stock-location-helper__delta-head");
+    headerCell.classList.add("tm-stock-location-helper__delta-head");
 
     const bodyRows = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll("tbody tr.jqgrow")) : [];
     bodyRows.forEach((row) => {
@@ -256,13 +247,9 @@
       const allocatedCell = row.querySelector('td[aria-describedby="' + ALLOCATED_COLUMN_ID + '"]');
       if (!availableCell || !allocatedCell) return;
 
-      let deltaCell = row.querySelector('td[aria-describedby="' + DELTA_COLUMN_ID + '"]');
-      if (!deltaCell) {
-        deltaCell = allocatedCell.cloneNode(false);
-        deltaCell.setAttribute("aria-describedby", DELTA_COLUMN_ID);
-        allocatedCell.insertAdjacentElement("afterend", deltaCell);
-      }
-      mirrorCellPresentation(allocatedCell, deltaCell, "tm-stock-location-helper__delta-cell");
+      const deltaCell = row.querySelector('td[aria-describedby="' + SAFE_STOCK_COLUMN_ID + '"]');
+      if (!deltaCell) return;
+      deltaCell.classList.add("tm-stock-location-helper__delta-cell");
       const deltaValue = parseNumericText(availableCell.title || availableCell.textContent) - parseNumericText(allocatedCell.title || allocatedCell.textContent);
       deltaCell.textContent = formatNumber(deltaValue);
       deltaCell.title = formatNumber(deltaValue);
@@ -270,16 +257,9 @@
 
     const footRow = parts.footTable ? parts.footTable.querySelector("tbody tr") : null;
     if (!footRow) return;
-    const allocatedFoot = footRow.querySelector('td[aria-describedby="' + ALLOCATED_COLUMN_ID + '"]');
-    if (!allocatedFoot) return;
-
-    let deltaFoot = footRow.querySelector('td[aria-describedby="' + DELTA_COLUMN_ID + '"]');
-    if (!deltaFoot) {
-      deltaFoot = allocatedFoot.cloneNode(false);
-      deltaFoot.setAttribute("aria-describedby", DELTA_COLUMN_ID);
-      allocatedFoot.insertAdjacentElement("afterend", deltaFoot);
-    }
-    mirrorCellPresentation(allocatedFoot, deltaFoot, "tm-stock-location-helper__delta-foot");
+    const deltaFoot = footRow.querySelector('td[aria-describedby="' + SAFE_STOCK_COLUMN_ID + '"]');
+    if (!deltaFoot) return;
+    deltaFoot.classList.add("tm-stock-location-helper__delta-foot");
   }
 
   function collectVisibleRowMetrics(parts) {
@@ -300,7 +280,7 @@
     const summary = computeInventorySummary(collectVisibleRowMetrics(parts));
     const availableFoot = parts.footTable && parts.footTable.querySelector('td[aria-describedby="' + AVAILABLE_COLUMN_ID + '"]');
     const allocatedFoot = parts.footTable && parts.footTable.querySelector('td[aria-describedby="' + ALLOCATED_COLUMN_ID + '"]');
-    const deltaFoot = parts.footTable && parts.footTable.querySelector('td[aria-describedby="' + DELTA_COLUMN_ID + '"]');
+    const deltaFoot = parts.footTable && parts.footTable.querySelector('td[aria-describedby="' + SAFE_STOCK_COLUMN_ID + '"]');
 
     if (availableFoot) {
       availableFoot.textContent = formatNumber(summary.availableQty);
@@ -314,146 +294,6 @@
       deltaFoot.textContent = formatNumber(summary.deltaQty);
       deltaFoot.title = formatNumber(summary.deltaQty);
     }
-  }
-
-  function statefulHeaderWidth(headerCell) {
-    if (!headerCell) return "";
-    const inlineWidth = safeTrim(headerCell.style && headerCell.style.width);
-    if (inlineWidth) return inlineWidth;
-    const widthAttr = safeTrim(headerCell.getAttribute && headerCell.getAttribute("width"));
-    if (widthAttr) return widthAttr;
-    if (headerCell.ownerDocument && headerCell.ownerDocument.defaultView) {
-      const width = headerCell.ownerDocument.defaultView.getComputedStyle(headerCell).width;
-      if (safeTrim(width) && width !== "auto") return width;
-    }
-    const rectWidth = Math.round(headerCell.getBoundingClientRect().width);
-    return rectWidth > 0 ? rectWidth + "px" : "";
-  }
-
-  function resolveColumnWidth(parts, columnId) {
-    const bodyCells = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll('td[aria-describedby="' + columnId + '"]')) : [];
-    const visibleBodyCell = bodyCells.find((cell) => {
-      return cell && cell.style && cell.style.display !== "none";
-    });
-    if (visibleBodyCell) {
-      const width = visibleBodyCell.ownerDocument && visibleBodyCell.ownerDocument.defaultView
-        ? visibleBodyCell.ownerDocument.defaultView.getComputedStyle(visibleBodyCell).width
-        : "";
-      if (safeTrim(width) && width !== "auto") return width;
-      const rectWidth = Math.round(visibleBodyCell.getBoundingClientRect().width * 1000) / 1000;
-      if (rectWidth > 0) return rectWidth + "px";
-    }
-
-    const headerCell = parts.headerTable ? parts.headerTable.querySelector("#" + columnId) : null;
-    return statefulHeaderWidth(headerCell);
-  }
-
-  function applyVisibleCellWidth(cell, width) {
-    if (!cell || !cell.style) return;
-    if (!safeTrim(width)) {
-      cell.style.width = "";
-      cell.style.minWidth = "";
-      cell.style.maxWidth = "";
-      cell.style.boxSizing = "";
-      cell.removeAttribute("width");
-      return;
-    }
-
-    cell.style.width = width;
-    cell.style.minWidth = width;
-    cell.style.maxWidth = width;
-    cell.style.boxSizing = "border-box";
-    cell.setAttribute("width", width);
-  }
-
-  function syncFooterLayout(parts, columnDefs) {
-    if (!parts.footTable || !parts.headerTable || !parts.bodyTable) return;
-
-    (Array.isArray(columnDefs) ? columnDefs : []).forEach((column) => {
-      const columnId = column.id;
-      if (!columnId || columnId === "gridList_cb") return;
-
-      const headerCell = parts.headerTable.querySelector("#" + columnId);
-      const bodyCells = parts.bodyTable ? Array.prototype.slice.call(parts.bodyTable.querySelectorAll('td[aria-describedby="' + columnId + '"]')) : [];
-      const footCell = parts.footTable.querySelector('td[aria-describedby="' + columnId + '"]');
-      if (!headerCell || !footCell) return;
-
-      if (column.hiddenByDefault) {
-        setCollapsedCellStyle(headerCell, false);
-        bodyCells.forEach((cell) => setCollapsedCellStyle(cell, false));
-        setCollapsedCellStyle(footCell, false);
-        headerCell.removeAttribute("width");
-        bodyCells.forEach((cell) => cell.removeAttribute("width"));
-        footCell.removeAttribute("width");
-        return;
-      }
-
-      setCollapsedCellStyle(headerCell, true);
-      bodyCells.forEach((cell) => setCollapsedCellStyle(cell, true));
-      setCollapsedCellStyle(footCell, true);
-      const computedWidth = resolveColumnWidth(parts, columnId);
-      applyVisibleCellWidth(headerCell, computedWidth);
-      bodyCells.forEach((cell) => applyVisibleCellWidth(cell, computedWidth));
-      applyVisibleCellWidth(footCell, computedWidth);
-    });
-
-    const synchronizedWidth = Math.max(
-      Math.round(parts.headerTable.scrollWidth || 0),
-      Math.round(parts.bodyTable.scrollWidth || 0),
-      Math.round(parts.footTable.scrollWidth || 0),
-      Math.round(parts.headerTable.getBoundingClientRect().width || 0),
-      Math.round(parts.bodyTable.getBoundingClientRect().width || 0),
-      Math.round(parts.footTable.getBoundingClientRect().width || 0)
-    );
-    if (synchronizedWidth > 0) {
-      parts.headerTable.style.width = synchronizedWidth + "px";
-      parts.bodyTable.style.width = synchronizedWidth + "px";
-      parts.footTable.style.width = synchronizedWidth + "px";
-    }
-    parts.headerTable.style.tableLayout = "fixed";
-    parts.bodyTable.style.tableLayout = "fixed";
-    parts.footTable.style.tableLayout = "fixed";
-    alignFooterTable(parts, columnDefs);
-  }
-
-  function alignFooterTable(parts, columnDefs) {
-    if (!parts.footTable || !parts.headerTable) return;
-    const firstVisibleColumn = (Array.isArray(columnDefs) ? columnDefs : []).find((column) => {
-      return column.id && column.id !== "gridList_cb" && !column.hiddenByDefault;
-    });
-    if (!firstVisibleColumn) {
-      parts.footTable.style.marginLeft = "";
-      return;
-    }
-
-    const headerCell = parts.headerTable.querySelector("#" + firstVisibleColumn.id);
-    const footCell = parts.footTable.querySelector('td[aria-describedby="' + firstVisibleColumn.id + '"]');
-    if (!headerCell || !footCell) {
-      parts.footTable.style.marginLeft = "";
-      return;
-    }
-
-    const offset = Math.round(headerCell.getBoundingClientRect().left - footCell.getBoundingClientRect().left);
-    parts.footTable.style.marginLeft = offset ? offset + "px" : "";
-  }
-
-  function scheduleFooterAlignment(state, parts) {
-    alignFooterTable(parts, state.columnDefs);
-    if (typeof state.win.cancelAnimationFrame === "function" && state.alignFrame != null) {
-      state.win.cancelAnimationFrame(state.alignFrame);
-    }
-    if (typeof state.win.requestAnimationFrame !== "function") return;
-    state.alignFrame = state.win.requestAnimationFrame(() => {
-      alignFooterTable(parts, state.columnDefs);
-      state.alignFrame = null;
-    });
-  }
-
-  function applyHiddenColumns(parts, columnDefs) {
-    (Array.isArray(columnDefs) ? columnDefs : []).forEach((column) => {
-      if (column.id === "gridList_cb") return;
-      setColumnDisplay(parts, column.id, !column.hiddenByDefault);
-    });
   }
 
   function withMutationGuard(state, callback) {
@@ -473,10 +313,7 @@
 
     withMutationGuard(state, () => {
       ensureComputedColumn(nextParts);
-      applyHiddenColumns(nextParts, state.columnDefs);
-      syncFooterLayout(nextParts, state.columnDefs);
       updateFooterSummary(nextParts);
-      scheduleFooterAlignment(state, nextParts);
     });
   }
 
@@ -538,6 +375,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
