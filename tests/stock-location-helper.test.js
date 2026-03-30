@@ -21,10 +21,16 @@ function createCell(initialText) {
   };
 }
 
-function createRow(available, allocated) {
+function createRow(values) {
   const cells = {
-    gridList_locastock_qty: createCell(String(available)),
-    gridList_locastock_aqty: createCell(String(allocated)),
+    gridList_zone_name: createCell(values.zoneName),
+    gridList_loca_name: createCell(values.locationName),
+    gridList_basic_name: createCell(values.productName),
+    gridList_basic_nicn: createCell(values.nicn),
+    gridList_boptcode_name: createCell(values.optionName),
+    gridList_boptcode_barcode: createCell(values.barcode),
+    gridList_locastock_qty: createCell(String(values.availableQty)),
+    gridList_locastock_aqty: createCell(String(values.allocatedQty)),
     gridList_locastock_bqty: createCell("0"),
   };
 
@@ -116,7 +122,28 @@ test("stock location helper computes available, allocated and delta totals", () 
 });
 
 test("stock location helper reuses the safe stock slot for the delta label and values", () => {
-  const rows = [createRow(10, 4), createRow(3, 1)];
+  const rows = [
+    createRow({
+      zoneName: "A존",
+      locationName: "A-01",
+      productName: "상품A",
+      nicn: "관리명A",
+      optionName: "옵션A",
+      barcode: "8800001",
+      availableQty: 10,
+      allocatedQty: 4,
+    }),
+    createRow({
+      zoneName: "B존",
+      locationName: "B-01",
+      productName: "상품B",
+      nicn: "관리명B",
+      optionName: "옵션B",
+      barcode: "8800002",
+      availableQty: 3,
+      allocatedQty: 1,
+    }),
+  ];
   const parts = createParts(rows);
 
   const applied = moduleUnderTest.applyDeltaSlotToParts(parts);
@@ -131,8 +158,26 @@ test("stock location helper reuses the safe stock slot for the delta label and v
 });
 
 test("stock location helper ignores hidden rows when recalculating footer totals", () => {
-  const visibleRow = createRow(8, 3);
-  const hiddenRow = createRow(20, 10);
+  const visibleRow = createRow({
+    zoneName: "A존",
+    locationName: "A-01",
+    productName: "상품A",
+    nicn: "관리명A",
+    optionName: "옵션A",
+    barcode: "8800001",
+    availableQty: 8,
+    allocatedQty: 3,
+  });
+  const hiddenRow = createRow({
+    zoneName: "B존",
+    locationName: "B-01",
+    productName: "상품B",
+    nicn: "관리명B",
+    optionName: "옵션B",
+    barcode: "8800002",
+    availableQty: 20,
+    allocatedQty: 10,
+  });
   hiddenRow.style.display = "none";
   const parts = createParts([visibleRow, hiddenRow]);
 
@@ -143,6 +188,77 @@ test("stock location helper ignores hidden rows when recalculating footer totals
   assert.equal(parts.footCells.gridList_locastock_qty.textContent, "8");
   assert.equal(parts.footCells.gridList_locastock_aqty.textContent, "3");
   assert.equal(parts.footCells.gridList_locastock_bqty.textContent, "5");
+});
+
+test("stock location helper builds preview rows from the current visible table", () => {
+  const parts = createParts([
+    createRow({
+      zoneName: "A존",
+      locationName: "A-01",
+      productName: "상품A",
+      nicn: "관리명A",
+      optionName: "옵션A",
+      barcode: "8800001",
+      availableQty: 11,
+      allocatedQty: 4,
+    }),
+  ]);
+
+  const rows = moduleUnderTest.buildPreviewRows(parts);
+
+  assert.deepEqual(rows, [{
+    zoneName: "A존",
+    locationName: "A-01",
+    productName: "상품A",
+    nicn: "관리명A",
+    optionName: "옵션A",
+    barcode: "8800001",
+    availableQty: "11",
+    allocatedQty: "4",
+    deltaQty: "7",
+  }]);
+});
+
+test("stock location helper preview clipboard text keeps the requested centered columns", () => {
+  const text = moduleUnderTest.buildPreviewClipboardText([{
+    zoneName: "A존",
+    locationName: "A-01",
+    productName: "상품A",
+    nicn: "관리명A",
+    optionName: "옵션A",
+    barcode: "8800001",
+    availableQty: "11",
+    allocatedQty: "4",
+    deltaQty: "7",
+  }]);
+
+  assert.match(text, /^존명\t로케이션\t상품명\t관리명\t옵션\t바코드번호\t가용수량\t할당수량\(가용\)\t가용-할당수량/);
+  assert.match(text, /A존\tA-01\t상품A\t관리명A\t옵션A\t8800001\t11\t4\t7/);
+});
+
+test("stock location helper preview table html centers every column", () => {
+  const html = moduleUnderTest.buildPreviewTableBodyHtml([{
+    zoneName: "A존",
+    locationName: "A-01",
+    productName: "상품A",
+    nicn: "관리명A",
+    optionName: "옵션A",
+    barcode: "8800001",
+    availableQty: "11",
+    allocatedQty: "4",
+    deltaQty: "7",
+  }]);
+
+  assert.match(html, /data-tm-align="center">A존/);
+  assert.match(html, /data-tm-align="center">A-01/);
+  assert.match(html, /data-tm-align="center">상품A/);
+  assert.match(html, /data-tm-align="center">관리명A/);
+  assert.match(html, /data-tm-align="center">옵션A/);
+  assert.match(html, /data-tm-align="center">8800001/);
+  assert.match(html, /data-tm-align="center">11/);
+  assert.match(html, /data-tm-align="center">4/);
+  assert.match(html, /data-tm-align="center">7/);
+  assert.doesNotMatch(html, /data-tm-align="left"|data-tm-align="right"/);
 });
 
 test("stock location helper registry and dependencies stay aligned", () => {
