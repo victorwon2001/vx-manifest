@@ -3,7 +3,7 @@
 
   const MODULE_ID = "stock-location-helper";
   const MODULE_NAME = "로케이션별 재고도우미";
-  const MODULE_VERSION = "0.1.14";
+  const MODULE_VERSION = "0.1.15";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm410main4.jsp*"];
   const STYLE_ID = "tm-stock-location-helper-style";
   const STATE_KEY = "__tmStockLocationHelperState";
@@ -12,6 +12,7 @@
   const GRID_HOOK_FLAG = "__tmStockLocationHelperWrapped";
   const PREVIEW_BUTTON_ID = "tm-stock-location-helper-preview-button";
   const PREVIEW_MODAL_ID = "tm-stock-location-helper-preview-modal";
+  const PREVIEW_BUTTON_LABEL = "재고프리뷰";
   const AVAILABLE_COLUMN_ID = "gridList_locastock_qty";
   const ALLOCATED_COLUMN_ID = "gridList_locastock_aqty";
   const SAFE_STOCK_COLUMN_ID = "gridList_locastock_bqty";
@@ -123,7 +124,6 @@
     style.textContent = [
       ".tm-stock-location-helper__delta-head{font-weight:700}",
       ".tm-stock-location-helper__delta-cell,.tm-stock-location-helper__delta-foot{color:#29424b;font-weight:700}",
-      "#" + PREVIEW_BUTTON_ID + "{margin-left:4px}",
       "#" + PREVIEW_MODAL_ID + "{position:fixed;inset:0;z-index:2147483647}",
       "#" + PREVIEW_MODAL_ID + " .tm-stock-location-helper__overlay{padding:20px;background:rgba(18,27,31,.34);backdrop-filter:blur(8px)}",
       "#" + PREVIEW_MODAL_ID + " .tm-stock-location-helper__modal{width:min(1320px,94vw)}",
@@ -450,6 +450,23 @@
     });
   }
 
+  function createPreviewActionLink(doc, targetLink, onClick) {
+    if (!doc || !targetLink) return null;
+
+    const button = targetLink.cloneNode(true);
+    button.id = PREVIEW_BUTTON_ID;
+    button.textContent = PREVIEW_BUTTON_LABEL;
+    button.setAttribute("href", "javascript:void(0)");
+    button.setAttribute("title", PREVIEW_BUTTON_LABEL);
+    button.removeAttribute("onclick");
+    button.removeAttribute("target");
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (typeof onClick === "function") onClick(event);
+    });
+    return button;
+  }
+
   function ensurePreviewButton(state) {
     const doc = state.win.document;
     if (doc.getElementById(PREVIEW_BUTTON_ID)) return true;
@@ -458,15 +475,10 @@
     const targetLink = anchorList.find((node) => safeTrim(node.textContent) === "일별재고마감현황");
     if (!targetLink || !targetLink.parentNode) return false;
 
-    const button = targetLink.cloneNode(false);
-    button.id = PREVIEW_BUTTON_ID;
-    button.textContent = "재고 프리뷰";
-    button.setAttribute("href", "javascript:void(0);");
-    button.removeAttribute("onclick");
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
+    const button = createPreviewActionLink(doc, targetLink, () => {
       openPreviewModal(state);
     });
+    if (!button) return false;
 
     const fragment = doc.createDocumentFragment();
     fragment.appendChild(doc.createTextNode(" "));
@@ -524,9 +536,11 @@
     buildPreviewRows,
     buildPreviewClipboardText,
     buildPreviewTableBodyHtml,
+    createPreviewActionLink,
     applyDeltaSlotToParts,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 

@@ -261,6 +261,45 @@ test("stock location helper preview table html centers every column", () => {
   assert.doesNotMatch(html, /data-tm-align="left"|data-tm-align="right"/);
 });
 
+test("stock location helper preview action link keeps the original action link tone", () => {
+  const clicked = [];
+  const button = {
+    id: "",
+    textContent: "일별재고마감현황",
+    attributes: {},
+    removed: [],
+    listeners: {},
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+    removeAttribute(name) {
+      this.removed.push(name);
+      delete this.attributes[name];
+    },
+    addEventListener(name, handler) {
+      this.listeners[name] = handler;
+    },
+  };
+  const targetLink = {
+    cloneNode() {
+      return button;
+    },
+  };
+
+  const created = moduleUnderTest.createPreviewActionLink({}, targetLink, () => {
+    clicked.push("open");
+  });
+
+  assert.equal(created, button);
+  assert.equal(created.id, "tm-stock-location-helper-preview-button");
+  assert.equal(created.textContent, "재고프리뷰");
+  assert.equal(created.attributes.href, "javascript:void(0)");
+  assert.equal(created.attributes.title, "재고프리뷰");
+  assert.deepEqual(created.removed, ["onclick", "target"]);
+  created.listeners.click({ preventDefault() {} });
+  assert.deepEqual(clicked, ["open"]);
+});
+
 test("stock location helper registry and dependencies stay aligned", () => {
   const script = registry.scripts.find((item) => item.id === "stock-location-helper");
   assert.ok(script);
