@@ -1,7 +1,7 @@
 ﻿{
     "id":  "auto-matching",
     "name":  "자동 매칭",
-    "version":  "0.1.3",
+    "version":  "0.1.4",
     "description":  "상품코드 기준 자동 매칭과 세트 수량 동기화를 처리하는 보조 도구",
     "entry":  "modules/auto-matching/main.js",
     "dependencies":  [
@@ -13,5 +13,5 @@
                      ],
     "checksum":  "",
     "loaderApiVersion":  2,
-    "updatedAt":  "2026-03-31 15:45:30"
+    "updatedAt":  "2026-03-31 16:20:27"
 }

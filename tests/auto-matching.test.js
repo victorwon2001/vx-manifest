@@ -1,9 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const moduleUnderTest = require("../modules/auto-matching/main.js");
 const meta = require("../modules/auto-matching/meta.json");
 const registry = require("../config/registry.json");
+const source = fs.readFileSync(path.resolve(__dirname, "../modules/auto-matching/main.js"), "utf8");
 
 test("auto matching exports loader contract", () => {
   assert.equal(moduleUnderTest.id, "auto-matching");
@@ -62,6 +65,11 @@ test("auto matching panel html uses shared dock and panel contract", () => {
   assert.match(html, /tm-ui-log/);
   assert.match(html, /tm-ui-dock__toggle-label tm-auto-matching__toggle-label/);
   assert.match(html, /자동 매칭 시작/);
+});
+
+test("auto matching keeps a local fixed dock fallback for top-right placement", () => {
+  assert.match(source, /#"\s*\+\s*DOCK_ID\s*\+\s*"\{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none\}/);
+  assert.match(source, /#"\s*\+\s*TOGGLE_ID\s*\+\s*"\{display:inline-flex;align-items:center;gap:8px;min-height:38px/);
 });
 
 test("auto matching registry and dependencies stay aligned", () => {

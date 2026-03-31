@@ -3,7 +3,7 @@
 
   const MODULE_ID = "auto-matching";
   const MODULE_NAME = "자동 매칭";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site217edit.jsp*"];
 
   const STATE_KEY = "__tmAutoMatchingState";
@@ -227,8 +227,14 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      "#" + DOCK_ID + ".tm-ui-dock{top:14px;right:14px}",
-      "#" + PANEL_ID + "{width:min(432px,calc(100vw - 28px));max-height:calc(90vh - 46px);overflow:auto}",
+      "#" + DOCK_ID + "{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
+      "#" + DOCK_ID + ">*{pointer-events:auto}",
+      "#" + DOCK_ID + ".is-open{z-index:10000}",
+      "#" + TOGGLE_ID + "{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid var(--tm-border,#d9dde2);border-radius:14px;background:rgba(255,255,255,.98);color:var(--tm-text,#17191b);box-shadow:0 14px 28px rgba(17,25,32,.12);text-decoration:none;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}",
+      "#" + TOGGLE_ID + ":hover{background:var(--tm-surface-alt,#f1f3f4);transform:translateY(-1px)}",
+      "#" + TOGGLE_ID + ".is-open{background:rgba(255,255,255,.99);border-color:#c7d1dc;box-shadow:0 18px 34px rgba(17,25,32,.16)}",
+      "#" + PANEL_ID + "{position:relative;display:none;width:min(432px,calc(100vw - 28px));max-height:calc(90vh - 46px);overflow:auto;border:1px solid var(--tm-border,#d9dde2);border-radius:20px;background:rgba(255,255,255,.99);box-shadow:0 28px 56px rgba(17,25,32,.18),0 8px 20px rgba(17,25,32,.08);backdrop-filter:none}",
+      "#" + PANEL_ID + ".is-open{display:block}",
       "#" + PANEL_ID + ".is-running .tm-auto-matching__shell{border-color:rgba(45,95,212,.16);box-shadow:none}",
       "#" + PANEL_ID + " .tm-auto-matching__shell{display:grid;gap:0;overflow:hidden;border:0;box-shadow:none;background:transparent}",
       "#" + PANEL_ID + " .tm-auto-matching__body{padding:14px 16px}",
@@ -500,6 +506,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
