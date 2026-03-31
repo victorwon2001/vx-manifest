@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.5.2
+// @version      0.6.0
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -250,6 +250,7 @@
     if (!cachedMeta || !remoteMeta) return true;
     if (compareVersions(cachedMeta.version, remoteMeta.version) < 0) return true;
     if (String(cachedMeta.checksum || "") !== String(remoteMeta.checksum || "")) return true;
+    if (hasMetaStructuralChange(cachedMeta, remoteMeta)) return true;
     return false;
   }
 
@@ -336,6 +337,34 @@
       lastSyncedAt: meta.lastSyncedAt || "",
       updatedAt: meta.updatedAt || "",
     };
+  }
+
+  function normalizeDependencySignature(dependency) {
+    const source = dependency && typeof dependency === "object" ? dependency : {};
+    return {
+      id: String(source.id || ""),
+      version: String(source.version || ""),
+      path: String(source.path || ""),
+    };
+  }
+
+  function buildMetaFingerprint(meta) {
+    const normalized = normalizeMetaCacheEntry(meta && meta.id ? meta.id : "", meta);
+    if (!normalized) return "";
+    return JSON.stringify({
+      displayId: String(normalized.displayId || ""),
+      name: String(normalized.name || ""),
+      description: String(normalized.description || ""),
+      entry: String(normalized.entry || ""),
+      checksum: String(normalized.checksum || ""),
+      dependencies: (Array.isArray(normalized.dependencies) ? normalized.dependencies : []).map(normalizeDependencySignature),
+      capabilities: normalizeCapabilities(normalized.capabilities),
+      loaderApiVersion: Number(normalized.loaderApiVersion || 1) || 1,
+    });
+  }
+
+  function hasMetaStructuralChange(cachedMeta, remoteMeta) {
+    return buildMetaFingerprint(cachedMeta) !== buildMetaFingerprint(remoteMeta);
   }
 
   function canUseCachedMeta(meta) {
@@ -584,7 +613,10 @@
     if (!cachedMeta) return "new";
     const versionDiff = compareVersions(cachedMeta.version, remoteMeta.version);
     if (versionDiff < 0) return "update";
-    if (versionDiff === 0 && String(cachedMeta.checksum || "") !== String(remoteMeta.checksum || "")) return "redeploy";
+    if (versionDiff === 0 && (
+      String(cachedMeta.checksum || "") !== String(remoteMeta.checksum || "") ||
+      hasMetaStructuralChange(cachedMeta, remoteMeta)
+    )) return "redeploy";
     return "clean";
   }
 
@@ -1922,6 +1954,7 @@
     getManagerWindowFeatures,
     isScriptEnabled,
     matchUrlPattern,
+    buildMetaFingerprint,
     normalizeMetaCacheEntry,
     readRemoteMetaMap,
     readRemoteStatusMap,

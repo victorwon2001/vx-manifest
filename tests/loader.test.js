@@ -134,11 +134,49 @@ test("isScriptEnabled prefers per-PC override over default", () => {
   assert.equal(loader.isScriptEnabled({ enabledByDefault: false }, true), true);
 });
 
-test("shouldRefreshCache compares semantic versions and checksum", () => {
+test("shouldRefreshCache compares semantic versions, checksum, and dependency metadata", () => {
   assert.equal(loader.shouldRefreshCache(null, { version: "0.1.0", checksum: "a" }), true);
   assert.equal(loader.shouldRefreshCache({ version: "0.1.0", checksum: "a" }, { version: "0.1.1", checksum: "a" }), true);
   assert.equal(loader.shouldRefreshCache({ version: "0.1.1", checksum: "a" }, { version: "0.1.1", checksum: "b" }), true);
   assert.equal(loader.shouldRefreshCache({ version: "0.1.1", checksum: "a" }, { version: "0.1.1", checksum: "a" }), false);
+  assert.equal(
+    loader.shouldRefreshCache(
+      {
+        id: "module-a",
+        version: "0.1.1",
+        checksum: "a",
+        entry: "modules/module-a/main.js",
+        dependencies: [{ id: "module-ui", version: "0.3.0", path: "shared/module-ui.js" }],
+      },
+      {
+        id: "module-a",
+        version: "0.1.1",
+        checksum: "a",
+        entry: "modules/module-a/main.js",
+        dependencies: [{ id: "module-ui", version: "0.4.0", path: "shared/module-ui.js" }],
+      }
+    ),
+    true
+  );
+});
+
+test("buildMetaFingerprint changes when dependency contract changes", () => {
+  const left = loader.buildMetaFingerprint({
+    id: "module-a",
+    version: "0.1.1",
+    entry: "modules/module-a/main.js",
+    checksum: "",
+    dependencies: [{ id: "module-ui", version: "0.3.0", path: "shared/module-ui.js" }],
+  });
+  const right = loader.buildMetaFingerprint({
+    id: "module-a",
+    version: "0.1.1",
+    entry: "modules/module-a/main.js",
+    checksum: "",
+    dependencies: [{ id: "module-ui", version: "0.4.0", path: "shared/module-ui.js" }],
+  });
+
+  assert.notEqual(left, right);
 });
 
 test("shouldCheckAt respects ttl windows", () => {
@@ -320,6 +358,27 @@ test("buildManagerRows surfaces redeploy status when checksum changes without ve
   assert.equal(rows[0].isRedeploy, true);
   assert.equal(rows[0].hasUpdate, false);
   assert.equal(rows[0].statusKind, "redeploy");
+});
+
+test("resolveRemoteStatusKind treats dependency-only changes as redeploy", () => {
+  const kind = loader.resolveRemoteStatusKind(
+    {
+      id: "module-a",
+      version: "0.1.1",
+      checksum: "",
+      entry: "modules/module-a/main.js",
+      dependencies: [{ id: "module-ui", version: "0.3.0", path: "shared/module-ui.js" }],
+    },
+    {
+      id: "module-a",
+      version: "0.1.1",
+      checksum: "",
+      entry: "modules/module-a/main.js",
+      dependencies: [{ id: "module-ui", version: "0.4.0", path: "shared/module-ui.js" }],
+    }
+  );
+
+  assert.equal(kind, "redeploy");
 });
 
 test("getManagerWindowFeatures builds popup sizing string", () => {
@@ -1035,8 +1094,8 @@ test("order import sync module exports run contract", () => {
 
 test("shared module ui exports theme helpers", () => {
   assert.equal(typeof moduleUi.TOKENS, "object");
-  assert.equal(moduleUi.TOKENS.bg, "#f5f6f7");
-  assert.equal(moduleUi.TOKENS.primary, "#2d5fd4");
+  assert.equal(moduleUi.TOKENS.bg, "#f3f4f5");
+  assert.equal(moduleUi.TOKENS.primary, "#245ad4");
   assert.equal(typeof moduleUi.buildModuleUiCss, "function");
   assert.equal(typeof moduleUi.buildRootAttributes, "function");
   assert.equal(typeof moduleUi.ensureStyles, "function");
@@ -1047,5 +1106,6 @@ test("all module meta files depend on the shared module ui asset", () => {
     const dependency = (meta.dependencies || []).find((item) => item.id === "module-ui");
     assert.ok(dependency, meta.id + " missing module-ui dependency");
     assert.equal(dependency.path, "shared/module-ui.js");
+    assert.equal(dependency.version, "0.4.0");
   });
 });

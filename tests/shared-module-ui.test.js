@@ -5,18 +5,18 @@ const moduleUi = require("../shared/module-ui.js");
 
 test("shared module ui exposes fixed light admin tokens", () => {
   assert.deepEqual(moduleUi.TOKENS, {
-    bg: "#f5f6f7",
+    bg: "#f3f4f5",
     surface: "#ffffff",
-    surfaceAlt: "#f1f3f4",
-    primary: "#2d5fd4",
-    primaryStrong: "#1f49b6",
-    success: "#2d5fd4",
-    warning: "#c95151",
-    danger: "#c95151",
-    text: "#17191b",
-    muted: "#63696e",
-    border: "#d9dde2",
-    shadow: "0 20px 44px rgba(17,25,32,.12)",
+    surfaceAlt: "#eef0f2",
+    primary: "#245ad4",
+    primaryStrong: "#1a44a8",
+    success: "#245ad4",
+    warning: "#c24d4d",
+    danger: "#c24d4d",
+    text: "#15181a",
+    muted: "#5d656d",
+    border: "#d7dbe0",
+    shadow: "0 24px 56px rgba(15,23,32,.14)",
   });
 });
 
@@ -25,6 +25,8 @@ test("buildModuleUiCss contains the shared class contract and density variants",
 
   assert.match(css, /fonts\.googleapis\.com/);
   assert.match(css, /\.tm-ui-root/);
+  assert.match(css, /\.tm-ui-toolbar__group/);
+  assert.match(css, /\.tm-ui-toolbar__actions/);
   assert.match(css, /\.tm-ui-card/);
   assert.match(css, /\.tm-ui-panel-head/);
   assert.match(css, /\.tm-ui-section-head/);
@@ -34,6 +36,7 @@ test("buildModuleUiCss contains the shared class contract and density variants",
   assert.match(css, /\.tm-ui-btn--primary/);
   assert.match(css, /\.tm-ui-table/);
   assert.match(css, /\.tm-ui-badge--success/);
+  assert.match(css, /\.tm-ui-message--success/);
   assert.match(css, /\.tm-ui-modal/);
   assert.match(css, /\.tm-ui-log/);
   assert.match(css, /\.tm-ui-dock/);
