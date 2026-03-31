@@ -121,20 +121,22 @@ test("invoice list viewer workbook rows map the requested columns", () => {
   ]);
 });
 
-test("invoice list viewer panel html uses popup shell and table contract", () => {
+test("invoice list viewer panel html uses popup shell and left aligned long columns", () => {
   const html = moduleUnderTest.buildPanelHtml({
     buildRootAttributes() {
       return 'class="tm-ui-root tm-ui-popup tm-invoice-list-viewer-popup" data-tm-density="compact"';
     },
   });
 
-  assert.doesNotMatch(html, /tmInvoiceListViewerDock/);
   assert.match(html, /id="tmInvoiceListViewerPanel"/);
   assert.match(html, /tm-ui-popup/);
   assert.match(html, /data-action="close-window"/);
+  assert.match(html, /tm-invoice-list-viewer__toolbar/);
+  assert.match(html, /tm-ui-badge tm-ui-badge--info tm-invoice-list-viewer__head-note/);
   assert.match(html, /id="tmInvoiceListViewerDate"/);
-  assert.match(html, /<th data-tm-align="center">건수<\/th>/);
-  assert.match(html, /<th data-tm-align="center">매칭수량<\/th>/);
+  assert.match(html, /<th data-tm-align="left">메모<\/th>/);
+  assert.match(html, /<th data-tm-align="left">매칭관리명<\/th>/);
+  assert.match(html, /<th data-tm-align="left">매칭상품명<\/th>/);
   assert.match(html, /B2B 출고데이터 뷰어/);
   assert.match(html, /출력 차수 목록/);
   assert.match(html, /XLS 데이터/);

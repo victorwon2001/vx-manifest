@@ -3,7 +3,7 @@
 
   const MODULE_ID = "invoice-list-viewer";
   const MODULE_NAME = "B2B 출고데이터 뷰어";
-  const MODULE_VERSION = "0.1.6";
+  const MODULE_VERSION = "0.1.7";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const SITE_URL_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\//i;
   const EXCLUDED_PAGE_PATTERNS = [/\/jsp\/site\/site3217main\.jsp(?:[?#].*)?$/i];
@@ -437,16 +437,19 @@
       '            <p class="tm-ui-subtitle">B2B 출고 차수 목록을 조회하고 선택 차수의 XLS를 바로 읽어 표로 확인합니다.</p>',
       "          </div>",
       '          <div class="tm-invoice-list-viewer__head-actions">',
-      '            <button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-window">창 닫기</button>',
+      '            <span class="tm-ui-badge tm-ui-badge--info tm-invoice-list-viewer__head-note">오늘 자동 조회</span>',
+      '            <button type="button" class="tm-ui-btn tm-ui-btn--secondary" data-action="close-window">창 닫기</button>',
       "          </div>",
       "        </div>",
       "      </div>",
       '      <div class="tm-invoice-list-viewer__body tm-ui-stack">',
-      '        <div class="tm-ui-statusbar tm-invoice-list-viewer__filters">',
-      '          <label class="tm-ui-label"><span>출력일</span><input id="' + DATE_INPUT_ID + '" type="date" class="tm-ui-input"></label>',
-      '          <button type="button" data-action="refresh-list" class="tm-ui-btn tm-ui-btn--primary" id="tm-invoice-list-viewer-refresh">조회</button>',
+      '        <div class="tm-invoice-list-viewer__toolbar">',
+      '          <div class="tm-ui-statusbar tm-invoice-list-viewer__filters">',
+      '            <label class="tm-ui-label"><span>출력일</span><input id="' + DATE_INPUT_ID + '" type="date" class="tm-ui-input"></label>',
+      '            <button type="button" data-action="refresh-list" class="tm-ui-btn tm-ui-btn--primary" id="tm-invoice-list-viewer-refresh">조회</button>',
+      "          </div>",
+      '          <div id="' + STATUS_ID + '" class="tm-ui-message tm-invoice-list-viewer__status">준비됨. 오늘 날짜 기준으로 자동 조회합니다.</div>',
       "        </div>",
-      '        <div id="' + STATUS_ID + '" class="tm-ui-message">준비됨. 오늘 날짜 기준으로 자동 조회합니다.</div>',
       '        <div class="tm-ui-card tm-invoice-list-viewer__section">',
       '          <div class="tm-ui-section-head">',
       "            <div>",
@@ -457,7 +460,7 @@
       "          </div>",
       '          <div class="tm-ui-scroll tm-invoice-list-viewer__list-scroll">',
       '            <table class="tm-ui-table">',
-      '              <thead><tr><th data-tm-align="center">차수</th><th data-tm-align="center">택배사</th><th data-tm-align="center">판매처</th><th data-tm-align="center">건수</th><th data-tm-align="center">메모</th><th data-tm-align="center">동작</th></tr></thead>',
+      '              <thead><tr><th data-tm-align="center">차수</th><th data-tm-align="center">택배사</th><th data-tm-align="center">판매처</th><th data-tm-align="center">건수</th><th data-tm-align="left">메모</th><th data-tm-align="center">동작</th></tr></thead>',
       '              <tbody id="' + LIST_BODY_ID + '"><tr><td colspan="6" class="tm-ui-empty">조회된 출력 차수가 없습니다.</td></tr></tbody>',
       "            </table>",
       "          </div>",
@@ -472,7 +475,7 @@
       "          </div>",
       '          <div class="tm-ui-scroll tm-invoice-list-viewer__result-scroll">',
       '            <table class="tm-ui-table">',
-      '              <thead><tr><th data-tm-align="center">송장번호</th><th data-tm-align="center">발송일</th><th data-tm-align="center">쇼핑몰</th><th data-tm-align="center">주문번호</th><th data-tm-align="center">매칭관리명</th><th data-tm-align="center">매칭상품명</th><th data-tm-align="center">매칭수량</th></tr></thead>',
+      '              <thead><tr><th data-tm-align="center">송장번호</th><th data-tm-align="center">발송일</th><th data-tm-align="center">쇼핑몰</th><th data-tm-align="center">주문번호</th><th data-tm-align="left">매칭관리명</th><th data-tm-align="left">매칭상품명</th><th data-tm-align="center">매칭수량</th></tr></thead>',
       '              <tbody id="' + RESULT_BODY_ID + '"><tr><td colspan="7" class="tm-ui-empty">차수를 선택하면 여기에서 결과를 볼 수 있습니다.</td></tr></tbody>',
       "            </table>",
       "          </div>",
@@ -499,20 +502,27 @@
       ".tm-invoice-list-viewer__card{overflow:hidden}",
       ".tm-invoice-list-viewer__body{padding:14px 16px}",
       ".tm-invoice-list-viewer__head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__toolbar{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:10px;align-items:stretch}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:space-between;gap:10px;align-items:end}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__status{display:flex;align-items:center;min-height:54px}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__status.is-success{background:rgba(45,95,212,.08);border-color:rgba(45,95,212,.18);color:var(--tm-primary-strong)}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__status.is-danger,#" + PANEL_ID + " .tm-invoice-list-viewer__status.is-warning{background:rgba(201,81,81,.08);border-color:rgba(201,81,81,.18);color:var(--tm-danger)}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__section{padding:12px}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll{max-height:300px}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll{max-height:380px}",
-      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll thead th,#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll thead th{position:sticky;top:0;z-index:2;background:var(--tm-surface-strong);text-align:center}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll thead th,#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll thead th{position:sticky;top:0;z-index:2;background:#f0f2f4;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll tbody td,#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll tbody td{text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(1),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(1){width:78px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(4),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(4){width:76px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(6),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(6){width:92px;text-align:center}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll th:nth-child(5),#" + PANEL_ID + " .tm-invoice-list-viewer__list-scroll td:nth-child(5){text-align:left}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(1),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(1){width:120px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(2),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(2){width:94px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(4),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(4){width:120px;text-align:center}",
       "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(7),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(7){width:84px;text-align:center}",
-      "@media (max-width: 900px){.tm-invoice-list-viewer__shell{padding:10px}.tm-invoice-list-viewer__body{padding:12px}#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:flex-start}}",
+      "#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(5),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(5),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll th:nth-child(6),#" + PANEL_ID + " .tm-invoice-list-viewer__result-scroll td:nth-child(6){text-align:left}",
+      "#" + PANEL_ID + " .tm-row-selected td{background:rgba(45,95,212,.06)}",
+      "@media (max-width: 900px){.tm-invoice-list-viewer__shell{padding:10px}.tm-invoice-list-viewer__body{padding:12px}#" + PANEL_ID + " .tm-invoice-list-viewer__toolbar{grid-template-columns:1fr}#" + PANEL_ID + " .tm-invoice-list-viewer__filters{justify-content:flex-start}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -564,11 +574,14 @@
     const node = doc && doc.getElementById(STATUS_ID);
     if (!node) return;
     node.textContent = text;
-    node.className = "tm-ui-message";
-    if (tone === "danger") node.style.color = "var(--tm-danger)";
-    else if (tone === "success") node.style.color = "var(--tm-success)";
-    else if (tone === "warning") node.style.color = "var(--tm-warning)";
-    else node.style.color = "";
+    node.className = "tm-ui-message tm-invoice-list-viewer__status" +
+      (tone === "danger"
+        ? " is-danger"
+        : tone === "success"
+          ? " is-success"
+          : tone === "warning"
+            ? " is-warning"
+            : "");
   }
 
   function setRefreshing(popupState, refreshing) {
@@ -599,7 +612,7 @@
         "<td data-tm-align='center'>" + escapeHtml(row.expr_name || "-") + "</td>",
         "<td data-tm-align='center'>" + escapeHtml(row.site_name || "-") + "</td>",
         "<td data-tm-align='center'>" + escapeHtml(row.ivcnt || "-") + "</td>",
-        "<td data-tm-align='center' title='" + escapeHtml(row.ivmstr_memo || "-") + "'>" + escapeHtml(row.ivmstr_memo || "-") + "</td>",
+        "<td data-tm-align='left' class='tm-invoice-list-viewer__memo-cell' title='" + escapeHtml(row.ivmstr_memo || "-") + "'>" + escapeHtml(row.ivmstr_memo || "-") + "</td>",
         "<td data-tm-align='center'><button type='button' class='tm-ui-btn " + (selected ? "tm-ui-btn--success" : "tm-ui-btn--secondary") + "' data-action='load-row' data-row-id='" + escapeHtml(row.id) + "'>" + (selected ? "다시 불러오기" : "불러오기") + "</button></td>",
         "</tr>",
       ].join("");
@@ -624,8 +637,8 @@
       "<td data-tm-align='center'>" + escapeHtml(row.shippedAt || "") + "</td>",
       "<td data-tm-align='center'>" + escapeHtml(row.mall || "") + "</td>",
       "<td data-tm-align='center'>" + escapeHtml(row.orderNumber || "") + "</td>",
-      "<td data-tm-align='center'>" + escapeHtml(row.matchedNicn || "") + "</td>",
-      "<td data-tm-align='center'>" + escapeHtml(row.matchedName || "") + "</td>",
+      "<td data-tm-align='left'>" + escapeHtml(row.matchedNicn || "") + "</td>",
+      "<td data-tm-align='left'>" + escapeHtml(row.matchedName || "") + "</td>",
       "<td data-tm-align='center'>" + escapeHtml(row.matchedQty || "") + "</td>",
       "</tr>",
     ].join("")).join("");
@@ -839,6 +852,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
