@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-data-viewer";
   const MODULE_NAME = "입고 데이터 뷰어";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const DATA_ENDPOINT = "/stm/stm100main4_jdata";
   const CATALOG_XLS_ENDPOINT = "/util/ExlForm_DB";
@@ -112,7 +112,7 @@
         '<td data-tm-align="center">' + escapeHtml(row.date) + "</td>",
         '<td data-tm-align="center">' + escapeHtml(row.site) + "</td>",
         '<td data-tm-align="center">' + escapeHtml(row.nicn) + "</td>",
-        '<td data-tm-align="center">' + escapeHtml(row.name) + "</td>",
+        '<td data-tm-align="left">' + escapeHtml(row.name) + "</td>",
         '<td data-tm-align="center">' + escapeHtml(row.quantity) + "</td>",
         "</tr>",
       ].join("");
@@ -137,7 +137,7 @@
       '          <h3 class="tm-ui-section-title">입고 데이터 확인</h3>',
       '          <p class="tm-ui-section-subtitle">최근 조회 결과를 판매처 포함 표로 확인하고 그대로 복사할 수 있습니다.</p>',
       "        </div>",
-      '        <span class="tm-ui-badge">' + normalizedRows.length + "건</span>",
+      '        <div class="tm-inbound-viewer__head-actions"><span class="tm-ui-badge tm-ui-badge--info">판매처 매칭</span><span class="tm-ui-badge">' + normalizedRows.length + "건</span></div>",
       "      </div>",
       '      <div class="tm-ui-modal__body tm-ui-stack">',
       '        <div class="tm-ui-scroll">',
@@ -147,14 +147,14 @@
       '                <th data-tm-align="center">입고일</th>',
       '                <th data-tm-align="center">판매처</th>',
       '                <th data-tm-align="center">관리명</th>',
-      '                <th data-tm-align="center">상품명</th>',
+      '                <th data-tm-align="left">상품명</th>',
       '                <th data-tm-align="center">입고수량</th>',
       "              </tr>",
       "            </thead>",
       '            <tbody>' + buildTableBodyHtml(normalizedRows) + "</tbody>",
       "          </table>",
       "        </div>",
-      '        <div id="tm-inbound-viewer-feedback" class="tm-ui-inline-note">' + escapeHtml(noteText) + "</div>",
+      '        <div id="tm-inbound-viewer-feedback" class="tm-ui-message tm-inbound-viewer__feedback">' + escapeHtml(noteText) + "</div>",
       "      </div>",
       '      <div class="tm-ui-modal__foot">',
       '        <button type="button" class="tm-ui-btn tm-ui-btn--secondary" data-action="close">닫기</button>',
@@ -178,13 +178,18 @@
       "#" + MODAL_ID + " .tm-inbound-viewer__overlay{padding:20px;background:rgba(45,52,53,.28);backdrop-filter:blur(6px)}",
       "#" + MODAL_ID + " .tm-inbound-viewer__modal{width:min(1180px,94vw)}",
       "#" + MODAL_ID + " .tm-ui-modal__head{align-items:flex-start}",
+      "#" + MODAL_ID + " .tm-inbound-viewer__head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}",
       "#" + MODAL_ID + " .tm-ui-scroll{max-height:min(66vh,720px)}",
       "#" + MODAL_ID + " .tm-ui-table th,#" + MODAL_ID + " .tm-ui-table td{text-align:center}",
       "#" + MODAL_ID + " .tm-ui-table th:nth-child(1),#" + MODAL_ID + " .tm-ui-table td:nth-child(1){width:110px}",
       "#" + MODAL_ID + " .tm-ui-table th:nth-child(2),#" + MODAL_ID + " .tm-ui-table td:nth-child(2){width:150px}",
       "#" + MODAL_ID + " .tm-ui-table th:nth-child(3),#" + MODAL_ID + " .tm-ui-table td:nth-child(3){width:160px}",
       "#" + MODAL_ID + " .tm-ui-table th:nth-child(5),#" + MODAL_ID + " .tm-ui-table td:nth-child(5){width:100px}",
+      "#" + MODAL_ID + " .tm-ui-table th:nth-child(4),#" + MODAL_ID + " .tm-ui-table td:nth-child(4){text-align:left}",
       "#" + MODAL_ID + " .tm-ui-table tbody tr:nth-child(even) td{background:rgba(84,96,103,.03)}",
+      "#" + MODAL_ID + " .tm-inbound-viewer__feedback{display:flex;align-items:center;justify-content:flex-start;min-height:40px}",
+      "#" + MODAL_ID + " .tm-inbound-viewer__feedback.is-success{background:rgba(45,95,212,.08);border-color:rgba(45,95,212,.16);color:var(--tm-primary-strong)}",
+      "#" + MODAL_ID + " .tm-inbound-viewer__feedback.is-error{background:rgba(201,81,81,.08);border-color:rgba(201,81,81,.16);color:var(--tm-danger)}",
       "#" + MODAL_ID + " .tm-ui-modal__foot{justify-content:space-between}",
       "@media (max-width: 768px){#" + MODAL_ID + " .tm-inbound-viewer__modal{width:min(100vw,100%)}#" + MODAL_ID + " .tm-inbound-viewer__overlay{padding:12px}}",
     ].join("");
@@ -218,8 +223,8 @@
     if (!feedback) return;
     feedback.textContent = text;
     feedback.className = kind === "error"
-      ? "tm-ui-badge tm-ui-badge--danger"
-      : "tm-ui-badge tm-ui-badge--success";
+      ? "tm-ui-message tm-inbound-viewer__feedback is-error"
+      : "tm-ui-message tm-inbound-viewer__feedback is-success";
   }
 
   function fallbackCopy(win, text) {
@@ -688,4 +693,5 @@
     applySiteCache,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
