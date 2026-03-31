@@ -3,7 +3,7 @@
 
   const MODULE_ID = "unshipped-checker";
   const MODULE_NAME = "미출고 건수 체커";
-  const MODULE_VERSION = "0.1.4";
+  const MODULE_VERSION = "0.1.5";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const DATA_ENDPOINT = "/site/site210main_jdata";
   const NAV_BUTTON_ID = "tm-unshipped-checker-nav-button";
@@ -268,7 +268,7 @@
       '            <h1 class="tm-ui-title">' + escapeHtml(settings.title || "미출고 상세") + "</h1>",
       subtitle,
       "          </div>",
-      '          <div class="tm-unshipped-checker__head-actions">' + summaryLabel + '<button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-window">창 닫기</button></div>',
+      '          <div class="tm-unshipped-checker__head-actions"><span class="tm-ui-badge tm-ui-badge--info">상세 새창</span>' + summaryLabel + '<button type="button" class="tm-ui-btn tm-ui-btn--secondary" data-action="close-window">창 닫기</button></div>',
       "        </div>",
       "      </div>",
       '      <div class="tm-unshipped-checker__content tm-ui-stack">',
@@ -365,6 +365,7 @@
       '            <p class="tm-ui-subtitle">최근 3개월 미출고 주문을 판매처와 택배사 기준으로 묶어서 확인합니다.</p>',
       "          </div>",
       '          <div class="tm-unshipped-checker__head-actions">',
+      '            <span class="tm-ui-badge tm-ui-badge--info">최근 3개월</span>',
       '            <span class="tm-ui-badge tm-unshipped-checker__range" id="tm-unshipped-range">' + escapeHtml(dateRange.from) + " ~ " + escapeHtml(dateRange.to) + "</span>",
       '            <button type="button" class="tm-ui-btn tm-ui-btn--primary" id="tm-unshipped-refresh">새로 고침</button>',
       "          </div>",
@@ -395,7 +396,7 @@
     style.id = STYLE_ID;
     style.textContent = [
       ".tm-unshipped-checker{background:#f4f6f6;min-height:100vh}",
-      ".tm-unshipped-checker__shell{padding:18px;max-width:1120px;margin:0 auto}",
+      ".tm-unshipped-checker__shell{padding:18px;max-width:1160px;margin:0 auto}",
       ".tm-unshipped-checker__card{overflow:hidden}",
       ".tm-unshipped-checker__content{padding:14px 16px 16px}",
       ".tm-unshipped-checker__head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
@@ -407,6 +408,7 @@
       ".tm-unshipped-checker__panel{display:grid;gap:12px}",
       ".tm-unshipped-checker__table-wrap{max-width:980px;width:100%;justify-self:start}",
       ".tm-unshipped-checker__table-wrap .tm-ui-table{table-layout:fixed}",
+      ".tm-unshipped-checker__table-wrap .tm-ui-table thead th{background:#f0f2f4!important}",
       ".tm-unshipped-checker__table-wrap .tm-ui-table th:last-child,.tm-unshipped-checker__table-wrap .tm-ui-table td:last-child{width:120px}",
       ".tm-unshipped-checker__row td{vertical-align:middle;padding:10px 12px}",
       ".tm-unshipped-checker__row--interactive{cursor:pointer}",
@@ -414,11 +416,12 @@
       ".tm-unshipped-checker__row--interactive:hover td{background:rgba(84,96,103,.06)}",
       ".tm-unshipped-checker__cell-main{display:inline-grid;gap:4px;max-width:min(100%,720px)}",
       ".tm-unshipped-checker__toggle-label{display:block;min-width:0;white-space:normal;word-break:break-word;line-height:1.35}",
-      ".tm-unshipped-checker__detail-link{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--tm-muted);font-weight:600}",
+      ".tm-unshipped-checker__detail-link{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--tm-primary-strong);font-weight:700}",
       ".tm-unshipped-checker__detail-link::before{content:'↗';font-size:11px}",
       ".tm-unshipped-checker__count-cell{width:120px}",
       ".tm-unshipped-checker__nested{padding:10px 12px 12px 22px}",
       ".tm-unshipped-checker__nested .tm-ui-table{width:auto;min-width:420px;max-width:760px;border:1px solid var(--tm-border);border-radius:10px;overflow:hidden}",
+      ".tm-unshipped-checker__nested .tm-ui-table thead th{background:#f0f2f4!important}",
       ".tm-unshipped-checker__nested .tm-ui-table th,.tm-unshipped-checker__nested .tm-ui-table td{padding:7px 8px}",
       "@media (max-width: 768px){.tm-unshipped-checker__shell{padding:10px}.tm-unshipped-checker__content{padding:12px}.tm-unshipped-checker__head-actions{width:100%}.tm-unshipped-checker__head-actions > *{width:100%}.tm-unshipped-checker__tabs{display:grid;grid-template-columns:1fr 1fr}.tm-unshipped-checker__table-wrap,.tm-unshipped-checker__panel,#tm-unshipped-summary,#tm-unshipped-status,#tm-unshipped-tabs{max-width:none}.tm-unshipped-checker__cell-main{max-width:100%}}",
     ].join("");
@@ -691,6 +694,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
