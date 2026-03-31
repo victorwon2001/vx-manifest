@@ -789,8 +789,9 @@
       "#" + PANEL_ID + "-selected-list[hidden]{display:none !important}",
       "#" + PANEL_ID + "-selected-list{margin-top:4px;border:1px solid var(--tm-border);background:var(--tm-surface);border-radius:12px;box-shadow:none}",
       "#" + PANEL_ID + "-selected-list table{width:100%;border-collapse:collapse;table-layout:fixed}",
-      "#" + PANEL_ID + "-selected-list th,#" + PANEL_ID + "-selected-list td{padding:6px 7px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
-      "#" + PANEL_ID + "-selected-list th{background:var(--tm-surface-alt);color:var(--tm-muted)}",
+      "#" + PANEL_ID + "-selected-list th,#" + PANEL_ID + "-selected-list td{padding:6px 7px;border-bottom:1px solid var(--tm-border);text-align:center;vertical-align:top;word-break:break-word}",
+      "#" + PANEL_ID + "-selected-list th{background:#f0f2f4;color:var(--tm-muted)}",
+      "#" + PANEL_ID + "-selected-list th:nth-child(4),#" + PANEL_ID + "-selected-list td:nth-child(4){text-align:left}",
       "#" + PANEL_ID + "-selected-list tr:last-child td{border-bottom:0}",
       "#" + PANEL_ID + " .tm-chip{display:inline-block;padding:1px 6px;border:1px solid var(--tm-border);border-radius:999px;background:var(--tm-surface-alt);color:var(--tm-primary-strong)}",
       "#" + PANEL_ID + "-batch-panel[hidden]{display:none !important}",
@@ -800,8 +801,9 @@
       "#" + PANEL_ID + "-batch-panel .tm-status-error{background:#fbefee;border-color:#e2c3c1;color:var(--tm-danger)}",
       "#" + PANEL_ID + "-batch-panel .tm-table-wrap{border:1px solid var(--tm-border);overflow:auto;background:var(--tm-surface);max-height:324px;border-radius:12px;box-shadow:none}",
       "#" + PANEL_ID + "-batch-panel table{width:100%;border-collapse:collapse;table-layout:fixed}",
-      "#" + PANEL_ID + "-batch-panel th,#" + PANEL_ID + "-batch-panel td{padding:6px 7px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
-      "#" + PANEL_ID + "-batch-panel th{position:sticky;top:0;background:var(--tm-surface-alt);z-index:1;color:#4d5759}",
+      "#" + PANEL_ID + "-batch-panel th,#" + PANEL_ID + "-batch-panel td{padding:6px 7px;border-bottom:1px solid var(--tm-border);text-align:center;vertical-align:top;word-break:break-word}",
+      "#" + PANEL_ID + "-batch-panel th{position:sticky;top:0;background:#f0f2f4;z-index:1;color:#4d5759}",
+      "#" + PANEL_ID + "-batch-panel th:nth-child(7),#" + PANEL_ID + "-batch-panel td:nth-child(7){text-align:left}",
       "#" + PANEL_ID + "-batch-panel tr.tm-active-row{background:rgba(84,96,103,.05)}",
       "#" + PANEL_ID + "-batch-panel .tm-select-button.tm-selected{font-weight:700;background:var(--tm-primary-strong);border-color:var(--tm-primary-strong);color:#fff}",
       "#" + PANEL_ID + "-batch-panel .tm-empty{padding:18px 12px;text-align:center;color:var(--tm-muted)}",
@@ -824,8 +826,9 @@
       "#" + PANEL_ID + "-detail-summary{margin-bottom:8px;color:var(--tm-muted)}",
       "#" + PANEL_ID + "-detail-table-wrap{border:1px solid var(--tm-border);max-height:520px;overflow:auto;border-radius:12px;background:var(--tm-surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}",
       "#" + PANEL_ID + "-detail-table{width:100%;border-collapse:collapse;table-layout:fixed;background:var(--tm-surface)}",
-      "#" + PANEL_ID + "-detail-table th,#" + PANEL_ID + "-detail-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
-      "#" + PANEL_ID + "-detail-table th{position:sticky;top:0;background:var(--tm-surface-alt);color:var(--tm-muted);z-index:1}",
+      "#" + PANEL_ID + "-detail-table th,#" + PANEL_ID + "-detail-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:center;vertical-align:top;word-break:break-word}",
+      "#" + PANEL_ID + "-detail-table th{position:sticky;top:0;background:#f0f2f4;color:var(--tm-muted);z-index:1}",
+      "#" + PANEL_ID + "-detail-table th:nth-child(7),#" + PANEL_ID + "-detail-table td:nth-child(7){text-align:left}",
       "#" + PANEL_ID + "-detail-table tr.tm-detail-pending{background:#f7f0e8}",
       "#" + PANEL_ID + "-detail-table tr.tm-detail-done{background:#fbfcfc}",
       "#" + PANEL_ID + " .tm-meta-text{display:block;margin-top:3px;color:var(--tm-muted);font-size:10px;line-height:1.35}",
@@ -838,8 +841,9 @@
       "#" + PANEL_ID + "-modal-history-selections{display:flex;gap:6px;flex-wrap:wrap}",
       "#" + PANEL_ID + "-history-table-wrap{border:1px solid var(--tm-border);max-height:520px;overflow:auto;border-radius:12px;background:var(--tm-surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}",
       "#" + PANEL_ID + "-history-table{width:100%;border-collapse:collapse;table-layout:fixed;background:var(--tm-surface)}",
-      "#" + PANEL_ID + "-history-table th,#" + PANEL_ID + "-history-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:left;vertical-align:top;word-break:break-word}",
-      "#" + PANEL_ID + "-history-table th{position:sticky;top:0;background:var(--tm-surface-alt);color:var(--tm-muted);z-index:1}",
+      "#" + PANEL_ID + "-history-table th,#" + PANEL_ID + "-history-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:center;vertical-align:top;word-break:break-word}",
+      "#" + PANEL_ID + "-history-table th{position:sticky;top:0;background:#f0f2f4;color:var(--tm-muted);z-index:1}",
+      "#" + PANEL_ID + "-history-table th:nth-child(8),#" + PANEL_ID + "-history-table td:nth-child(8){text-align:left}",
       "#" + PANEL_ID + "-modal-empty{padding:30px 14px;text-align:center;color:#4f5758;border:1px dashed #d8dfdf;border-radius:12px;background:var(--tm-surface-alt)}",
       "#" + PANEL_ID + "-modal-close{height:30px;padding:0 12px}",
       "@media (max-width:900px){#" + PANEL_ID + " .tm-toolbar-hero,#" + PANEL_ID + " .tm-toolbar-main{grid-template-columns:1fr}#" + PANEL_ID + " .tm-toolbar-hero-meta,#" + PANEL_ID + " .tm-toolbar-actions{justify-content:flex-start}#" + PANEL_ID + "-modal-summary .tm-selection-card{grid-template-columns:1fr}}",
@@ -1734,7 +1738,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.10",
+    version: "0.1.11",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1775,6 +1779,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

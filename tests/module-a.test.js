@@ -39,6 +39,17 @@ test("module-a modal html uses the shared overlay and modal contract", () => {
   assert.match(html, /tm-ui-modal__body/);
 });
 
+test("module-a local tables keep center alignment with memo columns left aligned", () => {
+  assert.match(moduleSource, /selected-list th,#\" \+ PANEL_ID \+ \"-selected-list td\{padding:6px 7px;border-bottom:1px solid var\(--tm-border\);text-align:center/);
+  assert.match(moduleSource, /selected-list th:nth-child\(4\),#\" \+ PANEL_ID \+ \"-selected-list td:nth-child\(4\)\{text-align:left\}/);
+  assert.match(moduleSource, /-batch-panel th,#\" \+ PANEL_ID \+ \"-batch-panel td\{padding:6px 7px;border-bottom:1px solid var\(--tm-border\);text-align:center/);
+  assert.match(moduleSource, /-batch-panel th:nth-child\(7\),#\" \+ PANEL_ID \+ \"-batch-panel td:nth-child\(7\)\{text-align:left\}/);
+  assert.match(moduleSource, /-detail-table th,#\" \+ PANEL_ID \+ \"-detail-table td\{padding:7px 8px;border-bottom:1px solid var\(--tm-border\);text-align:center/);
+  assert.match(moduleSource, /-detail-table th:nth-child\(7\),#\" \+ PANEL_ID \+ \"-detail-table td:nth-child\(7\)\{text-align:left\}/);
+  assert.match(moduleSource, /-history-table th,#\" \+ PANEL_ID \+ \"-history-table td\{padding:7px 8px;border-bottom:1px solid var\(--tm-border\);text-align:center/);
+  assert.match(moduleSource, /-history-table th:nth-child\(8\),#\" \+ PANEL_ID \+ \"-history-table td:nth-child\(8\)\{text-align:left\}/);
+});
+
 test("module-a modal open state keeps shared modal classes intact", () => {
   assert.match(moduleSource, /modalBackdrop\.classList\.toggle\("tm-open", open\)/);
   assert.doesNotMatch(moduleSource, /modalBackdrop\.className\s*=\s*open\s*\?\s*"tm-open"\s*:\s*""/);
@@ -62,14 +73,14 @@ test("gmRequest falls back to fetch and returns binary-compatible response shape
     fetch: async (url) => {
       calledUrls.push(url);
       return ({
-      status: 200,
-      headers: {
-        forEach(callback) {
-          callback("application/octet-stream", "content-type");
-          callback("attachment; filename=test.xls", "content-disposition");
+        status: 200,
+        headers: {
+          forEach(callback) {
+            callback("application/octet-stream", "content-type");
+            callback("attachment; filename=test.xls", "content-disposition");
+          },
         },
-      },
-      arrayBuffer: async () => buffer,
+        arrayBuffer: async () => buffer,
       });
     },
   };
