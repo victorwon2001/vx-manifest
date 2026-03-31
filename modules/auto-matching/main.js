@@ -3,7 +3,7 @@
 
   const MODULE_ID = "auto-matching";
   const MODULE_NAME = "자동 매칭";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site217edit.jsp*"];
 
   const STATE_KEY = "__tmAutoMatchingState";
@@ -176,14 +176,15 @@
     const rootAttrs = moduleUi
       ? moduleUi.buildRootAttributes({ kind: "panel", className: "tm-auto-matching", density: "compact" })
       : 'class="tm-ui-root tm-ui-panel tm-auto-matching" data-tm-density="compact"';
+    const panelAttrs = rootAttrs.replace('class="', 'class="tm-ui-dock__panel ');
 
     return [
-      '<div id="' + DOCK_ID + '" class="tm-auto-matching__dock">',
-      '  <button type="button" id="' + TOGGLE_ID + '" class="tm-ui-btn tm-ui-btn--secondary" aria-controls="' + PANEL_ID + '" aria-pressed="false" aria-expanded="false">',
-      '    <span class="tm-auto-matching__toggle-dot" aria-hidden="true"></span>',
-      '    <span class="tm-auto-matching__toggle-label">자동 매칭 열기</span>',
+      '<div id="' + DOCK_ID + '" class="tm-ui-dock tm-auto-matching__dock">',
+      '  <button type="button" id="' + TOGGLE_ID + '" class="tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary" aria-controls="' + PANEL_ID + '" aria-pressed="false" aria-expanded="false">',
+      '    <span class="tm-ui-dock__toggle-dot tm-auto-matching__toggle-dot" aria-hidden="true"></span>',
+      '    <span class="tm-ui-dock__toggle-label tm-auto-matching__toggle-label">자동 매칭 열기</span>',
       "  </button>",
-      '  <div id="' + PANEL_ID + '" ' + rootAttrs + ' style="display:none">',
+      '  <div id="' + PANEL_ID + '" ' + panelAttrs + ' style="display:none">',
       '    <div class="tm-ui-card tm-auto-matching__shell">',
       '      <div class="tm-ui-panel-head tm-ui-panel-head--compact">',
       '        <div class="tm-ui-head-meta">',
@@ -226,25 +227,19 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      "#" + DOCK_ID + "{position:fixed;top:12px;right:12px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
-      "#" + DOCK_ID + ">*{pointer-events:auto}",
-      "#" + DOCK_ID + ".is-open{z-index:10000}",
-      "#" + PANEL_ID + "{position:relative;width:min(420px,calc(100vw - 24px));max-height:calc(90vh - 46px);overflow:auto}",
-      "#" + PANEL_ID + ".is-running .tm-auto-matching__shell{border-color:#d1e2da;box-shadow:0 24px 42px rgba(45,52,53,.12)}",
-      "#" + PANEL_ID + " .tm-auto-matching__shell{display:grid;gap:0;overflow:hidden}",
+      "#" + DOCK_ID + ".tm-ui-dock{top:14px;right:14px}",
+      "#" + PANEL_ID + "{width:min(432px,calc(100vw - 28px));max-height:calc(90vh - 46px);overflow:auto}",
+      "#" + PANEL_ID + ".is-running .tm-auto-matching__shell{border-color:rgba(45,95,212,.16);box-shadow:none}",
+      "#" + PANEL_ID + " .tm-auto-matching__shell{display:grid;gap:0;overflow:hidden;border:0;box-shadow:none;background:transparent}",
       "#" + PANEL_ID + " .tm-auto-matching__body{padding:14px 16px}",
       "#" + PANEL_ID + " .tm-auto-matching__badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}",
       "#" + PANEL_ID + " .tm-auto-matching__actions{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px}",
       "#" + LOG_ID + "{max-height:240px;overflow:auto;line-height:1.6}",
-      "#" + TOGGLE_ID + "{position:relative;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;box-shadow:0 14px 28px rgba(45,52,53,.12)}",
-      "#" + TOGGLE_ID + " .tm-auto-matching__toggle-dot{width:8px;height:8px;border-radius:50%;background:var(--tm-primary-strong);display:inline-block}",
-      "#" + TOGGLE_ID + " .tm-auto-matching__toggle-label{display:inline-flex;align-items:center;font-weight:700;letter-spacing:-.01em}",
-      "#" + TOGGLE_ID + ".is-open{background:var(--tm-surface-alt)}",
-      "#" + TOGGLE_ID + ".is-open .tm-auto-matching__toggle-dot{background:var(--tm-success)}",
-      "#" + STATUS_ID + ".is-success{background:#edf5f1;border-color:#d1e2da;color:var(--tm-success)}",
-      "#" + STATUS_ID + ".is-warning{background:#f7f0e8;border-color:#e3d4c0;color:var(--tm-warning)}",
-      "#" + STATUS_ID + ".is-danger{background:#fbefee;border-color:#e2c3c1;color:var(--tm-danger)}",
-      "@media (max-width: 768px){#" + DOCK_ID + "{top:8px;right:8px}#" + PANEL_ID + "{width:min(100vw - 16px,420px)}#" + PANEL_ID + " .tm-auto-matching__actions{grid-template-columns:1fr}}",
+      "#" + TOGGLE_ID + ".tm-ui-dock__toggle{min-height:38px;padding:0 16px}",
+      "#" + STATUS_ID + ".is-success{background:rgba(45,95,212,.08);border-color:rgba(45,95,212,.16);color:var(--tm-success)}",
+      "#" + STATUS_ID + ".is-warning{background:rgba(201,81,81,.08);border-color:rgba(201,81,81,.14);color:var(--tm-warning)}",
+      "#" + STATUS_ID + ".is-danger{background:rgba(201,81,81,.1);border-color:rgba(201,81,81,.16);color:var(--tm-danger)}",
+      "@media (max-width: 768px){#" + DOCK_ID + ".tm-ui-dock{top:8px;right:8px}#" + PANEL_ID + "{width:min(100vw - 16px,420px)}#" + PANEL_ID + " .tm-auto-matching__actions{grid-template-columns:1fr}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -267,7 +262,9 @@
     const doc = state.win.document;
     const dock = doc.getElementById(DOCK_ID);
     const button = doc.getElementById(TOGGLE_ID);
+    const panel = doc.getElementById(PANEL_ID);
     if (dock) dock.classList.toggle("is-open", !!isOpen);
+    if (panel) panel.classList.toggle("is-open", !!isOpen);
     if (!button) return;
     button.classList.toggle("is-open", !!isOpen);
     button.setAttribute("aria-pressed", isOpen ? "true" : "false");
@@ -503,6 +500,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
