@@ -53,11 +53,14 @@ test("auto matching panel html uses shared dock and panel contract", () => {
   });
 
   assert.match(html, /id="tmAutoMatchingDock"/);
+  assert.match(html, /class="tm-ui-dock tm-auto-matching__dock"/);
   assert.match(html, /id="tmAutoMatchingToggle"[\s\S]*id="tmAutoMatchingPanel"/);
-  assert.match(html, /tm-ui-root tm-ui-panel tm-auto-matching/);
+  assert.match(html, /class="tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary"/);
+  assert.match(html, /tm-ui-dock__panel tm-ui-root tm-ui-panel tm-auto-matching/);
   assert.match(html, /tm-ui-card tm-auto-matching__shell/);
   assert.match(html, /tm-ui-statusbar/);
   assert.match(html, /tm-ui-log/);
+  assert.match(html, /tm-ui-dock__toggle-label tm-auto-matching__toggle-label/);
   assert.match(html, /자동 매칭 시작/);
 });
 

@@ -1035,8 +1035,8 @@ test("order import sync module exports run contract", () => {
 
 test("shared module ui exports theme helpers", () => {
   assert.equal(typeof moduleUi.TOKENS, "object");
-  assert.equal(moduleUi.TOKENS.bg, "#f9f9f9");
-  assert.equal(moduleUi.TOKENS.primary, "#546067");
+  assert.equal(moduleUi.TOKENS.bg, "#f5f6f7");
+  assert.equal(moduleUi.TOKENS.primary, "#2d5fd4");
   assert.equal(typeof moduleUi.buildModuleUiCss, "function");
   assert.equal(typeof moduleUi.buildRootAttributes, "function");
   assert.equal(typeof moduleUi.ensureStyles, "function");

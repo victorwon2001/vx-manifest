@@ -5,18 +5,18 @@ const moduleUi = require("../shared/module-ui.js");
 
 test("shared module ui exposes fixed light admin tokens", () => {
   assert.deepEqual(moduleUi.TOKENS, {
-    bg: "#f9f9f9",
+    bg: "#f5f6f7",
     surface: "#ffffff",
-    surfaceAlt: "#f2f4f4",
-    primary: "#546067",
-    primaryStrong: "#455a64",
-    success: "#2f6b57",
-    warning: "#8b6b3f",
-    danger: "#9f403d",
-    text: "#2d3435",
-    muted: "#5a6061",
-    border: "#dde4e5",
-    shadow: "0 20px 40px rgba(45,52,53,.08)",
+    surfaceAlt: "#f1f3f4",
+    primary: "#2d5fd4",
+    primaryStrong: "#1f49b6",
+    success: "#2d5fd4",
+    warning: "#c95151",
+    danger: "#c95151",
+    text: "#17191b",
+    muted: "#63696e",
+    border: "#d9dde2",
+    shadow: "0 20px 44px rgba(17,25,32,.12)",
   });
 });
 
@@ -36,6 +36,11 @@ test("buildModuleUiCss contains the shared class contract and density variants",
   assert.match(css, /\.tm-ui-badge--success/);
   assert.match(css, /\.tm-ui-modal/);
   assert.match(css, /\.tm-ui-log/);
+  assert.match(css, /\.tm-ui-dock/);
+  assert.match(css, /\.tm-ui-dock__toggle/);
+  assert.match(css, /\.tm-ui-dock__panel/);
+  assert.match(css, /position:sticky;top:0/);
+  assert.match(css, /text-align:center/);
   assert.match(css, /@keyframes tm-ui-rise/);
   assert.match(css, /\[data-tm-density='compact'\]/);
   assert.match(css, /\[data-tm-density='normal'\]/);

@@ -245,8 +245,10 @@ test("main gui html uses the shared panel and card classes", () => {
   const html = stockMoveAutomation.buildMainGuiHtml();
 
   assert.match(html, /id='stockMoveGuiDock'/);
+  assert.match(html, /class='tm-ui-dock tm-stock-dock'/);
   assert.match(html, /id='toggleStockMoveGuiBtn'[\s\S]*id='stockMoveGuiContainer'/);
-  assert.match(html, /class='tm-ui-root tm-ui-panel/);
+  assert.match(html, /class='tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary'/);
+  assert.match(html, /class='tm-ui-dock__panel tm-ui-root tm-ui-panel/);
   assert.match(html, /data-tm-density='compact'/);
   assert.match(html, /tm-ui-card/);
   assert.match(html, /tm-stock-shell/);
@@ -255,7 +257,7 @@ test("main gui html uses the shared panel and card classes", () => {
   assert.match(html, /tm-ui-textarea/);
   assert.match(html, /tm-ui-btn tm-ui-btn--success/);
   assert.match(html, /tm-ui-log/);
-  assert.match(html, /tm-stock-toggle__label/);
+  assert.match(html, /tm-ui-dock__toggle-label tm-stock-toggle__label/);
   assert.match(html, /aria-pressed='false'/);
   assert.match(html, /aria-expanded='false'/);
 });
@@ -264,8 +266,10 @@ test("edit gui html uses the shared panel and action classes", () => {
   const html = stockMoveAutomation.buildEditGuiHtml();
 
   assert.match(html, /id='stockMoveGuiDock'/);
+  assert.match(html, /class='tm-ui-dock tm-stock-dock'/);
   assert.match(html, /id='toggleStockMoveGuiBtn'[\s\S]*id='stockMoveGuiContainer'/);
-  assert.match(html, /class='tm-ui-root tm-ui-panel/);
+  assert.match(html, /class='tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary'/);
+  assert.match(html, /class='tm-ui-dock__panel tm-ui-root tm-ui-panel/);
   assert.match(html, /data-tm-density='compact'/);
   assert.match(html, /tm-stock-shell/);
   assert.match(html, /tm-ui-panel-head/);

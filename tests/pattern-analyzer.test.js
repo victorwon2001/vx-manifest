@@ -217,7 +217,7 @@ test("buildPatternPrintDocumentHtml returns standalone print document", () => {
   assert.match(html, /tone-even/);
   assert.match(html, /tone-odd/);
   assert.match(html, /print-color-adjust:exact/i);
-  assert.match(html, /background:#e4ecec/i);
+  assert.match(html, /background-color:#e8edf2/i);
   assert.match(html, /window\.print/);
   assert.doesNotMatch(html, /Pattern Print/);
   assert.doesNotMatch(html, /송장수/);
