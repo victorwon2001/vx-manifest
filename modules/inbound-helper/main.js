@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-helper";
   const MODULE_NAME = "입고도우미";
-  const MODULE_VERSION = "0.1.4";
+  const MODULE_VERSION = "0.1.5";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm106edit4.jsp*"];
 
   const KEY_QUEUE_MAP = "ebut_v5_queue_map";
@@ -207,8 +207,14 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      "#" + DOCK_ID + ".tm-ui-dock{top:14px;right:14px}",
-      "#" + GUI_ID + "{width:min(476px,calc(100vw - 28px));max-height:calc(90vh - 46px);overflow:auto;resize:both}",
+      "#" + DOCK_ID + "{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
+      "#" + DOCK_ID + ">*{pointer-events:auto}",
+      "#" + DOCK_ID + ".is-open{z-index:10000}",
+      "#" + TOGGLE_ID + "{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid var(--tm-border,#d9dde2);border-radius:14px;background:rgba(255,255,255,.98);color:var(--tm-text,#17191b);box-shadow:0 14px 28px rgba(17,25,32,.12);text-decoration:none;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}",
+      "#" + TOGGLE_ID + ":hover{background:var(--tm-surface-alt,#f1f3f4);transform:translateY(-1px)}",
+      "#" + TOGGLE_ID + ".is-open{background:rgba(255,255,255,.99);border-color:#c7d1dc;box-shadow:0 18px 34px rgba(17,25,32,.16)}",
+      "#" + GUI_ID + "{position:relative;display:none;width:min(476px,calc(100vw - 28px));max-height:calc(90vh - 46px);overflow:auto;resize:both;border:1px solid var(--tm-border,#d9dde2);border-radius:20px;background:rgba(255,255,255,.99);box-shadow:0 28px 56px rgba(17,25,32,.18),0 8px 20px rgba(17,25,32,.08);backdrop-filter:none}",
+      "#" + GUI_ID + ".is-open{display:block}",
       "#" + GUI_ID + ".is-running .tm-inbound-helper__shell{border-color:#d1e2da;box-shadow:0 24px 42px rgba(45,52,53,.12)}",
       "#" + GUI_ID + " .tm-inbound-helper__shell{display:grid;gap:0;overflow:hidden;border:0;box-shadow:none;background:transparent}",
       "#" + GUI_ID + " .tm-inbound-helper__body{padding:14px 16px}",
@@ -641,6 +647,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

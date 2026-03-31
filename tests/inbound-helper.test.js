@@ -93,6 +93,8 @@ test("inbound helper state keeps window reference for gui mounting", () => {
 test("inbound helper toggle state no longer shifts horizontal position", () => {
   assert.doesNotMatch(source, /\.css\("right",\s*isVisible/);
   assert.match(source, /\.attr\("aria-expanded",\s*isVisible \? "true" : "false"\)/);
+  assert.match(source, /#"\s*\+\s*DOCK_ID\s*\+\s*"\{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none\}/);
+  assert.match(source, /#"\s*\+\s*TOGGLE_ID\s*\+\s*"\{display:inline-flex;align-items:center;gap:8px;min-height:38px/);
 });
 
 test("inbound helper registry and dependencies stay aligned", () => {
