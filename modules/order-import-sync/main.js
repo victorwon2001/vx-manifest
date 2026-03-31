@@ -3,7 +3,7 @@
 
   const MODULE_ID = "order-import-sync";
   const MODULE_NAME = "연동데이터 불러오기";
-  const MODULE_VERSION = "0.1.8";
+  const MODULE_VERSION = "0.1.9";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site230main.jsp*"];
   const PAGE_PATTERN = /\/jsp\/site\/site230main\.jsp/i;
   const PANEL_ID = "ebut-ui-panel";
@@ -411,7 +411,7 @@
       "<button id='ebut-stop' class='tm-ui-btn tm-ui-btn--danger'>정지</button>",
       "</div>",
       "<div id='ebut-status' class='tm-ui-message tm-import-status' style='display:none;'><span id='ebut-status-text'>대기 중...</span></div>",
-      "<div id='ebut-preview-wrap' class='tm-ui-card tm-import-preview'>",
+      "<div id='ebut-preview-wrap' class='tm-ui-card tm-ui-scroll tm-import-preview'>",
       "<div class='tm-ui-section-head'><div><div class='tm-ui-kicker'>미리보기</div><div class='tm-import-preview-title tm-ui-section-title'>대상 목록</div><p class='tm-ui-section-subtitle'>신규주문수 기준으로 정렬합니다.</p></div><span class='tm-ui-inline-note'>신규주문수 &gt; 0</span></div>",
       "<table id='ebut-preview' class='tm-ui-table'><thead><tr>",
       "<th>판매처</th>",
@@ -996,6 +996,7 @@
     buildPanelHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
