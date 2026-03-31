@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-helper";
   const MODULE_NAME = "입고도우미";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm106edit4.jsp*"];
 
   const KEY_QUEUE_MAP = "ebut_v5_queue_map";
@@ -152,10 +152,11 @@
     const rootAttrs = moduleUi
       ? moduleUi.buildRootAttributes({ kind: "panel", className: "tm-inbound-helper", density: "compact" })
       : 'class="tm-ui-root tm-ui-panel tm-inbound-helper" data-tm-density="compact"';
+    const panelAttrs = rootAttrs.replace('class="', 'class="tm-ui-dock__panel ');
     return [
-      '<div id="' + DOCK_ID + '" class="tm-inbound-helper__dock">',
-      '  <button type="button" id="' + TOGGLE_ID + '" class="tm-ui-btn tm-ui-btn--secondary" aria-controls="' + GUI_ID + '" aria-pressed="false" aria-expanded="false"><span class="tm-inbound-helper__toggle-dot" aria-hidden="true"></span><span class="tm-inbound-helper__toggle-label">입고도우미 열기</span></button>',
-      '  <div id="' + GUI_ID + '" ' + rootAttrs + ' style="display:none">',
+      '<div id="' + DOCK_ID + '" class="tm-ui-dock tm-inbound-helper__dock">',
+      '  <button type="button" id="' + TOGGLE_ID + '" class="tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary" aria-controls="' + GUI_ID + '" aria-pressed="false" aria-expanded="false"><span class="tm-ui-dock__toggle-dot tm-inbound-helper__toggle-dot" aria-hidden="true"></span><span class="tm-ui-dock__toggle-label tm-inbound-helper__toggle-label">입고도우미 열기</span></button>',
+      '  <div id="' + GUI_ID + '" ' + panelAttrs + ' style="display:none">',
       '    <div class="tm-ui-card tm-inbound-helper__shell">',
       '      <div class="tm-ui-panel-head tm-ui-panel-head--compact">',
       '        <div class="tm-ui-head-meta">',
@@ -206,28 +207,22 @@
     const style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      "#" + DOCK_ID + "{position:fixed;top:12px;right:12px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
-      "#" + DOCK_ID + ">*{pointer-events:auto}",
-      "#" + DOCK_ID + ".is-open{z-index:10000}",
-      "#" + GUI_ID + "{position:relative;width:min(460px,calc(100vw - 24px));max-height:calc(90vh - 46px);overflow:auto;resize:both}",
+      "#" + DOCK_ID + ".tm-ui-dock{top:14px;right:14px}",
+      "#" + GUI_ID + "{width:min(476px,calc(100vw - 28px));max-height:calc(90vh - 46px);overflow:auto;resize:both}",
       "#" + GUI_ID + ".is-running .tm-inbound-helper__shell{border-color:#d1e2da;box-shadow:0 24px 42px rgba(45,52,53,.12)}",
-      "#" + GUI_ID + " .tm-inbound-helper__shell{display:grid;gap:0;overflow:hidden}",
+      "#" + GUI_ID + " .tm-inbound-helper__shell{display:grid;gap:0;overflow:hidden;border:0;box-shadow:none;background:transparent}",
       "#" + GUI_ID + " .tm-inbound-helper__body{padding:14px 16px}",
       "#" + GUI_ID + " .tm-inbound-helper__tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}",
       "#" + GUI_ID + " .tm-inbound-helper__tab.is-active{background:var(--tm-accent-wash);color:#fff;border-color:var(--tm-primary-strong)}",
-      "#" + GUI_ID + " .tm-inbound-helper__desc{line-height:1.6}",
-      "#" + GUI_ID + " .tm-inbound-helper__desc--accent{background:#edf3f8;border-color:#c8d9ea;color:#2a3f52}",
+      "#" + GUI_ID + " .tm-inbound-helper__desc{line-height:1.6;background:var(--tm-surface-alt)}",
+      "#" + GUI_ID + " .tm-inbound-helper__desc--accent{background:rgba(45,95,212,.08);border-color:rgba(45,95,212,.16);color:#2447a9}",
       "#" + GUI_ID + " .tm-inbound-helper__options{display:grid;gap:8px}",
       "#" + GUI_ID + " .tm-inbound-helper__checkbox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tm-text)}",
       "#" + GUI_ID + " .tm-inbound-helper__checkbox input{width:16px;height:16px;margin:0}",
       "#" + GUI_ID + " textarea{min-height:132px;font-family:Consolas,'Courier New',monospace;font-size:12px}",
       "#" + GUI_ID + " .tm-ui-log{max-height:160px;overflow:auto}",
-      "#" + TOGGLE_ID + "{position:relative;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;box-shadow:0 14px 28px rgba(45,52,53,.12)}",
-      "#" + TOGGLE_ID + " .tm-inbound-helper__toggle-dot{width:8px;height:8px;border-radius:50%;background:var(--tm-primary-strong);display:inline-block}",
-      "#" + TOGGLE_ID + " .tm-inbound-helper__toggle-label{display:inline-flex;align-items:center;font-weight:700;letter-spacing:-.01em}",
-      "#" + TOGGLE_ID + ".is-open{background:var(--tm-surface-alt)}",
-      "#" + TOGGLE_ID + ".is-open .tm-inbound-helper__toggle-dot{background:var(--tm-success)}",
-      "@media (max-width: 768px){#" + DOCK_ID + "{top:8px;right:8px}#" + GUI_ID + "{width:min(100vw - 16px,520px)}}",
+      "#" + TOGGLE_ID + ".tm-ui-dock__toggle{min-height:38px;padding:0 16px}",
+      "@media (max-width: 768px){#" + DOCK_ID + ".tm-ui-dock{top:8px;right:8px}#" + GUI_ID + "{width:min(100vw - 16px,520px)}}",
     ].join("");
     doc.head.appendChild(style);
   }
@@ -310,6 +305,7 @@
   function syncTogglePosition($) {
     const isVisible = $("#" + GUI_ID).is(":visible");
     $("#" + DOCK_ID).toggleClass("is-open", isVisible);
+    $("#" + GUI_ID).toggleClass("is-open", isVisible);
     $("#" + TOGGLE_ID)
       .toggleClass("is-open", isVisible)
       .attr("aria-pressed", isVisible ? "true" : "false")
@@ -645,6 +641,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
