@@ -3,7 +3,7 @@
 
   const MODULE_ID = "invoice-list-viewer";
   const MODULE_NAME = "B2B 출고데이터 뷰어";
-  const MODULE_VERSION = "0.1.7";
+  const MODULE_VERSION = "0.1.8";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const SITE_URL_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\//i;
   const EXCLUDED_PAGE_PATTERNS = [/\/jsp\/site\/site3217main\.jsp(?:[?#].*)?$/i];
@@ -26,6 +26,7 @@
   const RESULT_BODY_ID = "tmInvoiceListViewerResultBody";
   const RESULT_META_ID = "tmInvoiceListViewerResultMeta";
   const DATE_INPUT_ID = "tmInvoiceListViewerDate";
+  const EMPTY_CELL_FILLER = "\u00A0";
 
   const HEADER_ALIASES = {
     invoiceNumber: ["송장번호", "운송장번호"],
@@ -90,6 +91,11 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function toDisplayCellText(value) {
+    const text = safeTrim(value);
+    return text || EMPTY_CELL_FILLER;
   }
 
   function pad2(value) {
@@ -608,11 +614,11 @@
       const selected = row.id === popupState.selectedRowId;
       return [
         "<tr" + (selected ? " class='tm-row-selected'" : "") + ">",
-        "<td data-tm-align='center'>" + escapeHtml(row.ivmstr_ivno ? row.ivmstr_ivno + "차" : "-") + "</td>",
-        "<td data-tm-align='center'>" + escapeHtml(row.expr_name || "-") + "</td>",
-        "<td data-tm-align='center'>" + escapeHtml(row.site_name || "-") + "</td>",
-        "<td data-tm-align='center'>" + escapeHtml(row.ivcnt || "-") + "</td>",
-        "<td data-tm-align='left' class='tm-invoice-list-viewer__memo-cell' title='" + escapeHtml(row.ivmstr_memo || "-") + "'>" + escapeHtml(row.ivmstr_memo || "-") + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.ivmstr_ivno ? row.ivmstr_ivno + "차" : "-")) + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.expr_name || "-")) + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.site_name || "-")) + "</td>",
+        "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.ivcnt || "-")) + "</td>",
+        "<td data-tm-align='left' class='tm-invoice-list-viewer__memo-cell' title='" + escapeHtml(row.ivmstr_memo || "-") + "'>" + escapeHtml(toDisplayCellText(row.ivmstr_memo || "-")) + "</td>",
         "<td data-tm-align='center'><button type='button' class='tm-ui-btn " + (selected ? "tm-ui-btn--success" : "tm-ui-btn--secondary") + "' data-action='load-row' data-row-id='" + escapeHtml(row.id) + "'>" + (selected ? "다시 불러오기" : "불러오기") + "</button></td>",
         "</tr>",
       ].join("");
@@ -633,13 +639,13 @@
 
     tbody.innerHTML = popupState.resultRows.map((row) => [
       "<tr>",
-      "<td data-tm-align='center'>" + escapeHtml(row.invoiceNumber || "") + "</td>",
-      "<td data-tm-align='center'>" + escapeHtml(row.shippedAt || "") + "</td>",
-      "<td data-tm-align='center'>" + escapeHtml(row.mall || "") + "</td>",
-      "<td data-tm-align='center'>" + escapeHtml(row.orderNumber || "") + "</td>",
-      "<td data-tm-align='left'>" + escapeHtml(row.matchedNicn || "") + "</td>",
-      "<td data-tm-align='left'>" + escapeHtml(row.matchedName || "") + "</td>",
-      "<td data-tm-align='center'>" + escapeHtml(row.matchedQty || "") + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.invoiceNumber)) + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.shippedAt)) + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.mall)) + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.orderNumber)) + "</td>",
+      "<td data-tm-align='left'>" + escapeHtml(toDisplayCellText(row.matchedNicn)) + "</td>",
+      "<td data-tm-align='left'>" + escapeHtml(toDisplayCellText(row.matchedName)) + "</td>",
+      "<td data-tm-align='center'>" + escapeHtml(toDisplayCellText(row.matchedQty)) + "</td>",
       "</tr>",
     ].join("")).join("");
   }
@@ -844,6 +850,8 @@
     buildWorkbookDisplayRows,
     buildRowViewModel,
     dedupeInvoiceRows,
+    EMPTY_CELL_FILLER,
+    toDisplayCellText,
     buildPanelHtml,
     formatBatchDateLabel,
     shouldRun,
@@ -852,6 +860,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

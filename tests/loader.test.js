@@ -1106,6 +1106,6 @@ test("all module meta files depend on the shared module ui asset", () => {
     const dependency = (meta.dependencies || []).find((item) => item.id === "module-ui");
     assert.ok(dependency, meta.id + " missing module-ui dependency");
     assert.equal(dependency.path, "shared/module-ui.js");
-    assert.equal(dependency.version, "0.4.0");
+    assert.equal(dependency.version, "0.4.1");
   });
 });

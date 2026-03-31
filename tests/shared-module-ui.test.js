@@ -23,7 +23,8 @@ test("shared module ui exposes fixed light admin tokens", () => {
 test("buildModuleUiCss contains the shared class contract and density variants", () => {
   const css = moduleUi.buildModuleUiCss();
 
-  assert.match(css, /fonts\.googleapis\.com/);
+  assert.match(css, /projectnoonnu\/pretendard@1\.0\/Pretendard-Regular\.woff2/);
+  assert.match(css, /font-family:'Pretendard'/);
   assert.match(css, /\.tm-ui-root/);
   assert.match(css, /\.tm-ui-toolbar__group/);
   assert.match(css, /\.tm-ui-toolbar__actions/);
@@ -42,6 +43,7 @@ test("buildModuleUiCss contains the shared class contract and density variants",
   assert.match(css, /\.tm-ui-dock/);
   assert.match(css, /\.tm-ui-dock__toggle/);
   assert.match(css, /\.tm-ui-dock__panel/);
+  assert.match(css, /body,button,input,select,textarea/);
   assert.match(css, /position:sticky;top:0/);
   assert.match(css, /text-align:center/);
   assert.match(css, /@keyframes tm-ui-rise/);
@@ -59,9 +61,11 @@ test("buildRootAttributes creates class and density attributes for module roots"
   assert.match(embeddedAttrs, /data-tm-density="compact"/);
 });
 
-test("shared module ui exposes the external font import url", () => {
+test("shared module ui exposes the external font source configuration", () => {
+  assert.equal(moduleUi.FONT_FAMILY, "Pretendard");
   assert.equal(
-    moduleUi.FONT_IMPORT_URL,
-    "https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap"
+    moduleUi.FONT_SOURCE_BASE_URL,
+    "https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/"
   );
+  assert.equal(moduleUi.FONT_IMPORT_URL, moduleUi.FONT_SOURCE_BASE_URL);
 });

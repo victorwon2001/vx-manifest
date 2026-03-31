@@ -13,9 +13,21 @@
   "use strict";
 
   const STYLE_ID = "tm-shared-module-ui-style";
-  const FONT_IMPORT_URL = "https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap";
-  const FONT_IMPORT_RULE = "@import url('" + FONT_IMPORT_URL + "');";
-  const FONT_STACK = "'Public Sans','Noto Sans KR','Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+  const FONT_FAMILY = "Pretendard";
+  const FONT_SOURCE_BASE_URL = "https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/";
+  const FONT_IMPORT_URL = FONT_SOURCE_BASE_URL;
+  const FONT_SOURCES = [
+    { weight: 100, file: "Pretendard-Thin.woff2" },
+    { weight: 200, file: "Pretendard-ExtraLight.woff2" },
+    { weight: 300, file: "Pretendard-Light.woff2" },
+    { weight: 400, file: "Pretendard-Regular.woff2" },
+    { weight: 500, file: "Pretendard-Medium.woff2" },
+    { weight: 600, file: "Pretendard-SemiBold.woff2" },
+    { weight: 700, file: "Pretendard-Bold.woff2" },
+    { weight: 800, file: "Pretendard-ExtraBold.woff2" },
+    { weight: 900, file: "Pretendard-Black.woff2" },
+  ];
+  const FONT_STACK = "'" + FONT_FAMILY + "','Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
   const TOKENS = {
     bg: "#f3f4f5",
     surface: "#ffffff",
@@ -62,9 +74,16 @@
     return 'class="' + escapeAttribute(className) + '" data-tm-density="' + density + '"';
   }
 
+  function buildFontFaceCss() {
+    return FONT_SOURCES.map((item) => {
+      return "@font-face{font-family:'" + FONT_FAMILY + "';src:url('" + FONT_SOURCE_BASE_URL + item.file + "') format('woff2');font-weight:" + item.weight + ";font-style:normal;font-display:swap}";
+    }).join("");
+  }
+
   function buildModuleUiCss() {
     return [
-      FONT_IMPORT_RULE,
+      buildFontFaceCss(),
+      "body,button,input,select,textarea{font-family:" + FONT_STACK + "}",
       ".tm-ui-root{--tm-bg:" + TOKENS.bg + ";--tm-surface:" + TOKENS.surface + ";--tm-surface-alt:" + TOKENS.surfaceAlt + ";--tm-primary:" + TOKENS.primary + ";--tm-primary-strong:" + TOKENS.primaryStrong + ";--tm-success:" + TOKENS.success + ";--tm-warning:" + TOKENS.warning + ";--tm-danger:" + TOKENS.danger + ";--tm-text:" + TOKENS.text + ";--tm-muted:" + TOKENS.muted + ";--tm-border:" + TOKENS.border + ";--tm-shadow:" + TOKENS.shadow + ";--tm-accent-wash:linear-gradient(180deg,rgba(36,90,212,.98) 0%,rgba(26,68,168,.98) 100%);--tm-danger-wash:linear-gradient(180deg,rgba(194,77,77,.98) 0%,rgba(171,57,57,.98) 100%);--tm-soft-accent:rgba(36,90,212,.08);--tm-soft-danger:rgba(194,77,77,.08);--tm-radius:16px;--tm-radius-sm:12px;--tm-control-height:34px;--tm-space-1:4px;--tm-space-2:8px;--tm-space-3:12px;--tm-space-4:16px;--tm-space-5:20px;color:var(--tm-text);font-family:" + FONT_STACK + ";font-size:13px;line-height:1.56;letter-spacing:-.01em;box-sizing:border-box}",
       ".tm-ui-root *,.tm-ui-root *::before,.tm-ui-root *::after{box-sizing:border-box}",
       ".tm-ui-root.tm-ui-panel,.tm-ui-root.tm-ui-popup{background:var(--tm-bg)}",
@@ -141,13 +160,13 @@
       ".tm-ui-dock{--tm-dock-surface:" + TOKENS.surface + ";--tm-dock-surface-alt:" + TOKENS.surfaceAlt + ";--tm-dock-primary:" + TOKENS.primary + ";--tm-dock-primary-strong:" + TOKENS.primaryStrong + ";--tm-dock-text:" + TOKENS.text + ";--tm-dock-muted:" + TOKENS.muted + ";--tm-dock-border:" + TOKENS.border + ";--tm-dock-shadow:" + TOKENS.shadow + ";position:fixed;inset:12px 12px auto auto;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
       ".tm-ui-dock>*{pointer-events:auto}",
       ".tm-ui-dock.is-open{z-index:10000}",
-      ".tm-ui-dock__toggle{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px;border:1px solid var(--tm-dock-border);border-radius:14px;background:rgba(255,255,255,.985);color:var(--tm-dock-text);box-shadow:0 14px 28px rgba(15,23,32,.12);transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;text-decoration:none;white-space:nowrap}",
+      ".tm-ui-dock__toggle{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px;border:1px solid var(--tm-dock-border);border-radius:14px;background:rgba(255,255,255,.985);color:var(--tm-dock-text);box-shadow:0 14px 28px rgba(15,23,32,.12);transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;text-decoration:none;white-space:nowrap;font-family:" + FONT_STACK + "}",
       ".tm-ui-dock__toggle:hover{background:var(--tm-dock-surface-alt);transform:translateY(-1px)}",
       ".tm-ui-dock__toggle.is-open{background:var(--tm-dock-surface);border-color:#c7d1dc;box-shadow:0 18px 34px rgba(15,23,32,.16)}",
       ".tm-ui-dock__toggle-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--tm-dock-primary-strong);flex:0 0 auto}",
       ".tm-ui-dock__toggle-label{display:inline-flex;align-items:center;font:600 13px/1 " + FONT_STACK + ";letter-spacing:-.01em}",
       ".tm-ui-dock__toggle.is-open .tm-ui-dock__toggle-dot{background:var(--tm-dock-primary)}",
-      ".tm-ui-dock__panel{position:relative;display:none;max-height:calc(90vh - 46px);overflow:auto;resize:both;border:1px solid var(--tm-dock-border);border-radius:20px;background:rgba(255,255,255,.995);box-shadow:0 28px 56px rgba(15,23,32,.18),0 8px 20px rgba(15,23,32,.08);backdrop-filter:none}",
+      ".tm-ui-dock__panel{position:relative;display:none;max-height:calc(90vh - 46px);overflow:auto;resize:both;border:1px solid var(--tm-dock-border);border-radius:20px;background:rgba(255,255,255,.995);box-shadow:0 28px 56px rgba(15,23,32,.18),0 8px 20px rgba(15,23,32,.08);backdrop-filter:none;font-family:" + FONT_STACK + "}",
       ".tm-ui-dock__panel.is-open,.tm-ui-dock.is-open .tm-ui-dock__panel{display:block}",
       ".tm-ui-dock__panel.tm-ui-root.tm-ui-panel{background:rgba(255,255,255,.99)!important}",
       ".tm-ui-dock__panel > .tm-ui-card{border:none;box-shadow:none;background:transparent}",
@@ -176,6 +195,8 @@
   }
 
   return {
+    FONT_FAMILY,
+    FONT_SOURCE_BASE_URL,
     FONT_IMPORT_URL,
     TOKENS,
     STYLE_ID,

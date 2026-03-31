@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.6.0
+// @version      0.6.1
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -1199,7 +1199,12 @@
     const style = doc.createElement("style");
     style.id = MANAGER_STYLE_ID;
     style.textContent = [
-      ":root{color-scheme:light;font-family:'Segoe UI Variable Text','Segoe UI','Noto Sans KR',sans-serif}",
+      "@font-face{font-family:'Pretendard';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}",
+      "@font-face{font-family:'Pretendard';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}",
+      "@font-face{font-family:'Pretendard';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}",
+      "@font-face{font-family:'Pretendard';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}",
+      ":root{color-scheme:light;font-family:'Pretendard','Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}",
+      "body,button,input,select,textarea{font-family:'Pretendard','Segoe UI Variable Text','Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}",
       "body{margin:0;background:#f5f6f7;color:#1f2427}",
       "#" + MANAGER_ROOT_ID + "{padding:20px}",
       ".tm-shell{display:grid;gap:16px}",

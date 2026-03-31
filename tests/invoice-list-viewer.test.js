@@ -82,6 +82,12 @@ test("invoice list viewer dedupes invoice numbers while preserving row positions
   assert.deepEqual(rows.map((row) => row.orderNumber), ["1", "2", "3", "4", "5"]);
 });
 
+test("invoice list viewer renders empty cells with a copy-safe filler", () => {
+  assert.equal(moduleUnderTest.toDisplayCellText(""), moduleUnderTest.EMPTY_CELL_FILLER);
+  assert.equal(moduleUnderTest.toDisplayCellText("   "), moduleUnderTest.EMPTY_CELL_FILLER);
+  assert.equal(moduleUnderTest.toDisplayCellText("A123"), "A123");
+});
+
 test("invoice list viewer workbook rows map the requested columns", () => {
   const result = moduleUnderTest.buildWorkbookDisplayRows([
     ["송장번호", "발송일", "쇼핑몰", "주문번호", "매칭관리명", "매칭상품명", "매칭수량"],
