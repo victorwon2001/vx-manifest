@@ -22,40 +22,32 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiDock{position:fixed;top:12px;right:12px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
-    "#stockMoveGuiDock>*{pointer-events:auto}",
-    "#stockMoveGuiDock.is-open{z-index:10000}",
-    "#stockMoveGuiContainer{position:relative;width:min(648px,calc(100vw - 24px));min-width:460px;padding:14px;display:none;max-height:calc(90vh - 46px);overflow:auto;resize:both;background:linear-gradient(180deg,#f3f6f6 0%,#edf1f1 100%) !important;background-clip:padding-box;border:1px solid #c7d1d3;border-radius:22px;box-shadow:0 30px 56px rgba(45,52,53,.18),0 8px 18px rgba(45,52,53,.08);opacity:1;backdrop-filter:none;isolation:isolate}",
-    "#stockMoveGuiContainer.tm-ui-root,#stockMoveGuiContainer.tm-ui-root.tm-ui-panel{background:linear-gradient(180deg,#f3f6f6 0%,#edf1f1 100%) !important}",
-    "#stockMoveGuiContainer::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(69,90,100,.08)}",
-    "#stockMoveGuiContainer .tm-stock-shell{display:grid;gap:12px;padding:0;overflow:visible;border:0;border-radius:inherit;background:transparent;box-shadow:none}",
+    "#stockMoveGuiDock.tm-ui-dock{top:14px;right:14px}",
+    "#stockMoveGuiContainer{width:min(648px,calc(100vw - 28px));min-width:480px;padding:0}",
+    "#stockMoveGuiContainer .tm-stock-shell{display:grid;gap:14px;padding:14px;overflow:visible;border:0;border-radius:inherit;background:transparent;box-shadow:none}",
     "#stockMoveGuiContainer.running .tm-stock-shell{background:transparent}",
     "#stockMoveGuiContainer.error .tm-stock-shell{background:transparent}",
     "#stockMoveGuiContainer .tm-stock-body{display:grid;gap:12px;padding:0;background:transparent}",
-    "#stockMoveGuiContainer .tm-stock-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:14px 16px;background:#ffffff;border:1px solid rgba(69,90,100,.10);border-radius:16px;box-shadow:0 10px 22px rgba(45,52,53,.05)}",
+    "#stockMoveGuiContainer .tm-stock-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:0 2px 2px;background:transparent;border:none;border-radius:0;box-shadow:none}",
     "#stockMoveGuiContainer .tm-stock-head-copy{display:grid;gap:6px}",
     "#stockMoveGuiContainer .tm-stock-title{font-size:18px;font-weight:800}",
     "#stockMoveGuiContainer .tm-stock-head .close-btn{margin-left:auto}",
-    "#stockMoveGuiContainer .tm-stock-input-card,#stockMoveGuiContainer .tm-stock-running-card,#stockMoveGuiContainer .tm-stock-report-card{margin:0;padding:14px;background:#ffffff;border:1px solid rgba(69,90,100,.10);border-radius:16px;box-shadow:0 10px 22px rgba(45,52,53,.05)}",
+    "#stockMoveGuiContainer .tm-stock-input-card,#stockMoveGuiContainer .tm-stock-running-card,#stockMoveGuiContainer .tm-stock-report-card{margin:0;padding:14px;background:var(--tm-surface-alt);border:1px solid var(--tm-border);border-radius:16px;box-shadow:none}",
     "#stockMoveGuiContainer textarea{width:100%;height:132px;font-size:12.5px;font-family:Consolas,'Courier New',monospace}",
     ".btn-start,.btn-stop,.btn-reset,.btn-close-report{width:100%;display:inline-flex;justify-content:center}",
     ".tm-stock-action-row{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px;margin-top:10px}",
     ".tm-stock-action-row--even{grid-template-columns:repeat(2,minmax(0,1fr))}",
     ".btn-close-report{margin-top:4px}",
-    "#stockMoveGuiLog{margin:0;max-height:168px;overflow-y:auto;line-height:1.6;padding:12px;border:1px solid rgba(69,90,100,.10);border-radius:16px;background:#263033;color:#ecf2f2}",
-    "#toggleStockMoveGuiBtn{position:relative;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:1px solid var(--tm-border);border-radius:999px;background:#ffffff;color:var(--tm-text);box-shadow:0 14px 28px rgba(45,52,53,.12);transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease}",
-    "#toggleStockMoveGuiBtn .tm-stock-toggle__dot{width:8px;height:8px;border-radius:50%;background:var(--tm-primary-strong);flex:0 0 auto}",
-    "#toggleStockMoveGuiBtn .tm-stock-toggle__label{display:inline-flex;align-items:center;font-weight:700;letter-spacing:-.01em}",
-    "#toggleStockMoveGuiBtn.is-open{background:var(--tm-surface-alt);border-color:#c8d2d3;color:var(--tm-primary-strong);box-shadow:0 10px 22px rgba(45,52,53,.10)}",
-    "#toggleStockMoveGuiBtn.is-open .tm-stock-toggle__dot{background:var(--tm-success)}",
+    "#stockMoveGuiLog{margin:0;max-height:168px;overflow-y:auto;line-height:1.6;padding:12px;border:1px solid rgba(255,255,255,.06);border-radius:16px;background:#17191b;color:#f5f7fa}",
+    "#toggleStockMoveGuiBtn.tm-ui-dock__toggle{min-height:38px;padding:0 16px}",
     ".status-text{text-align:left;font-weight:700;margin:0 0 10px;color:var(--tm-text);font-size:13px}",
     ".format-hint{font-size:12px;color:#4f5758;margin-bottom:10px;background:var(--tm-surface-alt);padding:10px 12px;border-radius:10px;border:1px solid var(--tm-border);line-height:1.6}",
     ".report-section{display:grid;gap:10px}",
     ".report-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}",
     ".stat-box{text-align:center;padding:12px;border-radius:12px;border:1px solid var(--tm-border);background:var(--tm-surface-alt)}",
-    ".stat-box.success{background:#edf5f1;color:var(--tm-success)}",
-    ".stat-box.error{background:#fbefee;color:var(--tm-danger)}",
-    ".stat-box.skip{background:#f7f0e8;color:var(--tm-warning)}",
+    ".stat-box.success{background:rgba(45,95,212,.08);color:var(--tm-success)}",
+    ".stat-box.error{background:rgba(201,81,81,.1);color:var(--tm-danger)}",
+    ".stat-box.skip{background:rgba(201,81,81,.08);color:var(--tm-warning)}",
     ".stat-num{font-size:22px;font-weight:800}",
     ".error-list{max-height:160px;overflow-y:auto;font-size:12px}",
     ".error-item{padding:5px;border-bottom:1px solid var(--tm-border)}",
@@ -74,16 +66,16 @@
     ".validation-table .product-name{text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
     ".validation-summary{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}",
     ".summary-badge{padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;border:1px solid transparent}",
-    ".summary-badge.success{background:#edf5f1;color:var(--tm-success);border-color:#d1e2da}",
-    ".summary-badge.warning{background:#f7f0e8;color:var(--tm-warning);border-color:#e3d4c0}",
-    ".summary-badge.danger{background:#fbefee;color:var(--tm-danger);border-color:#e2c3c1}",
+    ".summary-badge.success{background:rgba(45,95,212,.08);color:var(--tm-success);border-color:rgba(45,95,212,.16)}",
+    ".summary-badge.warning{background:rgba(201,81,81,.08);color:var(--tm-warning);border-color:rgba(201,81,81,.14)}",
+    ".summary-badge.danger{background:rgba(201,81,81,.1);color:var(--tm-danger);border-color:rgba(201,81,81,.16)}",
     ".validation-buttons{display:flex;gap:8px;margin-top:12px}",
     ".validation-buttons button{flex:1}",
     ".btn-proceed{background:var(--tm-success);border-color:var(--tm-success);color:#fff}",
     ".btn-cancel{background:var(--tm-surface);color:var(--tm-text);border-color:var(--tm-border)}",
     ".spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--tm-border);border-top:2px solid var(--tm-primary-strong);border-radius:50%;animation:spin 1s linear infinite;margin-right:8px}",
     "@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}",
-    "@media (max-width: 768px){#stockMoveGuiDock{top:8px;right:8px}#stockMoveGuiContainer{width:min(100vw - 16px,648px);min-width:0}}"
+    "@media (max-width: 768px){#stockMoveGuiDock.tm-ui-dock{top:8px;right:8px}#stockMoveGuiContainer{width:min(100vw - 16px,648px);min-width:0}}"
   ].join("");
 
   function getModuleUi(win) {
@@ -548,7 +540,9 @@
     const button = state.doc.getElementById(MODULE_TOGGLE_ID);
     if (!button) return;
     const dock = state.doc.getElementById(MODULE_DOCK_ID);
+    const panel = state.doc.getElementById(MODULE_GUI_ID);
     if (dock) dock.classList.toggle("is-open", !!isOpen);
+    if (panel) panel.classList.toggle("is-open", !!isOpen);
     button.classList.toggle("is-open", !!isOpen);
     button.setAttribute("aria-pressed", isOpen ? "true" : "false");
     button.setAttribute("aria-expanded", isOpen ? "true" : "false");
@@ -609,10 +603,11 @@
       density: "compact",
       className: "tm-stock-panel",
     });
+    const panelAttrs = rootAttrs.replace(/class="/, 'class="tm-ui-dock__panel ');
     return [
-      "<div id='stockMoveGuiDock'>",
-      "<button id='toggleStockMoveGuiBtn' type='button' aria-controls='stockMoveGuiContainer' aria-pressed='false' aria-expanded='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
-      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/\"/g, "'") + ">",
+      "<div id='stockMoveGuiDock' class='tm-ui-dock tm-stock-dock'>",
+      "<button id='toggleStockMoveGuiBtn' class='tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary' type='button' aria-controls='stockMoveGuiContainer' aria-pressed='false' aria-expanded='false'><span class='tm-ui-dock__toggle-dot tm-stock-toggle__dot'></span><span class='tm-ui-dock__toggle-label tm-stock-toggle__label'>재고이동 열기</span></button>",
+      "<div id='stockMoveGuiContainer' " + panelAttrs.replace(/\"/g, "'") + ">",
       "<div class='tm-stock-shell tm-ui-card'>",
       "<div class='tm-ui-panel-head tm-stock-head'>",
       "<div class='tm-stock-head-copy'>",
@@ -646,10 +641,11 @@
       density: "compact",
       className: "tm-stock-panel",
     });
+    const panelAttrs = rootAttrs.replace(/class="/, 'class="tm-ui-dock__panel ');
     return [
-      "<div id='stockMoveGuiDock'>",
-      "<button id='toggleStockMoveGuiBtn' type='button' aria-controls='stockMoveGuiContainer' aria-pressed='false' aria-expanded='false'><span class='tm-stock-toggle__dot'></span><span class='tm-stock-toggle__label'>재고이동 열기</span></button>",
-      "<div id='stockMoveGuiContainer' " + rootAttrs.replace(/\"/g, "'") + ">",
+      "<div id='stockMoveGuiDock' class='tm-ui-dock tm-stock-dock'>",
+      "<button id='toggleStockMoveGuiBtn' class='tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary' type='button' aria-controls='stockMoveGuiContainer' aria-pressed='false' aria-expanded='false'><span class='tm-ui-dock__toggle-dot tm-stock-toggle__dot'></span><span class='tm-ui-dock__toggle-label tm-stock-toggle__label'>재고이동 열기</span></button>",
+      "<div id='stockMoveGuiContainer' " + panelAttrs.replace(/\"/g, "'") + ">",
       "<div class='tm-stock-shell tm-ui-card'>",
       "<div class='tm-ui-panel-head tm-stock-head'><div class='tm-stock-head-copy'><span class='tm-ui-kicker'>실행 상태</span><div class='tm-stock-title tm-ui-title'>재고이동 처리 중</div><p class='tm-ui-subtitle'>편집 화면에서는 현재 실행 단계와 중지 제어만 노출합니다.</p></div><button id='closeGuiBtn' class='close-btn tm-ui-btn tm-ui-btn--secondary'>닫기</button></div>",
       "<div class='tm-stock-body'>",
@@ -1126,7 +1122,7 @@
   return {
     id: MODULE_ID,
     name: MODULE_NAME,
-    version: "0.1.10",
+    version: "0.1.11",
     matches: MATCHES,
     run,
     start,
@@ -1144,6 +1140,7 @@
     buildEditGuiHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
