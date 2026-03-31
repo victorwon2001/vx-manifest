@@ -282,5 +282,7 @@ test("edit gui html uses the shared panel and action classes", () => {
 test("stock move toggle stays inside shared dock instead of separate fixed offset", () => {
   assert.match(source, /const MODULE_DOCK_ID = "stockMoveGuiDock"/);
   assert.match(source, /button\.setAttribute\("aria-expanded", isOpen \? "true" : "false"\)/);
+  assert.match(source, /#stockMoveGuiDock\{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none\}/);
+  assert.match(source, /#toggleStockMoveGuiBtn\{display:inline-flex;align-items:center;gap:8px;min-height:38px/);
   assert.doesNotMatch(source, /#stockMoveGuiContainer\{position:fixed/);
 });

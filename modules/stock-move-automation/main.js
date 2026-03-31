@@ -22,8 +22,14 @@
   const KEY_STATS = "ebut_move_stats";
 
   const STYLE_TEXT = [
-    "#stockMoveGuiDock.tm-ui-dock{top:14px;right:14px}",
-    "#stockMoveGuiContainer{width:min(648px,calc(100vw - 28px));min-width:480px;padding:0}",
+    "#stockMoveGuiDock{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none}",
+    "#stockMoveGuiDock>*{pointer-events:auto}",
+    "#stockMoveGuiDock.is-open{z-index:10000}",
+    "#toggleStockMoveGuiBtn{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid var(--tm-border,#d9dde2);border-radius:14px;background:rgba(255,255,255,.98);color:var(--tm-text,#17191b);box-shadow:0 14px 28px rgba(17,25,32,.12);text-decoration:none;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}",
+    "#toggleStockMoveGuiBtn:hover{background:var(--tm-surface-alt,#f1f3f4);transform:translateY(-1px)}",
+    "#toggleStockMoveGuiBtn.is-open{background:rgba(255,255,255,.99);border-color:#c7d1dc;box-shadow:0 18px 34px rgba(17,25,32,.16)}",
+    "#stockMoveGuiContainer{position:relative;display:none;width:min(648px,calc(100vw - 28px));min-width:480px;max-height:calc(90vh - 46px);overflow:auto;resize:both;padding:0;border:1px solid var(--tm-border,#d9dde2);border-radius:20px;background:rgba(255,255,255,.99);box-shadow:0 28px 56px rgba(17,25,32,.18),0 8px 20px rgba(17,25,32,.08);backdrop-filter:none}",
+    "#stockMoveGuiContainer.is-open{display:block}",
     "#stockMoveGuiContainer .tm-stock-shell{display:grid;gap:14px;padding:14px;overflow:visible;border:0;border-radius:inherit;background:transparent;box-shadow:none}",
     "#stockMoveGuiContainer.running .tm-stock-shell{background:transparent}",
     "#stockMoveGuiContainer.error .tm-stock-shell{background:transparent}",
@@ -1122,7 +1128,7 @@
   return {
     id: MODULE_ID,
     name: MODULE_NAME,
-    version: "0.1.11",
+    version: "0.1.12",
     matches: MATCHES,
     run,
     start,
@@ -1140,6 +1146,7 @@
     buildEditGuiHtml,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
