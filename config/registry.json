@@ -66,6 +66,15 @@
       "metaPath": "modules/pattern-analyzer/meta.json"
     },
     {
+      "id": "inbound-inspection",
+      "name": "입고검수",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/*"
+      ],
+      "metaPath": "modules/inbound-inspection/meta.json"
+    },
+    {
       "id": "stock-move-automation",
       "name": "재고이동 자동화",
       "enabledByDefault": true,
