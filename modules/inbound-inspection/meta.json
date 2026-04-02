@@ -1,7 +1,7 @@
 ﻿{
     "id":  "inbound-inspection",
     "name":  "입고검수",
-    "version":  "0.1.1",
+    "version":  "0.1.2",
     "description":  "바코드 스캔으로 입고 상품 수량을 검수하는 도구",
     "entry":  "modules/inbound-inspection/main.js",
     "dependencies":  [
@@ -18,5 +18,5 @@
                      ],
     "checksum":  "",
     "loaderApiVersion":  2,
-    "updatedAt":  "2026-04-02 13:07:56"
+    "updatedAt":  "2026-04-02 17:29:32"
 }

@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-inspection";
   const MODULE_NAME = "입고검수";
-  const MODULE_VERSION = "0.1.1";
+  const MODULE_VERSION = "0.1.2";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const BASE_ORIGIN = "https://www.ebut3pl.co.kr";
   const BASE100_ENDPOINT = "/base/base100main_jdata";
@@ -30,6 +30,7 @@
   const SUMMARY_ID = "tmInboundInspectionSummary";
   const TABLE_BODY_ID = "tmInboundInspectionTableBody";
   const SCAN_INPUT_ID = "tmInboundInspectionScanInput";
+  const REFRESH_BUTTON_ID = "tmInboundInspectionRefreshButton";
   const CONFLICT_ID = "tmInboundInspectionConflict";
   const CONFLICT_BODY_ID = "tmInboundInspectionConflictBody";
   const CONFLICT_CODE_ID = "tmInboundInspectionConflictCode";
@@ -267,25 +268,57 @@
     return ids.map((id) => scanIndex.recordsById[id]).filter(Boolean);
   }
 
-  function buildEntry(record, scanCode, previous) {
+  function buildEntry(record, scanCode, previous, options) {
+    const nextCount = Math.max(1, Number(options && options.count) || 1);
+    const scannedAt = Math.max(
+      Number(previous && previous.lastScannedAt) || 0,
+      Number(options && options.scannedAt) || Date.now()
+    );
     return {
       recordId: record.id,
       seller: record.seller || "-",
       name: record.name || "-",
       nicn: record.nicn || "-",
       barcode: record.primaryBarcode || normalizeScanCode(scanCode) || "-",
-      count: previous ? previous.count + 1 : 1,
+      count: previous ? previous.count + nextCount : nextCount,
       lastScanCode: normalizeScanCode(scanCode),
+      lastScannedAt: scannedAt,
     };
   }
 
-  function applyScanSelection(entries, record, scanCode) {
+  function applyScanSelection(entries, record, scanCode, options) {
     const list = Array.isArray(entries) ? entries.slice() : [];
     const index = list.findIndex((entry) => entry && entry.recordId === record.id);
     const previous = index === -1 ? null : list[index];
     if (index !== -1) list.splice(index, 1);
-    list.unshift(buildEntry(record, scanCode, previous));
-    return list;
+    list.push(buildEntry(record, scanCode, previous, options));
+    return list.sort((left, right) => {
+      const rightTime = Number(right && right.lastScannedAt) || 0;
+      const leftTime = Number(left && left.lastScannedAt) || 0;
+      if (rightTime !== leftTime) return rightTime - leftTime;
+      return String(left && left.recordId || "").localeCompare(String(right && right.recordId || ""));
+    });
+  }
+
+  function buildUnresolvedEntries(unresolvedScans) {
+    return Object.keys(unresolvedScans || {}).map((code) => {
+      const entry = unresolvedScans[code] || {};
+      return {
+        code: normalizeScanCode(code),
+        count: Math.max(1, Number(entry.count) || 1),
+        lastScannedAt: Number(entry.lastScannedAt) || 0,
+      };
+    }).filter((entry) => entry.code);
+  }
+
+  function getLatestUnresolvedCode(unresolvedScans) {
+    const entries = buildUnresolvedEntries(unresolvedScans);
+    if (!entries.length) return "";
+    entries.sort((left, right) => {
+      if (right.lastScannedAt !== left.lastScannedAt) return right.lastScannedAt - left.lastScannedAt;
+      return left.code.localeCompare(right.code);
+    });
+    return entries[0].code;
   }
 
   function buildSummary(state) {
@@ -293,6 +326,7 @@
       totalScans: Number(state && state.totalScans) || 0,
       uniqueCount: Array.isArray(state && state.rows) ? state.rows.length : 0,
       lastMissingCode: safeTrim(state && state.lastMissingCode) || "-",
+      unresolvedCount: buildUnresolvedEntries(state && state.unresolvedScans).reduce((sum, entry) => sum + entry.count, 0),
     };
   }
 
@@ -301,6 +335,7 @@
     return [
       '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">총 스캔 수</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.totalScans) + "</span></div>",
       '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">고유 상품 수</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.uniqueCount) + "</span></div>",
+      '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">미확인 코드 수</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.unresolvedCount) + "</span></div>",
       '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">최근 실패 코드</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.lastMissingCode) + "</span></div>",
     ].join("");
   }
@@ -355,7 +390,7 @@
       '          <p class="tm-ui-subtitle">바코드 또는 관리명을 스캔해 입고 수량을 바로 누적 확인합니다.</p>',
       "        </div>",
       '        <div class="tm-ui-toolbar__actions">',
-      '          <button type="button" class="tm-ui-btn tm-ui-btn--secondary" data-action="refresh-master">마스터 새로고침</button>',
+      '          <button id="' + REFRESH_BUTTON_ID + '" type="button" class="tm-ui-btn tm-ui-btn--secondary" data-action="refresh-master">마스터 새로고침</button>',
       '          <button type="button" class="tm-ui-btn tm-ui-btn--ghost" data-action="close-window">닫기</button>',
       "        </div>",
       "      </div>",
@@ -475,10 +510,60 @@
   }
 
   function buildMasterMetaText(masterCache) {
-    const count = Array.isArray(masterCache && masterCache.records) ? masterCache.records.length : 0;
-    const fetchedAt = safeTrim(masterCache && masterCache.fetchedAt);
+    const state = masterCache || {};
+    const records = Array.isArray(state.records)
+      ? state.records
+      : (Array.isArray(state.masterCache && state.masterCache.records) ? state.masterCache.records : []);
+    const count = records.length;
+    const fetchedAt = safeTrim(state.lastFetchedAt || state.fetchedAt);
+    const cacheSource = safeTrim(state.cacheSource);
+    if (state.loadingPromise && count) {
+      return "마스터 " + count + "건 · " + (cacheSource === "cache" ? "캐시 기준" : "기존 데이터 기준") + " · 백그라운드 갱신 중";
+    }
+    if (state.loadingPromise) return "상품 마스터를 조회하는 중입니다.";
     if (!count) return "마스터 캐시 없음";
-    return "마스터 " + count + "건" + (fetchedAt ? " · " + fetchedAt : "");
+    return "마스터 " + count + "건" + (cacheSource ? " · " + cacheSource : "") + (fetchedAt ? " · 최종 갱신 " + fetchedAt : "");
+  }
+
+  function createMasterState() {
+    return {
+      masterCache: { records: [], fetchedAt: "" },
+      scanIndex: buildScanIndex([]),
+      loadingPromise: null,
+      lastFetchedAt: "",
+      cacheSource: "",
+      prefetchStarted: false,
+    };
+  }
+
+  function createSessionState() {
+    return {
+      rows: [],
+      totalScans: 0,
+      lastMissingCode: "",
+      unresolvedScans: {},
+      statusText: "입고검수 창을 열었습니다.",
+      statusKind: "neutral",
+      scanQueue: [],
+      processing: false,
+      pendingConflict: null,
+      conflictSelections: {},
+    };
+  }
+
+  function resolvePageState(state) {
+    if (state && state.pageState) return state.pageState;
+    return state || null;
+  }
+
+  function resolveMasterState(state) {
+    const pageState = resolvePageState(state);
+    return pageState ? pageState.masterState : null;
+  }
+
+  function resolveSessionState(state) {
+    const pageState = resolvePageState(state);
+    return pageState ? pageState.sessionState : null;
   }
 
   function getPageState(win, loader) {
@@ -490,6 +575,8 @@
         popupWin: null,
         popupState: null,
         navInstall: null,
+        masterState: createMasterState(),
+        sessionState: createSessionState(),
       };
     }
     if (loader) scope[STATE_KEY].loader = loader;
@@ -501,65 +588,62 @@
       pageState,
       pageWin: pageState.pageWin,
       popupWin,
-      rows: [],
-      totalScans: 0,
-      lastMissingCode: "",
-      statusText: "입고검수 창을 열었습니다.",
-      statusKind: "neutral",
-      masterLoadingPromise: null,
-      masterCache: { records: [], fetchedAt: "" },
-      scanIndex: buildScanIndex([]),
-      scanQueue: [],
-      processing: false,
-      pendingConflict: null,
-      conflictSelections: {},
     };
   }
 
   function renderStatus(state) {
+    const session = resolveSessionState(state);
     const doc = state && state.popupWin && state.popupWin.document;
     const node = doc && doc.getElementById(STATUS_ID);
-    if (!node) return;
-    node.textContent = state.statusText;
-    node.className = "tm-ui-message is-" + (state.statusKind || "neutral");
+    if (!node || !session) return;
+    node.textContent = session.statusText;
+    node.className = "tm-ui-message is-" + (session.statusKind || "neutral");
   }
 
   function renderMasterMeta(state) {
+    const master = resolveMasterState(state);
     const doc = state && state.popupWin && state.popupWin.document;
     const node = doc && doc.getElementById(MASTER_META_ID);
-    if (!node) return;
-    node.textContent = buildMasterMetaText(state.masterCache);
+    const refreshButton = doc && doc.getElementById(REFRESH_BUTTON_ID);
+    if (node && master) node.textContent = buildMasterMetaText(master);
+    if (refreshButton && master) {
+      refreshButton.textContent = master.loadingPromise ? "새로고침 중..." : "마스터 새로고침";
+      refreshButton.disabled = Boolean(master.loadingPromise);
+    }
   }
 
   function renderSummary(state) {
+    const session = resolveSessionState(state);
     const doc = state && state.popupWin && state.popupWin.document;
     const node = doc && doc.getElementById(SUMMARY_ID);
-    if (!node) return;
-    node.innerHTML = buildSummaryHtml(state);
+    if (!node || !session) return;
+    node.innerHTML = buildSummaryHtml(session);
   }
 
   function renderTable(state) {
+    const session = resolveSessionState(state);
     const doc = state && state.popupWin && state.popupWin.document;
     const node = doc && doc.getElementById(TABLE_BODY_ID);
-    if (!node) return;
-    node.innerHTML = buildRowsHtml(state.rows);
+    if (!node || !session) return;
+    node.innerHTML = buildRowsHtml(session.rows);
   }
 
   function renderConflict(state) {
+    const session = resolveSessionState(state);
     const doc = state && state.popupWin && state.popupWin.document;
     const overlay = doc && doc.getElementById(CONFLICT_ID);
     const codeNode = doc && doc.getElementById(CONFLICT_CODE_ID);
     const body = doc && doc.getElementById(CONFLICT_BODY_ID);
-    if (!overlay || !codeNode || !body) return;
-    if (!state.pendingConflict) {
+    if (!overlay || !codeNode || !body || !session) return;
+    if (!session.pendingConflict) {
       overlay.setAttribute("data-tm-hidden", "true");
       codeNode.textContent = "-";
       body.innerHTML = "";
       return;
     }
     overlay.removeAttribute("data-tm-hidden");
-    codeNode.textContent = state.pendingConflict.code;
-    body.innerHTML = buildConflictRowsHtml(state.pendingConflict.candidates);
+    codeNode.textContent = session.pendingConflict.code;
+    body.innerHTML = buildConflictRowsHtml(session.pendingConflict.candidates);
   }
 
   function renderAll(state) {
@@ -571,15 +655,18 @@
   }
 
   function setStatus(state, text, kind) {
-    state.statusText = safeTrim(text) || "입고검수 창을 열었습니다.";
-    state.statusKind = kind || "neutral";
+    const session = resolveSessionState(state);
+    if (!session) return;
+    session.statusText = safeTrim(text) || "입고검수 창을 열었습니다.";
+    session.statusKind = kind || "neutral";
     renderStatus(state);
   }
 
   function focusInput(state) {
+    const session = resolveSessionState(state);
     const doc = state && state.popupWin && state.popupWin.document;
     const input = doc && doc.getElementById(SCAN_INPUT_ID);
-    if (!input || state.pendingConflict) return;
+    if (!input || (session && session.pendingConflict)) return;
     state.popupWin.setTimeout(() => {
       try {
         input.focus();
@@ -591,9 +678,11 @@
   }
 
   function refreshEntriesFromMaster(state) {
-    if (!state || !state.scanIndex || !state.scanIndex.recordsById) return;
-    state.rows = (state.rows || []).map((entry) => {
-      const record = state.scanIndex.recordsById[entry.recordId];
+    const master = resolveMasterState(state);
+    const session = resolveSessionState(state);
+    if (!master || !session || !master.scanIndex || !master.scanIndex.recordsById) return;
+    session.rows = (session.rows || []).map((entry) => {
+      const record = master.scanIndex.recordsById[entry.recordId];
       if (!record) return entry;
       return {
         recordId: entry.recordId,
@@ -603,13 +692,15 @@
         barcode: record.primaryBarcode || entry.barcode,
         count: entry.count,
         lastScanCode: entry.lastScanCode,
+        lastScannedAt: entry.lastScannedAt,
       };
     });
   }
 
   async function fetchMasterData(state) {
+    const pageState = resolvePageState(state);
     const basicCust = "4603";
-    const pageWin = state.pageWin;
+    const pageWin = pageState && pageState.pageWin;
     const results = await Promise.all([
       fetchAllJData(pageWin, BASE100_ENDPOINT, BASE100_REFERER, buildBase100RequestParams, basicCust),
       fetchAllJData(pageWin, BASE200_ENDPOINT, BASE200_REFERER, buildBase200RequestParams, basicCust),
@@ -620,37 +711,162 @@
     };
   }
 
+  function recordUnresolvedScan(state, code, count, scannedAt) {
+    const session = resolveSessionState(state);
+    const key = normalizeScanCode(code);
+    if (!session || !key) return;
+    const existing = session.unresolvedScans[key];
+    session.unresolvedScans[key] = {
+      code: key,
+      count: (Number(existing && existing.count) || 0) + Math.max(1, Number(count) || 1),
+      lastScannedAt: Math.max(Number(existing && existing.lastScannedAt) || 0, Number(scannedAt) || Date.now()),
+    };
+    session.lastMissingCode = getLatestUnresolvedCode(session.unresolvedScans);
+  }
+
+  function clearUnresolvedScan(state, code) {
+    const session = resolveSessionState(state);
+    const key = normalizeScanCode(code);
+    if (!session || !key) return;
+    delete session.unresolvedScans[key];
+    session.lastMissingCode = getLatestUnresolvedCode(session.unresolvedScans);
+  }
+
+  async function replayUnresolvedScans(state) {
+    const session = resolveSessionState(state);
+    const master = resolveMasterState(state);
+    if (!session || !master) return { applied: 0, remaining: 0, conflicts: 0 };
+
+    const unresolved = buildUnresolvedEntries(session.unresolvedScans)
+      .sort((left, right) => {
+        if (left.lastScannedAt !== right.lastScannedAt) return left.lastScannedAt - right.lastScannedAt;
+        return left.code.localeCompare(right.code);
+      });
+
+    if (!unresolved.length) return { applied: 0, remaining: 0, conflicts: 0 };
+
+    session.unresolvedScans = {};
+    let applied = 0;
+    let conflicts = 0;
+
+    unresolved.forEach((item) => {
+      const candidates = findCandidateRecords(master.scanIndex, item.code);
+      if (!candidates.length) {
+        session.unresolvedScans[item.code] = item;
+        return;
+      }
+      if (candidates.length === 1) {
+        applySelectedRecord(state, item.code, candidates[0], {
+          count: item.count,
+          scannedAt: item.lastScannedAt,
+          incrementTotal: false,
+          clearUnresolved: false,
+          focus: false,
+          silent: true,
+        });
+        applied += item.count;
+        return;
+      }
+      conflicts += item.count;
+      if (!session.pendingConflict) {
+        session.pendingConflict = {
+          code: item.code,
+          candidates,
+          count: item.count,
+          scannedAt: item.lastScannedAt,
+          replay: true,
+        };
+        return;
+      }
+      session.unresolvedScans[item.code] = item;
+    });
+
+    session.lastMissingCode = getLatestUnresolvedCode(session.unresolvedScans);
+    return {
+      applied,
+      conflicts,
+      remaining: buildUnresolvedEntries(session.unresolvedScans).reduce((sum, item) => sum + item.count, 0),
+    };
+  }
+
   async function ensureMasterLoaded(state, forceRefresh) {
-    if (state.masterLoadingPromise) return state.masterLoadingPromise;
-    const cached = forceRefresh ? {} : readMasterCache(state.pageWin, state.pageState);
-    if (!forceRefresh && Array.isArray(cached.records) && cached.records.length) {
-      state.masterCache = cached;
-      state.scanIndex = buildScanIndex(cached.records);
-      refreshEntriesFromMaster(state);
-      renderAll(state);
-      return cached;
+    const pageState = resolvePageState(state);
+    const master = resolveMasterState(state);
+    const session = resolveSessionState(state);
+    if (!pageState || !master || !session) return { records: [], fetchedAt: "" };
+    if (master.loadingPromise) return master.loadingPromise;
+    if (!forceRefresh && Array.isArray(master.masterCache.records) && master.masterCache.records.length) {
+      return master.masterCache;
     }
-    setStatus(state, forceRefresh ? "상품 마스터를 새로고침하는 중입니다." : "상품 마스터를 불러오는 중입니다.", "neutral");
-    state.masterLoadingPromise = fetchMasterData(state)
+    if (!forceRefresh) {
+      const cached = readMasterCache(pageState.pageWin, pageState);
+      if (Array.isArray(cached.records) && cached.records.length) {
+        master.masterCache = cached;
+        master.scanIndex = buildScanIndex(cached.records);
+        master.lastFetchedAt = safeTrim(cached.fetchedAt);
+        master.cacheSource = "캐시 기준";
+        refreshEntriesFromMaster(pageState);
+        renderAll(pageState.popupState || state);
+        return cached;
+      }
+    }
+
+    renderAll(pageState.popupState || state);
+    master.loadingPromise = fetchMasterData(pageState)
       .then((masterCache) => {
-        state.masterCache = masterCache;
-        state.scanIndex = buildScanIndex(masterCache.records);
-        state.conflictSelections = {};
-        refreshEntriesFromMaster(state);
-        writeMasterCache(state.pageWin, state.pageState, masterCache);
-        setStatus(state, "상품 마스터 " + masterCache.records.length + "건을 준비했습니다.", "success");
-        renderAll(state);
-        return masterCache;
+        master.masterCache = masterCache;
+        master.scanIndex = buildScanIndex(masterCache.records);
+        master.lastFetchedAt = safeTrim(masterCache.fetchedAt);
+        master.cacheSource = "원격 기준";
+        session.conflictSelections = {};
+        refreshEntriesFromMaster(pageState);
+        writeMasterCache(pageState.pageWin, pageState, masterCache);
+        return replayUnresolvedScans(pageState).then((replayResult) => {
+          if (forceRefresh) {
+            if (replayResult.applied > 0) {
+              setStatus(pageState, "새 마스터에서 미확인 코드 " + replayResult.applied + "건을 반영했습니다.", "success");
+            } else if (replayResult.remaining > 0 || replayResult.conflicts > 0) {
+              setStatus(pageState, "마스터를 새로고침했습니다. 미확인 코드 " + replayResult.remaining + "건이 남아 있습니다.", "danger");
+            } else {
+              setStatus(pageState, "상품 마스터 " + masterCache.records.length + "건을 새로고침했습니다.", "success");
+            }
+          } else if (!session.rows.length && replayResult.remaining === 0) {
+            setStatus(pageState, "상품 마스터 " + masterCache.records.length + "건을 준비했습니다.", "success");
+          }
+          renderAll(pageState.popupState || state);
+          return masterCache;
+        });
       })
       .catch((error) => {
-        setStatus(state, error && error.message ? error.message : "상품 마스터를 불러오지 못했습니다.", "danger");
+        setStatus(pageState, error && error.message ? error.message : "상품 마스터를 불러오지 못했습니다.", "danger");
         throw error;
       })
       .finally(() => {
-        state.masterLoadingPromise = null;
-        renderAll(state);
+        master.loadingPromise = null;
+        renderAll(pageState.popupState || state);
       });
-    return state.masterLoadingPromise;
+    return master.loadingPromise;
+  }
+
+  function primeMasterState(pageState) {
+    const master = resolveMasterState(pageState);
+    if (!master || master.prefetchStarted) return;
+    master.prefetchStarted = true;
+
+    const cached = readMasterCache(pageState.pageWin, pageState);
+    if (Array.isArray(cached.records) && cached.records.length) {
+      master.masterCache = cached;
+      master.scanIndex = buildScanIndex(cached.records);
+      master.lastFetchedAt = safeTrim(cached.fetchedAt);
+      master.cacheSource = "캐시 기준";
+      refreshEntriesFromMaster(pageState);
+    }
+
+    void ensureMasterLoaded(pageState, true)
+      .catch(() => {
+        renderAll(pageState.popupState || pageState);
+      });
+    renderAll(pageState.popupState || pageState);
   }
 
   function consumeInputValue(state) {
@@ -663,72 +879,105 @@
   }
 
   function enqueueScan(state, code) {
+    const session = resolveSessionState(state);
     const normalized = normalizeScanCode(code);
-    if (!normalized) {
+    if (!session || !normalized) {
       focusInput(state);
       return;
     }
-    state.scanQueue.push(normalized);
+    session.totalScans += 1;
+    session.scanQueue.push({
+      code: normalized,
+      count: 1,
+      scannedAt: Date.now(),
+      incrementTotal: false,
+      source: "live",
+    });
     void processScanQueue(state);
   }
 
   function rememberConflictSelection(state, code, recordId) {
+    const session = resolveSessionState(state);
     const key = normalizeScanCode(code);
-    if (!key || !recordId) return;
-    state.conflictSelections[key] = recordId;
+    if (!session || !key || !recordId) return;
+    session.conflictSelections[key] = recordId;
   }
 
-  function applySelectedRecord(state, code, record) {
-    state.rows = applyScanSelection(state.rows, record, code);
-    state.totalScans += 1;
-    state.lastMissingCode = "";
-    setStatus(state, "스캔 반영 · " + record.nicn + " / " + state.rows[0].count + "개", "success");
-    renderAll(state);
-    focusInput(state);
+  function applySelectedRecord(state, code, record, options) {
+    const session = resolveSessionState(state);
+    if (!session) return;
+    const nextOptions = Object.assign({
+      count: 1,
+      scannedAt: Date.now(),
+      incrementTotal: false,
+      clearUnresolved: true,
+      focus: true,
+      silent: false,
+      label: "스캔 반영",
+    }, options || {});
+    session.rows = applyScanSelection(session.rows, record, code, nextOptions);
+    if (nextOptions.incrementTotal) session.totalScans += Math.max(1, Number(nextOptions.count) || 1);
+    if (nextOptions.clearUnresolved) clearUnresolvedScan(state, code);
+    if (!nextOptions.silent) {
+      setStatus(state, nextOptions.label + " · " + record.nicn + " / " + session.rows[0].count + "개", "success");
+      renderAll(state);
+    } else {
+      renderSummary(state);
+      renderTable(state);
+    }
+    if (nextOptions.focus) focusInput(state);
   }
 
   function finishConflict(state) {
-    state.pendingConflict = null;
+    const session = resolveSessionState(state);
+    if (!session) return;
+    session.pendingConflict = null;
     renderConflict(state);
     focusInput(state);
     void processScanQueue(state);
   }
 
   async function processScanQueue(state) {
-    if (!state || state.processing || state.pendingConflict) return;
-    if (!state.scanQueue.length) {
+    const session = resolveSessionState(state);
+    const master = resolveMasterState(state);
+    if (!session || !master || session.processing || session.pendingConflict) return;
+    if (!session.scanQueue.length) {
       focusInput(state);
       return;
     }
-    state.processing = true;
-    const code = state.scanQueue.shift();
+    session.processing = true;
+    const nextItem = session.scanQueue.shift();
+    const code = normalizeScanCode(nextItem && nextItem.code ? nextItem.code : nextItem);
+    const count = Math.max(1, Number(nextItem && nextItem.count) || 1);
+    const scannedAt = Number(nextItem && nextItem.scannedAt) || Date.now();
+    const incrementTotal = Boolean(nextItem && nextItem.incrementTotal);
     try {
       await ensureMasterLoaded(state, false);
-      const candidates = findCandidateRecords(state.scanIndex, code);
+      const candidates = findCandidateRecords(master.scanIndex, code);
       if (!candidates.length) {
-        state.lastMissingCode = code;
+        recordUnresolvedScan(state, code, count, scannedAt);
         setStatus(state, "일치하는 상품을 찾지 못했습니다 · " + code, "danger");
         renderSummary(state);
         focusInput(state);
         return;
       }
       if (candidates.length === 1) {
-        applySelectedRecord(state, code, candidates[0]);
+        applySelectedRecord(state, code, candidates[0], { count, scannedAt, incrementTotal, clearUnresolved: true });
         return;
       }
-      const rememberedId = state.conflictSelections[code];
+      const rememberedId = session.conflictSelections[code];
       const rememberedRecord = rememberedId ? candidates.find((candidate) => candidate.id === rememberedId) : null;
       if (rememberedRecord) {
-        applySelectedRecord(state, code, rememberedRecord);
+        applySelectedRecord(state, code, rememberedRecord, { count, scannedAt, incrementTotal, clearUnresolved: true });
         return;
       }
-      state.pendingConflict = { code, candidates };
+      session.pendingConflict = { code, candidates, count, scannedAt, incrementTotal };
       setStatus(state, "중복 매칭 감지 · 기준 상품을 선택하세요.", "danger");
       renderConflict(state);
     } catch (error) {
       setStatus(state, error && error.message ? error.message : "스캔 처리 중 오류가 발생했습니다.", "danger");
     } finally {
-      state.processing = false;
+      session.processing = false;
     }
   }
 
@@ -761,20 +1010,27 @@
         return;
       }
       if (action === "choose-candidate") {
+        const session = resolveSessionState(state);
         const recordId = safeTrim(actionTarget.getAttribute("data-record-id"));
-        const pending = state.pendingConflict;
+        const pending = session && session.pendingConflict;
         if (!pending) return;
         const record = (pending.candidates || []).find((item) => item.id === recordId);
         if (!record) return;
         rememberConflictSelection(state, pending.code, recordId);
-        applySelectedRecord(state, pending.code, record);
+        applySelectedRecord(state, pending.code, record, {
+          count: pending.count,
+          scannedAt: pending.scannedAt,
+          incrementTotal: pending.incrementTotal,
+          clearUnresolved: true,
+        });
         finishConflict(state);
         return;
       }
       if (action === "cancel-conflict") {
-        const pending = state.pendingConflict;
+        const session = resolveSessionState(state);
+        const pending = session && session.pendingConflict;
         if (pending) {
-          state.lastMissingCode = pending.code;
+          recordUnresolvedScan(state, pending.code, pending.count, pending.scannedAt);
           setStatus(state, "중복 매칭을 건너뛰었습니다 · " + pending.code, "danger");
           renderSummary(state);
         }
@@ -783,11 +1039,12 @@
     });
 
     doc.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && state.pendingConflict) {
+      const session = resolveSessionState(state);
+      if (event.key === "Escape" && session && session.pendingConflict) {
         event.preventDefault();
-        const pending = state.pendingConflict;
+        const pending = session.pendingConflict;
         if (pending) {
-          state.lastMissingCode = pending.code;
+          recordUnresolvedScan(state, pending.code, pending.count, pending.scannedAt);
           setStatus(state, "중복 매칭을 건너뛰었습니다 · " + pending.code, "danger");
           renderSummary(state);
         }
@@ -825,7 +1082,8 @@
     bindEvents(popupState);
     popupWin.focus();
     focusInput(popupState);
-    void ensureMasterLoaded(popupState, false);
+    primeMasterState(pageState);
+    void processScanQueue(popupState);
   }
 
   function resolveUiWindow(win) {
@@ -850,6 +1108,7 @@
 
     const loader = context && context.loader ? context.loader : null;
     const pageState = getPageState(win, loader);
+    primeMasterState(pageState);
     const navMenu = getNavMenu(win);
     if (!navMenu || typeof navMenu.installNavButton !== "function") return;
 
@@ -889,4 +1148,5 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 

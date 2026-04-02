@@ -62,13 +62,13 @@ test("inbound inspection applyScanSelection increments count and moves latest it
   const recordA = { id: "NICN-A", nicn: "NICN-A", name: "상품A", seller: "판매처A", primaryBarcode: "BC-A" };
   const recordB = { id: "NICN-B", nicn: "NICN-B", name: "상품B", seller: "판매처B", primaryBarcode: "BC-B" };
 
-  let rows = moduleUnderTest.applyScanSelection([], recordA, "BC-A");
-  rows = moduleUnderTest.applyScanSelection(rows, recordB, "BC-B");
-  rows = moduleUnderTest.applyScanSelection(rows, recordA, "BC-A");
+  let rows = moduleUnderTest.applyScanSelection([], recordA, "BC-A", { scannedAt: 100 });
+  rows = moduleUnderTest.applyScanSelection(rows, recordB, "BC-B", { scannedAt: 200 });
+  rows = moduleUnderTest.applyScanSelection(rows, recordA, "BC-A", { scannedAt: 300 });
 
   assert.deepEqual(rows, [
-    { recordId: "NICN-A", seller: "판매처A", name: "상품A", nicn: "NICN-A", barcode: "BC-A", count: 2, lastScanCode: "BC-A" },
-    { recordId: "NICN-B", seller: "판매처B", name: "상품B", nicn: "NICN-B", barcode: "BC-B", count: 1, lastScanCode: "BC-B" },
+    { recordId: "NICN-A", seller: "판매처A", name: "상품A", nicn: "NICN-A", barcode: "BC-A", count: 2, lastScanCode: "BC-A", lastScannedAt: 300 },
+    { recordId: "NICN-B", seller: "판매처B", name: "상품B", nicn: "NICN-B", barcode: "BC-B", count: 1, lastScanCode: "BC-B", lastScannedAt: 200 },
   ]);
 });
 
@@ -89,10 +89,15 @@ test("inbound inspection summary reflects total scans and latest missing code", 
     totalScans: 3,
     rows: [{}, {}],
     lastMissingCode: "MISS-1",
+    unresolvedScans: {
+      "MISS-1": { code: "MISS-1", count: 2, lastScannedAt: 100 },
+      "MISS-2": { code: "MISS-2", count: 1, lastScannedAt: 200 },
+    },
   }), {
     totalScans: 3,
     uniqueCount: 2,
     lastMissingCode: "MISS-1",
+    unresolvedCount: 3,
   });
 });
 
