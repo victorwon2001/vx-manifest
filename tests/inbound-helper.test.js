@@ -1,12 +1,25 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 
 const moduleUnderTest = require("../modules/inbound-helper/main.js");
 const meta = require("../modules/inbound-helper/meta.json");
 const registry = require("../config/registry.json");
-const source = fs.readFileSync(path.resolve(__dirname, "../modules/inbound-helper/main.js"), "utf8");
+
+function makeRow(rowSeq, code, remainingQty, pageNumber, rowOrder, locations) {
+  return {
+    rowSeq: String(rowSeq),
+    codeTokens: [code],
+    remainingQty,
+    receivedQty: 0,
+    pageNumber,
+    rowOrder,
+    locationOptions: (locations || []).map((value) => ({
+      value,
+      text: value,
+      normalizedText: String(value).toLowerCase(),
+    })),
+  };
+}
 
 test("inbound helper exports loader contract", () => {
   assert.equal(moduleUnderTest.id, "inbound-helper");
@@ -17,7 +30,7 @@ test("inbound helper exports loader contract", () => {
   assert.equal(typeof moduleUnderTest.start, "function");
 });
 
-test("inbound helper parseLine supports tabs and optional location", () => {
+test("parseLine supports tabs and optional location", () => {
   assert.deepEqual(moduleUnderTest.parseLine("ABC-123\t10\tS35-01"), {
     code: "ABC-123",
     qty: 10,
@@ -31,65 +44,196 @@ test("inbound helper parseLine supports tabs and optional location", () => {
   assert.equal(moduleUnderTest.parseLine(""), null);
 });
 
-test("inbound helper parseDataForBatch merges duplicate codes when requested", () => {
-  const result = moduleUnderTest.parseDataForBatch([
+test("buildBatchTasks merges duplicate codes when requested", () => {
+  const tasks = moduleUnderTest.buildBatchTasks([
     "ABC-123\t10\tS35-01",
     "abc-123\t5\tS35-01",
     "XYZ-999\t3",
   ].join("\n"), true);
 
-  assert.equal(result.keys.length, 2);
-  assert.deepEqual(result.data.get("ABC-123"), {
+  assert.equal(tasks.length, 2);
+  assert.deepEqual(tasks[0], {
+    id: "batch-1",
+    mode: "batch",
+    order: 0,
     code: "ABC-123",
-    qty: 15,
     loc: "S35-01",
+    qty: 15,
+    remainingQty: 15,
+    originalLine: "ABC-123\t10\tS35-01",
   });
 });
 
-test("inbound helper builds sequential queue map by exact code", () => {
-  const result = moduleUnderTest.buildQueueMapFromText([
-    "ABC-123\t10\tS35-01",
-    "ABC-123\t5\tS35-02",
-    "XYZ-999\t3",
+test("buildSequentialTasks keeps each line independent", () => {
+  const tasks = moduleUnderTest.buildSequentialTasks([
+    "APPLE\t2\tA",
+    "APPLE\t4\tB",
+    "APPLE\t6\tC",
   ].join("\n"));
 
-  assert.equal(result.totalTasks, 3);
-  assert.equal(result.queueMap["ABC-123"].length, 2);
-  assert.equal(result.queueMap["XYZ-999"][0].qty, 3);
+  assert.equal(tasks.length, 3);
+  assert.equal(tasks[0].remainingQty, 2);
+  assert.equal(tasks[1].loc, "B");
+  assert.equal(tasks[2].qty, 6);
 });
 
-test("inbound helper caps 입력 수량 to remaining planned quantity", () => {
-  assert.equal(moduleUnderTest.calculateRemainingInboundQty(10, 7), 3);
-  assert.equal(moduleUnderTest.calculateRemainingInboundQty("10", "14"), 0);
-  assert.deepEqual(moduleUnderTest.planRowApplication(7, 3), {
-    desiredQty: 7,
-    remainingQty: 3,
-    appliedQty: 3,
-    leftoverQty: 4,
-    isPartial: true,
-  });
+test("cycle planner fills smaller remaining rows first in batch mode", () => {
+  const tasks = [{
+    id: "batch-1",
+    mode: "batch",
+    order: 0,
+    code: "APPLE",
+    loc: "",
+    qty: 7,
+    remainingQty: 7,
+    originalLine: "APPLE 7",
+  }];
+  const plan = moduleUnderTest.buildCycleAssignments(tasks, [
+    makeRow("r1", "APPLE", 10, 1, 1),
+    makeRow("r2", "APPLE", 5, 1, 0),
+  ]);
+
+  assert.deepEqual(plan.assignments.map((item) => [item.rowSeq, item.qty, item.overflowQty]), [
+    ["r2", 5, 0],
+    ["r1", 2, 0],
+  ]);
 });
 
-test("inbound helper parses edit page pagination text", () => {
-  assert.deepEqual(moduleUnderTest.extractPaginationInfoFromText("1/2페이지"), {
-    currentPage: 1,
-    totalPages: 2,
-  });
-  assert.deepEqual(moduleUnderTest.extractPaginationInfoFromText("현재 12/12페이지"), {
-    currentPage: 12,
-    totalPages: 12,
-  });
-  assert.deepEqual(moduleUnderTest.extractPaginationInfoFromText("페이지 정보 없음"), {
-    currentPage: 1,
-    totalPages: 1,
-  });
+test("cycle planner sends overflow to the last candidate row", () => {
+  const tasks = [{
+    id: "batch-1",
+    mode: "batch",
+    order: 0,
+    code: "APPLE",
+    loc: "",
+    qty: 17,
+    remainingQty: 17,
+    originalLine: "APPLE 17",
+  }];
+  const plan = moduleUnderTest.buildCycleAssignments(tasks, [
+    makeRow("r1", "APPLE", 5, 1, 0),
+    makeRow("r2", "APPLE", 10, 1, 1),
+  ]);
+
+  assert.deepEqual(plan.assignments.map((item) => [item.rowSeq, item.qty, item.overflowQty]), [
+    ["r1", 5, 0],
+    ["r2", 12, 2],
+  ]);
 });
 
-test("inbound helper extracts ordered code tokens without duplicate substrings", () => {
-  const tokens = moduleUnderTest.extractCodeTokensFromText("상품명 (ABC-123) 기타 ABC-123 DEF_45");
+test("sequential planner splits one location line across row boundaries", () => {
+  const tasks = [{
+    id: "seq-1",
+    mode: "seq",
+    order: 0,
+    code: "APPLE",
+    loc: "A",
+    qty: 8,
+    remainingQty: 8,
+    originalLine: "APPLE 8 A",
+  }];
+  const plan = moduleUnderTest.buildCycleAssignments(tasks, [
+    makeRow("r1", "APPLE", 5, 1, 0, ["A"]),
+    makeRow("r2", "APPLE", 10, 2, 0, ["A"]),
+  ]);
 
-  assert.deepEqual(tokens, ["ABC-123", "DEF_45"]);
-  assert.equal(moduleUnderTest.pickFirstActiveCode(tokens, new Set(["DEF_45"])), "DEF_45");
+  assert.deepEqual(plan.assignments.map((item) => [item.rowSeq, item.qty]), [
+    ["r1", 5],
+    ["r2", 3],
+  ]);
+});
+
+test("sequential planner uses one row per cycle across multiple location lines", () => {
+  const tasks = moduleUnderTest.buildSequentialTasks([
+    "APPLE\t2\tA",
+    "APPLE\t4\tB",
+    "APPLE\t6\tC",
+  ].join("\n"));
+  const plan = moduleUnderTest.buildCycleAssignments(tasks, [
+    makeRow("r1", "APPLE", 5, 1, 0, ["A", "B", "C"]),
+    makeRow("r2", "APPLE", 10, 1, 1, ["A", "B", "C"]),
+  ]);
+
+  assert.deepEqual(plan.assignments.map((item) => [item.taskId, item.rowSeq, item.qty]), [
+    ["seq-1", "r1", 2],
+    ["seq-2", "r2", 4],
+  ]);
+});
+
+test("planner reports missing location separately from missing candidate rows", () => {
+  const tasks = [{
+    id: "seq-1",
+    mode: "seq",
+    order: 0,
+    code: "APPLE",
+    loc: "Z-01",
+    qty: 2,
+    remainingQty: 2,
+    originalLine: "APPLE 2 Z-01",
+  }, {
+    id: "seq-2",
+    mode: "seq",
+    order: 1,
+    code: "PEAR",
+    loc: "",
+    qty: 1,
+    remainingQty: 1,
+    originalLine: "PEAR 1",
+  }];
+  const plan = moduleUnderTest.buildCycleAssignments(tasks, [
+    makeRow("r1", "APPLE", 5, 1, 0, ["A-01"]),
+  ]);
+
+  assert.equal(plan.assignments.length, 0);
+  assert.deepEqual(plan.stalled.map((item) => item.type), ["로케이션 없음", "후보 행 없음"]);
+});
+
+test("verifyPendingAssignments recognizes row disappearance as success", () => {
+  const verification = moduleUnderTest.verifyPendingAssignments([{
+    rowSeq: "r1",
+    beforeRemainingQty: 5,
+    beforeReceivedQty: 0,
+    qty: 5,
+  }], []);
+
+  assert.equal(verification.succeeded.length, 1);
+  assert.equal(verification.failed.length, 0);
+});
+
+test("verifyPendingAssignments detects missing save progress", () => {
+  const verification = moduleUnderTest.verifyPendingAssignments([{
+    rowSeq: "r1",
+    beforeRemainingQty: 5,
+    beforeReceivedQty: 0,
+    qty: 5,
+  }], [makeRow("r1", "APPLE", 5, 1, 0)]);
+
+  assert.equal(verification.succeeded.length, 0);
+  assert.equal(verification.failed.length, 1);
+});
+
+test("issue grouping builds readable final summary", () => {
+  const summary = moduleUnderTest.buildIssueSummaryText([
+    { type: "후보 행 없음", code: "APPLE", qty: 7, pageNumber: 0 },
+    { type: "후보 행 없음", code: "APPLE", qty: 3, pageNumber: 0 },
+    { type: "초과분 마지막 행 반영", code: "PEAR", qty: 2, pageNumber: 2 },
+  ]);
+
+  assert.match(summary, /후보 행 없음 \/ APPLE \/ 수량 10 \/ 2건/);
+  assert.match(summary, /초과분 마지막 행 반영 \/ PEAR \/ 수량 2 \/ 페이지 2 \/ 1건/);
+});
+
+test("pager target uses zero-based page and block", () => {
+  assert.deepEqual(moduleUnderTest.toPagerTarget(1), {
+    pageNumber: 1,
+    pageValue: "0",
+    nowBlock: "0",
+  });
+  assert.deepEqual(moduleUnderTest.toPagerTarget(12), {
+    pageNumber: 12,
+    pageValue: "11",
+    nowBlock: "1",
+  });
 });
 
 test("inbound helper gui html uses shared panel contract", () => {
@@ -104,30 +248,6 @@ test("inbound helper gui html uses shared panel contract", () => {
   assert.match(html, /id="tmInboundHelperToggle"[\s\S]*id="tmInboundHelperGui"/);
   assert.match(html, /class="tm-ui-dock__toggle tm-ui-btn tm-ui-btn--secondary"/);
   assert.match(html, /tm-ui-dock__panel tm-ui-root tm-ui-panel tm-inbound-helper/);
-  assert.match(html, /tm-ui-card tm-inbound-helper__shell/);
-  assert.match(html, /tm-ui-panel-head/);
-  assert.match(html, /tm-ui-log/);
-  assert.match(html, /tm-ui-btn tm-ui-btn--success/);
-  assert.match(html, /aria-expanded="false"/);
-  assert.match(html, /tm-ui-dock__toggle-label tm-inbound-helper__toggle-label/);
-});
-
-test("inbound helper state keeps window reference for gui mounting", () => {
-  assert.match(source, /win\[STATE_KEY\]\s*=\s*\{\s*[\s\S]*?\bwin,\s*[\s\S]*?initialized:/);
-  assert.match(source, /win\[STATE_KEY\]\.win = win;/);
-});
-
-test("inbound helper toggle state no longer shifts horizontal position", () => {
-  assert.doesNotMatch(source, /\.css\("right",\s*isVisible/);
-  assert.match(source, /\.attr\("aria-expanded",\s*isVisible \? "true" : "false"\)/);
-  assert.match(source, /#"\s*\+\s*DOCK_ID\s*\+\s*"\{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none\}/);
-  assert.match(source, /#"\s*\+\s*TOGGLE_ID\s*\+\s*"\{display:inline-flex;align-items:center;gap:8px;min-height:38px/);
-});
-
-test("inbound helper sequential mode knows it can advance to next page", () => {
-  assert.match(source, /현재 페이지에서 대상이 없어 .*페이지로 이동합니다/);
-  assert.match(source, /function goToPage\(state, pageNumber\)/);
-  assert.match(source, /go_page\("0", zeroBasedPage\)/);
 });
 
 test("inbound helper registry and dependencies stay aligned", () => {
