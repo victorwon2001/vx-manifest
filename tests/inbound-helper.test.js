@@ -58,6 +58,33 @@ test("inbound helper builds sequential queue map by exact code", () => {
   assert.equal(result.queueMap["XYZ-999"][0].qty, 3);
 });
 
+test("inbound helper caps 입력 수량 to remaining planned quantity", () => {
+  assert.equal(moduleUnderTest.calculateRemainingInboundQty(10, 7), 3);
+  assert.equal(moduleUnderTest.calculateRemainingInboundQty("10", "14"), 0);
+  assert.deepEqual(moduleUnderTest.planRowApplication(7, 3), {
+    desiredQty: 7,
+    remainingQty: 3,
+    appliedQty: 3,
+    leftoverQty: 4,
+    isPartial: true,
+  });
+});
+
+test("inbound helper parses edit page pagination text", () => {
+  assert.deepEqual(moduleUnderTest.extractPaginationInfoFromText("1/2페이지"), {
+    currentPage: 1,
+    totalPages: 2,
+  });
+  assert.deepEqual(moduleUnderTest.extractPaginationInfoFromText("현재 12/12페이지"), {
+    currentPage: 12,
+    totalPages: 12,
+  });
+  assert.deepEqual(moduleUnderTest.extractPaginationInfoFromText("페이지 정보 없음"), {
+    currentPage: 1,
+    totalPages: 1,
+  });
+});
+
 test("inbound helper extracts ordered code tokens without duplicate substrings", () => {
   const tokens = moduleUnderTest.extractCodeTokensFromText("상품명 (ABC-123) 기타 ABC-123 DEF_45");
 
@@ -95,6 +122,12 @@ test("inbound helper toggle state no longer shifts horizontal position", () => {
   assert.match(source, /\.attr\("aria-expanded",\s*isVisible \? "true" : "false"\)/);
   assert.match(source, /#"\s*\+\s*DOCK_ID\s*\+\s*"\{position:fixed;top:14px;right:14px;z-index:9999;display:grid;justify-items:end;gap:10px;pointer-events:none\}/);
   assert.match(source, /#"\s*\+\s*TOGGLE_ID\s*\+\s*"\{display:inline-flex;align-items:center;gap:8px;min-height:38px/);
+});
+
+test("inbound helper sequential mode knows it can advance to next page", () => {
+  assert.match(source, /현재 페이지에서 대상이 없어 .*페이지로 이동합니다/);
+  assert.match(source, /function goToPage\(state, pageNumber\)/);
+  assert.match(source, /go_page\("0", zeroBasedPage\)/);
 });
 
 test("inbound helper registry and dependencies stay aligned", () => {

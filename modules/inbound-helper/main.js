@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-helper";
   const MODULE_NAME = "입고도우미";
-  const MODULE_VERSION = "0.1.5";
+  const MODULE_VERSION = "0.1.6";
   const MATCHES = ["https://www.ebut3pl.co.kr/jsp/stm/stm106edit4.jsp*"];
 
   const KEY_QUEUE_MAP = "ebut_v5_queue_map";
@@ -129,6 +129,39 @@
       if (activeCodes && typeof activeCodes.has === "function" && activeCodes.has(token)) return token;
     }
     return "";
+  }
+
+  function toSafeInteger(value) {
+    const numeric = parseInt(String(value == null ? "" : value).replace(/[^\d-]/g, ""), 10);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  function calculateRemainingInboundQty(expectedQty, receivedQty) {
+    return Math.max(0, toSafeInteger(expectedQty) - toSafeInteger(receivedQty));
+  }
+
+  function planRowApplication(taskQty, rowRemainingQty) {
+    const desiredQty = Math.max(0, toSafeInteger(taskQty));
+    const remainingQty = Math.max(0, toSafeInteger(rowRemainingQty));
+    const appliedQty = Math.min(desiredQty, remainingQty);
+    return {
+      desiredQty,
+      remainingQty,
+      appliedQty,
+      leftoverQty: Math.max(0, desiredQty - appliedQty),
+      isPartial: appliedQty > 0 && appliedQty < desiredQty,
+    };
+  }
+
+  function extractPaginationInfoFromText(text) {
+    const normalized = safeTrim(text).replace(/\s+/g, "");
+    const match = normalized.match(/(\d+)\/(\d+)페이지/);
+    if (!match) {
+      return { currentPage: 1, totalPages: 1 };
+    }
+    const currentPage = Math.max(1, toSafeInteger(match[1]));
+    const totalPages = Math.max(currentPage, toSafeInteger(match[2]));
+    return { currentPage, totalPages };
   }
 
   function getPageState(win, unsafeWin) {
@@ -274,6 +307,13 @@
     return index;
   }
 
+  function getRowRemainingQty($, $row) {
+    if (!$row || !$row.length) return 0;
+    const expectedQty = $row.find("input.preinstock_inqty, input[name='PREINSTOCK_INQTY']").first().val();
+    const receivedQty = $row.find("input.preinstock_cqty_ed, input[name='PREINSTOCK_CQTY_ED']").first().val();
+    return calculateRemainingInboundQty(expectedQty, receivedQty);
+  }
+
   function setLocation($, $select, locText) {
     if (!$select || !$select.length || !locText) return false;
     const target = normalizeLooseText(locText);
@@ -306,6 +346,25 @@
     $row.find("input[name='PREINSTOCK_CQTY']").val(qty);
     $row.find("input[name='ckbox']").prop("checked", true);
     if (loc) setLocation($, $row.find("select[name='INOUTSTOCK_LOCA']"), loc);
+  }
+
+  function getPaginationInfo($) {
+    return extractPaginationInfoFromText($("body").text());
+  }
+
+  function goToPage(state, pageNumber) {
+    const targetPage = Math.max(1, toSafeInteger(pageNumber));
+    const zeroBasedPage = String(targetPage - 1);
+    const pageWindow = state.unsafeWindow || state.win;
+    if (pageWindow && typeof pageWindow.go_page === "function") {
+      pageWindow.go_page("0", zeroBasedPage);
+      return true;
+    }
+    if (state.win && typeof state.win.go_page === "function") {
+      state.win.go_page("0", zeroBasedPage);
+      return true;
+    }
+    return false;
   }
 
   function syncTogglePosition($) {
@@ -459,6 +518,18 @@
     const activeCodes = new Set(Object.keys(queueMap).filter((code) => Array.isArray(queueMap[code]) && queueMap[code].length > 0));
     state.win.setTimeout(() => {
       const $rows = getTargetRows($);
+      const pageInfo = getPaginationInfo($);
+      setProgress(state, "남은 작업: " + remainingTasks + "건 · " + pageInfo.currentPage + "/" + pageInfo.totalPages + " 페이지");
+      if (!$rows.length) {
+        let retry = parseInt(state.win.localStorage.getItem(KEY_RETRY) || "0", 10);
+        if (retry < 5) {
+          retry += 1;
+          state.win.localStorage.setItem(KEY_RETRY, String(retry));
+          appendLog(state, "행이 아직 보이지 않습니다. " + retry + "/5 재시도...", true);
+          state.win.setTimeout(() => processParallelQueue(state), 800 * retry);
+          return;
+        }
+      }
       let processedCount = 0;
       $rows.each(function eachRow() {
         const $row = $(this);
@@ -467,6 +538,9 @@
         const tasks = queueMap[rowCode];
         if (!Array.isArray(tasks) || !tasks.length) return;
         const task = tasks[0];
+        const rowRemainingQty = getRowRemainingQty($, $row);
+        const plan = planRowApplication(task.qty, rowRemainingQty);
+        if (plan.appliedQty <= 0) return;
         if (task.loc) {
           const ok = setLocation($, $row.find("select[name='INOUTSTOCK_LOCA']"), task.loc);
           if (!ok) {
@@ -478,10 +552,18 @@
             return;
           }
         }
-        $row.find("input[name='PREINSTOCK_CQTY']").val(task.qty);
+        $row.find("input[name='PREINSTOCK_CQTY']").val(plan.appliedQty);
         $row.find("input[name='ckbox']").prop("checked", true);
-        appendLog(state, "입력: " + rowCode + " (" + task.qty + ")" + (task.loc ? " " + task.loc : ""), false);
-        tasks.shift();
+        appendLog(
+          state,
+          (plan.isPartial ? "부분입력: " : "입력: ") + rowCode + " (" + plan.desiredQty + " -> " + plan.appliedQty + ")" + (task.loc ? " " + task.loc : ""),
+          plan.isPartial
+        );
+        if (plan.leftoverQty > 0) {
+          task.qty = plan.leftoverQty;
+        } else {
+          tasks.shift();
+        }
         processedCount += 1;
       });
       if (processedCount > 0) {
@@ -492,17 +574,14 @@
         state.win.setTimeout(() => executeGoSave(state.win, state.unsafeWindow), 300);
         return;
       }
-      let retry = parseInt(state.win.localStorage.getItem(KEY_RETRY) || "0", 10);
-      if (retry < 5) {
-        retry += 1;
-        state.win.localStorage.setItem(KEY_RETRY, String(retry));
-        appendLog(state, "매칭 0건. " + retry + "/5 재시도...", true);
-        state.win.setTimeout(() => processParallelQueue(state), 800 * retry);
-        return;
+      if (pageInfo.currentPage < pageInfo.totalPages) {
+        state.win.localStorage.setItem(KEY_RETRY, "0");
+        appendLog(state, "현재 페이지에서 대상이 없어 " + (pageInfo.currentPage + 1) + "페이지로 이동합니다.", false);
+        if (goToPage(state, pageInfo.currentPage + 1)) return;
       }
       Object.keys(queueMap).forEach((codeKey) => {
-        (queueMap[codeKey] || []).forEach(() => {
-          const message = "[상품미발견] " + codeKey + " - 테이블에 없음";
+        (queueMap[codeKey] || []).forEach((task) => {
+          const message = "[상품미발견] " + codeKey + " - 남은 " + Math.max(0, toSafeInteger(task.qty)) + "개";
           errors.push(message);
           appendLog(state, message, true);
         });
@@ -533,19 +612,23 @@
       const item = parsed.data.get(key);
       const candidates = rowIndex.get(item.code) || [];
       let matched = false;
+      let remainingQty = toSafeInteger(item.qty);
       for (const row of candidates) {
         const $row = $(row);
         if ($row.attr("data-auto-filled")) continue;
-        setInput($, $row, item.qty, item.loc);
+        const plan = planRowApplication(remainingQty, getRowRemainingQty($, $row));
+        if (plan.appliedQty <= 0) continue;
+        setInput($, $row, plan.appliedQty, item.loc);
         $row.attr("data-auto-filled", "true").css("background", "#e7f5ea");
         success += 1;
         matched = true;
-        appendLog(state, "[성공] " + item.code + " / " + item.qty + "개", false);
-        break;
+        remainingQty = plan.leftoverQty;
+        appendLog(state, (plan.isPartial ? "[부분입력] " : "[성공] ") + item.code + " / " + plan.desiredQty + " -> " + plan.appliedQty + "개", plan.isPartial);
+        if (remainingQty <= 0) break;
       }
-      if (!matched) {
+      if (!matched || remainingQty > 0) {
         fail += 1;
-        appendLog(state, "[실패] " + item.code + " - 행을 찾지 못함", true);
+        appendLog(state, "[실패] " + item.code + " - 남은 " + remainingQty + "개를 채울 행을 찾지 못함", true);
       }
     });
     appendLog(state, "결과: 성공 " + success + ", 실패 " + fail, fail > 0);
@@ -565,7 +648,7 @@
       (state.unsafeWindow || state.win).alert("데이터 형식 오류");
       return;
     }
-    const confirmed = (state.unsafeWindow || state.win).confirm("총 " + queueState.totalTasks + "건의 작업을 시작합니다.\n페이지가 자동으로 새로고침되며 처리됩니다.");
+    const confirmed = (state.unsafeWindow || state.win).confirm("총 " + queueState.totalTasks + "건의 작업을 시작합니다.\n여러 페이지가 있으면 자동으로 다음 페이지까지 순회하며, 남은 예정수량까지만 입력합니다.");
     if (!confirmed) return;
     state.win.localStorage.setItem(KEY_QUEUE_MAP, JSON.stringify(queueState.queueMap));
     state.win.localStorage.setItem(KEY_RUNNING, "true");
@@ -641,12 +724,17 @@
     buildQueueMapFromText,
     extractCodeTokensFromText,
     pickFirstActiveCode,
+    toSafeInteger,
+    calculateRemainingInboundQty,
+    planRowApplication,
+    extractPaginationInfoFromText,
     normalizeLooseText,
     buildGuiHtml,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
