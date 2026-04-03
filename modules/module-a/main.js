@@ -113,6 +113,37 @@
     const checked = doc.querySelector("input[name='SEARCH_TYPE']:checked");
     return checked ? checked.value : "ordlist_no1";
   }
+  function getCheckedRadioValue(doc, name, fallback) {
+    if (!doc) return fallback || "";
+    const checked = doc.querySelector("input[name='" + name + "']:checked");
+    return checked ? safeTrim(checked.value) : (fallback || "");
+  }
+  function getYesNoLabel(value) {
+    return safeTrim(value).toUpperCase() === "Y" ? "예" : "아니오";
+  }
+  function getFilterModeLabel(enabled) {
+    return enabled ? "필터링 ON" : "필터링 OFF";
+  }
+  function captureScanOptions(doc, filterModeEnabled, modeOverride) {
+    const mode = safeTrim(modeOverride) || (doc ? getCurrentMode(doc) : "ordlist_no1");
+    const printCheck = safeTrim(getCheckedRadioValue(doc, "PRINT_CHECK", "N")).toUpperCase() === "Y" ? "Y" : "N";
+    const scanDispatch = safeTrim(getCheckedRadioValue(doc, "SCAN_DISPATCH", "N")).toUpperCase() === "Y" ? "Y" : "N";
+    return {
+      mode,
+      modeLabel: getModeLabel(mode),
+      printCheck,
+      printCheckLabel: getYesNoLabel(printCheck),
+      scanDispatch,
+      scanDispatchLabel: getYesNoLabel(scanDispatch),
+      filterModeEnabled: !!filterModeEnabled,
+      filterModeLabel: getFilterModeLabel(!!filterModeEnabled),
+    };
+  }
+  function getHistoryStatusMeta(status) {
+    if (status === "mismatch") return { label: "불일치", className: "tm-history" };
+    if (status === "recorded") return { label: "기록", className: "tm-recorded" };
+    return { label: "성공", className: "tm-done" };
+  }
   function isSessionExpiredResponse(bodyText, contentType) {
     const text = String(bodyText || "");
     const type = String(contentType || "").toLowerCase();
@@ -397,14 +428,27 @@
     if (!entry || !entry.timestamp) return null;
     const timestamp = new Date(entry.timestamp);
     if (Number.isNaN(timestamp.getTime())) return null;
+    const status = entry.status === "mismatch"
+      ? "mismatch"
+      : (entry.status === "recorded" ? "recorded" : "success");
+    const mode = safeTrim(entry.mode) || "ordlist_no1";
+    const printCheck = safeTrim(entry.printCheck).toUpperCase() === "Y" ? "Y" : "N";
+    const scanDispatch = safeTrim(entry.scanDispatch).toUpperCase() === "Y" ? "Y" : "N";
+    const filterModeEnabled = !!entry.filterModeEnabled;
     const normalized = {
       id: safeTrim(entry.id) || ("history-" + timestamp.getTime()),
       timestamp: timestamp.toISOString(),
       timeLabel: formatDateTime(timestamp),
-      status: entry.status === "mismatch" ? "mismatch" : "success",
-      mode: safeTrim(entry.mode) || "ordlist_no1",
-      modeLabel: getModeLabel(entry.mode),
+      status,
+      mode,
+      modeLabel: getModeLabel(mode),
       value: safeTrim(entry.value),
+      printCheck,
+      printCheckLabel: getYesNoLabel(printCheck),
+      scanDispatch,
+      scanDispatchLabel: getYesNoLabel(scanDispatch),
+      filterModeEnabled,
+      filterModeLabel: getFilterModeLabel(filterModeEnabled),
       matchedItemIds: Array.isArray(entry.matchedItemIds) ? uniqueArray(entry.matchedItemIds.map(safeTrim)) : [],
       selections: Array.isArray(entry.selections) ? entry.selections.map((selection) => ({
         id: safeTrim(selection.id),
@@ -439,10 +483,14 @@
       if (new Date(entry.timestamp).getTime() < threshold) return false;
       if (!keyword) return true;
 
+      const statusMeta = getHistoryStatusMeta(entry.status);
       const haystack = [
         entry.value,
         entry.modeLabel,
-        entry.status === "mismatch" ? "불일치" : "성공",
+        statusMeta.label,
+        entry.filterModeLabel,
+        "중복출력금지 " + entry.printCheckLabel,
+        "출고처리 " + entry.scanDispatchLabel,
       ].concat(entry.selections.map((selection) => [
         formatCompactDate(selection.ivmstr_date),
         selection.ivmstr_ivno ? selection.ivmstr_ivno + "차" : "",
@@ -510,16 +558,20 @@
     writeHistory(storage, nextEntries);
     return nextEntries;
   }
-  function createHistoryEntry(status, mode, value, selections, matchedItemIds) {
+  function createHistoryEntry(status, mode, value, selections, matchedItemIds, options) {
     const timestamp = new Date();
+    const scanOptions = Object.assign(captureScanOptions(null, false, mode), options || {}, { mode });
     return normalizeHistoryEntry({
       id: [status, timestamp.getTime(), safeTrim(value)].join("-"),
       timestamp: timestamp.toISOString(),
       status,
-      mode,
+      mode: scanOptions.mode,
       value,
       selections,
       matchedItemIds,
+      printCheck: scanOptions.printCheck,
+      scanDispatch: scanOptions.scanDispatch,
+      filterModeEnabled: scanOptions.filterModeEnabled,
     });
   }
   function buildStatus(state) {
@@ -561,12 +613,16 @@
   function buildHistoryDisplayRows(entries) {
     return (entries || []).map((entry) => {
       const selections = entry.selections || [];
+      const statusMeta = getHistoryStatusMeta(entry.status);
       return {
         id: entry.id,
-        statusLabel: entry.status === "mismatch" ? "불일치" : "성공",
-        statusClass: entry.status === "mismatch" ? "tm-history" : "tm-done",
+        statusLabel: statusMeta.label,
+        statusClass: statusMeta.className,
+        filterModeLabel: entry.filterModeLabel || getFilterModeLabel(entry.filterModeEnabled),
         value: entry.value || "-",
         modeLabel: entry.modeLabel || getModeLabel(entry.mode),
+        printCheckLabel: entry.printCheckLabel || getYesNoLabel(entry.printCheck),
+        scanDispatchLabel: entry.scanDispatchLabel || getYesNoLabel(entry.scanDispatch),
         timeLabel: entry.timeLabel || "",
         dateSummary: summarizeValues(selections.map((selection) => formatCompactDate(selection.ivmstr_date || "")), "-"),
         ivnoSummary: summarizeValues(
@@ -836,6 +892,7 @@
       "#" + PANEL_ID + "-modal-badge.tm-done{background:#edf5f1;color:var(--tm-success);border-color:#d1e2da}",
       "#" + PANEL_ID + "-modal-badge.tm-pending{background:#f2f4f4;color:var(--tm-primary-strong);border-color:var(--tm-border)}",
       "#" + PANEL_ID + "-modal-badge.tm-history{background:#f7f0e8;color:var(--tm-warning);border-color:#e3d4c0}",
+      "#" + PANEL_ID + "-modal-badge.tm-recorded{background:#eef4f8;color:var(--tm-primary-strong);border-color:#d6e0e6}",
       "#" + PANEL_ID + "-modal-history-item{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--tm-border);border-radius:8px;background:var(--tm-surface-alt)}",
       "#" + PANEL_ID + "-modal-history-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--tm-muted)}",
       "#" + PANEL_ID + "-modal-history-selections{display:flex;gap:6px;flex-wrap:wrap}",
@@ -843,7 +900,7 @@
       "#" + PANEL_ID + "-history-table{width:100%;border-collapse:collapse;table-layout:fixed;background:var(--tm-surface)}",
       "#" + PANEL_ID + "-history-table th,#" + PANEL_ID + "-history-table td{padding:7px 8px;border-bottom:1px solid var(--tm-border);text-align:center;vertical-align:top;word-break:break-word}",
       "#" + PANEL_ID + "-history-table th{position:sticky;top:0;background:#f0f2f4;color:var(--tm-muted);z-index:1}",
-      "#" + PANEL_ID + "-history-table th:nth-child(8),#" + PANEL_ID + "-history-table td:nth-child(8){text-align:left}",
+      "#" + PANEL_ID + "-history-table th:nth-child(11),#" + PANEL_ID + "-history-table td:nth-child(11){text-align:left}",
       "#" + PANEL_ID + "-modal-empty{padding:30px 14px;text-align:center;color:#4f5758;border:1px dashed #d8dfdf;border-radius:12px;background:var(--tm-surface-alt)}",
       "#" + PANEL_ID + "-modal-close{height:30px;padding:0 12px}",
       "@media (max-width:900px){#" + PANEL_ID + " .tm-toolbar-hero,#" + PANEL_ID + " .tm-toolbar-main{grid-template-columns:1fr}#" + PANEL_ID + " .tm-toolbar-hero-meta,#" + PANEL_ID + " .tm-toolbar-actions{justify-content:flex-start}#" + PANEL_ID + "-modal-summary .tm-selection-card{grid-template-columns:1fr}}",
@@ -921,7 +978,7 @@
       "</div>",
       "<div class='tm-toolbar-actions'>",
       "<button type='button' id='" + PANEL_ID + "-data' class='tm-button-strong tm-ui-btn'>데이터 0건</button>",
-      "<button type='button' id='" + PANEL_ID + "-history' class='tm-ui-btn tm-ui-btn--secondary'>이전 기록</button>",
+      "<button type='button' id='" + PANEL_ID + "-history' class='tm-ui-btn tm-ui-btn--secondary'>스캔 기록</button>",
       "</div>",
       "</div>",
       "<div class='tm-selection-line' id='" + PANEL_ID + "-selection-line'></div>",
@@ -1105,13 +1162,16 @@
     render(state);
   }
   function recordHistory(state, status, mode, value, matchedItemIds) {
+    const normalizedValue = safeTrim(value);
+    if (!normalizedValue) return;
     const selections = matchedItemIds && matchedItemIds.length
       ? uniqueArray(matchedItemIds.map((itemId) => itemId.split("::")[0]))
         .map((rowId) => state.rows.find((row) => row.id === rowId))
         .filter(Boolean)
       : getSelectedRows(state);
 
-    const entry = createHistoryEntry(status, mode, value, selections, matchedItemIds || []);
+    const scanOptions = captureScanOptions(state.doc, state.filterModeEnabled, mode);
+    const entry = createHistoryEntry(status, scanOptions.mode, normalizedValue, selections, matchedItemIds || [], scanOptions);
     state.localHistoryEntries = appendHistoryEntry(state.localHistoryEntries, entry, state.storage);
     state.sessionHistoryEntries = pruneHistoryEntries([entry].concat(state.sessionHistoryEntries || []));
   }
@@ -1395,16 +1455,18 @@
   }
   function renderHistoryModal(state) {
     const rows = buildHistoryDisplayRows(searchHistoryEntries(state.localHistoryEntries, state.historyFilters));
+    const recordedCount = state.localHistoryEntries.filter((entry) => entry.status === "recorded").length;
 
     state.elements.modalHead.innerHTML = buildModalHeader(
-      "이전 로컬 기록",
-      "최대 2주 동안 보관된 성공/불일치 기록"
+      "스캔 로컬 기록",
+      "필터링 ON/OFF와 상관없이 최대 2주 동안 보관된 스캔 기록"
     );
     state.elements.modalSummary.innerHTML = [
       "<div class='tm-selection-card'>",
       "<div><strong>총 기록</strong><span>" + state.localHistoryEntries.length + "건</span></div>",
       "<div><strong>성공</strong><span>" + state.localHistoryEntries.filter((entry) => entry.status === "success").length + "건</span></div>",
       "<div><strong>불일치</strong><span>" + state.localHistoryEntries.filter((entry) => entry.status === "mismatch").length + "건</span></div>",
+      "<div><strong>기록만</strong><span>" + recordedCount + "건</span></div>",
       "</div>",
     ].join("");
     state.elements.modalControls.innerHTML = [
@@ -1417,8 +1479,9 @@
       "<option value='all'" + (state.historyFilters.status === "all" ? " selected" : "") + ">전체</option>",
       "<option value='success'" + (state.historyFilters.status === "success" ? " selected" : "") + ">성공</option>",
       "<option value='mismatch'" + (state.historyFilters.status === "mismatch" ? " selected" : "") + ">불일치</option>",
+      "<option value='recorded'" + (state.historyFilters.status === "recorded" ? " selected" : "") + ">기록만</option>",
       "</select></label>",
-      "<label class='tm-field'><span>검색</span><input type='text' id='" + PANEL_ID + "-history-keyword' value='" + escapeHtml(state.historyFilters.keyword) + "' placeholder='입력값, 차수, 판매처, 메모'></label>",
+      "<label class='tm-field'><span>검색</span><input type='text' id='" + PANEL_ID + "-history-keyword' value='" + escapeHtml(state.historyFilters.keyword) + "' placeholder='입력값, 판매처, 메모, 옵션'></label>",
     ].join("");
 
     if (!rows.length) {
@@ -1430,8 +1493,11 @@
       "<div class='tm-history-table-wrap'>",
       "<table class='tm-history-table'><thead><tr>",
       "<th style='width:70px'>상태</th>",
+      "<th style='width:84px'>필터</th>",
       "<th style='width:72px'>구분</th>",
       "<th style='width:120px'>입력값</th>",
+      "<th style='width:88px'>중복출력</th>",
+      "<th style='width:88px'>출고처리</th>",
       "<th style='width:138px'>기록시각</th>",
       "<th style='width:104px'>날짜</th>",
       "<th style='width:88px'>차수</th>",
@@ -1442,8 +1508,11 @@
       rows.map((entry) => [
         "<tr>",
         "<td><span class='tm-modal-badge " + escapeHtml(entry.statusClass) + "'>" + escapeHtml(entry.statusLabel) + "</span></td>",
+        "<td>" + escapeHtml(entry.filterModeLabel) + "</td>",
         "<td>" + escapeHtml(entry.modeLabel) + "</td>",
         "<td>" + escapeHtml(entry.value) + "</td>",
+        "<td>" + escapeHtml(entry.printCheckLabel) + "</td>",
+        "<td>" + escapeHtml(entry.scanDispatchLabel) + "</td>",
         "<td>" + escapeHtml(entry.timeLabel) + "</td>",
         "<td>" + escapeHtml(entry.dateSummary) + "</td>",
         "<td>" + escapeHtml(entry.ivnoSummary) + "</td>",
@@ -1492,7 +1561,7 @@
       : "기존 송장출력 스캔 흐름";
     state.elements.compactStatus.textContent = state.filterModeEnabled
       ? (buildSelectedSummaryText(getSelectedRows(state)) + " / 데이터 " + aggregateCounts.total + "건")
-      : "기존 송장출력 스캔";
+      : ("기존 송장출력 스캔 / 기록 " + state.localHistoryEntries.length + "건");
     state.elements.clearButton.disabled = !state.selectedRowIds.length && !state.pendingDetailIds.size;
     state.elements.refreshButton.disabled = state.listLoading || state.pendingDetailIds.size > 0;
     state.elements.dateInput.disabled = state.listLoading || state.pendingDetailIds.size > 0;
@@ -1568,10 +1637,20 @@
     }
   }
   function handleAfterScan(state, event) {
-    if (!state.filterModeEnabled || !state.selectedRowIds.length || !state.aggregate) return;
-
     const mode = safeTrim(event.detail && event.detail.mode) || getCurrentMode(state.doc);
     const value = safeTrim(event.detail && event.detail.value);
+    if (!value) return;
+
+    if (!state.filterModeEnabled) {
+      recordHistory(state, "recorded", mode, value, []);
+      state.detailError = "";
+      state.statusText = "필터링 OFF 상태에서도 스캔 기록을 저장했습니다.";
+      render(state);
+      return;
+    }
+
+    if (!state.selectedRowIds.length || !state.aggregate) return;
+
     const gate = evaluateScanGate(state.aggregate, mode, value);
     if (!gate.allowed) return;
 
@@ -1738,7 +1817,7 @@
 
   return {
     id: "module-a",
-    version: "0.1.11",
+    version: "0.1.12",
     matches: ["https://www.ebut3pl.co.kr/jsp/site/site3217main.jsp*"],
     AFTER_EVENT_NAME,
     BEFORE_EVENT_NAME,
@@ -1747,12 +1826,14 @@
     HISTORY_STORAGE_KEY,
     attachSelectionMeta,
     buildAggregateScanData,
+    captureScanOptions,
     buildDetailRows,
     buildHistoryDisplayRows,
     buildListRequestParams,
     buildPageBridgeSource,
     buildSelectedSummaryText,
     compactDate,
+    createHistoryEntry,
     disableFilterModeState,
     evaluateScanGate,
     extractScanTargets,
@@ -1761,10 +1842,12 @@
     formatDateTime,
     gmRequest,
     getAggregateCounts,
+    getHistoryStatusMeta,
     getModeCount,
     getModeLabel,
     isSessionExpiredResponse,
     markProcessed,
+    normalizeHistoryEntry,
     pruneHistoryEntries,
     resetSessionHistoryState,
     resolveBinaryRequestTransport,
@@ -1779,6 +1862,7 @@
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
