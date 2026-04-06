@@ -65,15 +65,14 @@ test("outbound manager classifies cancel response from count", () => {
   assert.equal(none.errorGroup, "취소대상없음");
 });
 
-test("outbound manager result filter supports partial match across invoice and message", () => {
+test("outbound manager result filter can switch to failures-only view", () => {
   const rows = [
-    { invoiceNumber: "511656028216", modeLabel: "출고", resultLabel: "완료", message: "1건 발송처리(1건 재고출고처리)", processedAt: new Date("2026-04-06T10:00:00Z").getTime() },
-    { invoiceNumber: "511656028054", modeLabel: "출고취소", resultLabel: "취소대상없음", message: "출고취소할 주문이 없습니다.", processedAt: new Date("2026-04-06T11:00:00Z").getTime() },
+    { invoiceNumber: "511656028216", modeLabel: "출고", resultKind: "success", resultLabel: "완료", message: "1건 발송처리(1건 재고출고처리)", processedAt: new Date("2026-04-06T10:00:00Z").getTime() },
+    { invoiceNumber: "511656028054", modeLabel: "출고취소", resultKind: "error", resultLabel: "취소대상없음", message: "출고취소할 주문이 없습니다.", processedAt: new Date("2026-04-06T11:00:00Z").getTime() },
   ];
 
-  assert.deepEqual(moduleUnderTest.filterResults(rows, "028216").map((row) => row.invoiceNumber), ["511656028216"]);
-  assert.deepEqual(moduleUnderTest.filterResults(rows, "취소대상").map((row) => row.invoiceNumber), ["511656028054"]);
-  assert.equal(moduleUnderTest.filterResults(rows, "").length, 2);
+  assert.deepEqual(moduleUnderTest.filterResults(rows, { failuresOnly: false }).map((row) => row.invoiceNumber), ["511656028216", "511656028054"]);
+  assert.deepEqual(moduleUnderTest.filterResults(rows, { failuresOnly: true }).map((row) => row.invoiceNumber), ["511656028054"]);
 });
 
 test("outbound manager error summary groups by category and includes unprocessed numbers", () => {
@@ -96,7 +95,7 @@ test("outbound manager summary counts successes, errors, duplicates, and remaini
     totalUnique: 4,
     duplicatesRemoved: 2,
     queue: ["C", "D"],
-    currentInvoice: "B",
+    inflightCount: 1,
     unprocessed: ["D"],
     results: [
       { resultKind: "success" },
@@ -111,6 +110,18 @@ test("outbound manager summary counts successes, errors, duplicates, and remaini
     remainingCount: 3,
     unprocessedCount: 1,
   });
+});
+
+test("outbound manager warehouse resolver prefers popup selection then current page value", () => {
+  const options = [
+    { value: "", label: "--출고창고선택--" },
+    { value: "1060", label: "ECMS" },
+    { value: "1061", label: "SUB" },
+  ];
+
+  assert.equal(moduleUnderTest.resolveSelectedWarehouse(options, "1060", "1061"), "1061");
+  assert.equal(moduleUnderTest.resolveSelectedWarehouse(options, "1060", "9999"), "1060");
+  assert.equal(moduleUnderTest.resolveSelectedWarehouse(options, "", ""), "1060");
 });
 
 test("outbound manager rows html keeps centered columns", () => {

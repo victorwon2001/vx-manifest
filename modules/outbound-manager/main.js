@@ -3,7 +3,7 @@
 
   const MODULE_ID = "outbound-manager";
   const MODULE_NAME = "출고매니저";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = [
     "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
     "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
@@ -122,6 +122,7 @@
       running: false,
       stopRequested: false,
       queue: [],
+      inflightCount: 0,
       results: [],
       totalUnique: 0,
       duplicatesRemoved: 0,
@@ -144,8 +145,10 @@
         buttonInstalled: false,
         installAttempts: 0,
         inputText: "",
-        searchQuery: "",
         cancelMode: false,
+        failuresOnly: false,
+        warehouseOptions: [],
+        selectedWarehouse: "",
         run: createRunState()
       };
     }
@@ -244,19 +247,11 @@
     };
   }
 
-  function filterResults(results, query) {
-    const keyword = safeTrim(query).toLowerCase();
-    if (!keyword) return (results || []).slice();
-    return (results || []).filter((row) => {
-      const haystack = [
-        row.invoiceNumber,
-        row.modeLabel,
-        row.resultLabel,
-        row.message,
-        formatDateTime(row.processedAt)
-      ].join(" ").toLowerCase();
-      return haystack.indexOf(keyword) !== -1;
-    });
+  function filterResults(results, options) {
+    const failuresOnly = !!(options && options.failuresOnly);
+    const items = Array.isArray(results) ? results.slice() : [];
+    if (!failuresOnly) return items;
+    return items.filter((row) => row && row.resultKind !== "success");
   }
 
   function getResultTone(kind) {
@@ -316,9 +311,72 @@
       duplicatesRemoved: Number(runState && runState.duplicatesRemoved) || 0,
       successCount,
       errorCount,
-      remainingCount: Math.max((runState && runState.queue ? runState.queue.length : 0) + ((runState && runState.currentInvoice) ? 1 : 0), 0),
+      remainingCount: Math.max(
+        (runState && runState.queue ? runState.queue.length : 0) + (Number(runState && runState.inflightCount) || 0),
+        0
+      ),
       unprocessedCount: Array.isArray(runState && runState.unprocessed) ? runState.unprocessed.length : 0
     };
+  }
+
+  function readWarehouseState(pageWin) {
+    const select = pageWin && pageWin.document
+      ? pageWin.document.querySelector('select[name="INOUTSTOCK_WAH"]')
+      : null;
+    if (!select) return { selectedValue: "", options: [] };
+    const options = Array.from(select.options || []).map((option) => {
+      return {
+        value: safeTrim(option.value),
+        label: safeTrim(option.textContent || option.label)
+      };
+    });
+    return {
+      selectedValue: safeTrim(select.value),
+      options
+    };
+  }
+
+  function resolveSelectedWarehouse(options, currentValue, preferredValue) {
+    const items = Array.isArray(options) ? options : [];
+    const hasOption = (value) => items.some((item) => item.value === value);
+    if (preferredValue && hasOption(preferredValue)) return preferredValue;
+    if (currentValue && hasOption(currentValue)) return currentValue;
+    const firstValid = items.find((item) => item.value);
+    return firstValid ? firstValid.value : "";
+  }
+
+  function syncWarehouseState(state) {
+    const warehouseState = readWarehouseState(state.pageWin);
+    state.warehouseOptions = warehouseState.options.slice();
+    state.selectedWarehouse = resolveSelectedWarehouse(
+      state.warehouseOptions,
+      warehouseState.selectedValue,
+      state.selectedWarehouse
+    );
+  }
+
+  function applyWarehouseSelection(pageWin, warehouseValue) {
+    const select = pageWin && pageWin.document
+      ? pageWin.document.querySelector('select[name="INOUTSTOCK_WAH"]')
+      : null;
+    if (!select) return;
+    const nextValue = safeTrim(warehouseValue);
+    if (safeTrim(select.value) === nextValue) return;
+    select.value = nextValue;
+    select.dispatchEvent(new pageWin.Event("change", { bubbles: true }));
+  }
+
+  function buildWarehouseOptionsHtml(options, selectedValue) {
+    return (Array.isArray(options) ? options : []).map((item) => {
+      const value = safeTrim(item && item.value);
+      const selected = value === safeTrim(selectedValue) ? ' selected="selected"' : "";
+      return '<option value="' + escapeHtml(value) + '"' + selected + ">" + escapeHtml(item && item.label) + "</option>";
+    }).join("");
+  }
+
+  function getSelectedWarehouseLabel(state) {
+    const match = (state.warehouseOptions || []).find((item) => item.value === state.selectedWarehouse);
+    return match ? match.label : "";
   }
 
   function getActionHost(doc) {
@@ -380,11 +438,12 @@
       "html,body{margin:0;padding:0;background:#f3f4f5}",
       ".tm-outbound-manager-shell{padding:16px}",
       ".tm-outbound-manager-shell .tm-ui-section{padding:14px 16px}",
-      ".tm-outbound-manager-shell .tm-ui-field-grid{display:grid;grid-template-columns:minmax(320px,1fr) minmax(220px,1fr) auto auto;gap:10px;align-items:end}",
+      ".tm-outbound-manager-shell .tm-ui-field-grid{display:grid;grid-template-columns:minmax(320px,1fr) minmax(220px,260px) auto auto;gap:10px;align-items:end}",
       ".tm-outbound-manager-shell .tm-ui-label{min-width:0}",
       ".tm-outbound-manager-shell .tm-ui-textarea{width:100%;min-height:180px}",
       ".tm-outbound-manager-shell .tm-ui-table td,.tm-outbound-manager-shell .tm-ui-table th{white-space:nowrap}",
       ".tm-outbound-manager-shell .tm-ui-table td:nth-child(4){white-space:normal}",
+      ".tm-outbound-manager-shell .tm-ui-scroll--results{max-height:432px}",
       ".tm-outbound-manager-shell .tm-ui-error-list{display:grid;gap:10px}",
       ".tm-outbound-manager-shell .tm-ui-error-card{padding:12px 14px;border:1px solid var(--tm-border);border-radius:12px;background:var(--tm-surface-alt)}",
       ".tm-outbound-manager-shell .tm-ui-error-card h4{margin:0 0 6px 0;font-size:13px;font-weight:800}",
@@ -402,6 +461,7 @@
   }
 
   function ensurePopupShell(state) {
+    syncWarehouseState(state);
     const popup = state.popupWin;
     if (!popup || popup.closed) return null;
     const doc = popup.document;
@@ -436,8 +496,9 @@
       '<section class="tm-ui-card tm-ui-section">',
       '<div class="tm-ui-field-grid">',
       '<label class="tm-ui-label">송장번호 목록<textarea class="tm-ui-textarea" id="tmOutboundManagerInput" placeholder="송장번호를 줄바꿈으로 붙여넣으세요."></textarea></label>',
-      '<label class="tm-ui-label">결과 검색<input type="text" class="tm-ui-input" id="tmOutboundManagerSearch" placeholder="송장번호, 메시지, 결과 검색" /></label>',
+      '<label class="tm-ui-label">출고창고<select class="tm-ui-select" id="tmOutboundManagerWarehouse">' + buildWarehouseOptionsHtml(state.warehouseOptions, state.selectedWarehouse) + '</select></label>',
       '<label class="tm-ui-label"><span>모드</span><span class="tm-ui-row" style="align-items:center"><input type="checkbox" id="tmOutboundManagerCancelMode" /> <span>출고취소 모드</span></span></label>',
+      '<label class="tm-ui-label"><span>결과 표시</span><span class="tm-ui-row" style="align-items:center"><input type="checkbox" id="tmOutboundManagerFailuresOnly" /> <span>실패만 보기</span></span></label>',
       '<div class="tm-ui-label" id="tmOutboundManagerCurrentMeta"></div>',
       "</div>",
       "</section>",
@@ -445,7 +506,7 @@
       '<section class="tm-ui-message" id="tmOutboundManagerStatus"></section>',
       '<section class="tm-ui-card tm-ui-section">',
       '<div class="tm-ui-section-head"><div><h2 class="tm-ui-section-title">처리 결과</h2><p class="tm-ui-section-subtitle">현재 실행 세션 결과만 표시합니다.</p></div></div>',
-      '<div class="tm-ui-scroll"><table class="tm-ui-table"><thead><tr><th>송장번호</th><th>모드</th><th>결과</th><th>메시지</th><th>처리시각</th></tr></thead><tbody id="tmOutboundManagerTableBody"></tbody></table></div>',
+      '<div class="tm-ui-scroll tm-ui-scroll--results"><table class="tm-ui-table"><thead><tr><th>송장번호</th><th>모드</th><th>결과</th><th>메시지</th><th>처리시각</th></tr></thead><tbody id="tmOutboundManagerTableBody"></tbody></table></div>',
       "</section>",
       '<section class="tm-ui-card tm-ui-section">',
       '<div class="tm-ui-section-head"><div><h2 class="tm-ui-section-title">오류 요약</h2><p class="tm-ui-section-subtitle">오류와 미처리 송장번호를 유형별로 묶어 표시합니다.</p></div></div>',
@@ -473,8 +534,9 @@
     doc.body.setAttribute("data-tm-outbound-manager-bound", "Y");
 
     const input = doc.getElementById("tmOutboundManagerInput");
-    const search = doc.getElementById("tmOutboundManagerSearch");
+    const warehouse = doc.getElementById("tmOutboundManagerWarehouse");
     const cancelMode = doc.getElementById("tmOutboundManagerCancelMode");
+    const failuresOnly = doc.getElementById("tmOutboundManagerFailuresOnly");
     const runButton = doc.getElementById("tmOutboundManagerRunButton");
     const stopButton = doc.getElementById("tmOutboundManagerStopButton");
     const clearButton = doc.getElementById("tmOutboundManagerClearButton");
@@ -484,11 +546,11 @@
         state.inputText = input.value;
       });
     }
-    if (search) {
-      search.addEventListener("input", () => {
-        state.searchQuery = search.value;
-        renderResults(state);
-        renderErrorSummary(state);
+    if (warehouse) {
+      warehouse.addEventListener("change", () => {
+        state.selectedWarehouse = safeTrim(warehouse.value);
+        applyWarehouseSelection(state.pageWin, state.selectedWarehouse);
+        renderHeader(state);
       });
     }
     if (cancelMode) {
@@ -496,6 +558,12 @@
         state.cancelMode = !!cancelMode.checked;
         renderHeader(state);
         renderStatus(state);
+      });
+    }
+    if (failuresOnly) {
+      failuresOnly.addEventListener("change", () => {
+        state.failuresOnly = !!failuresOnly.checked;
+        renderResults(state);
       });
     }
     if (runButton) {
@@ -515,8 +583,9 @@
       clearButton.addEventListener("click", () => {
         if (state.run.running) return;
         state.inputText = "";
-        state.searchQuery = "";
         state.cancelMode = false;
+        state.failuresOnly = false;
+        syncWarehouseState(state);
         state.run = createRunState();
         renderPopup(state);
       });
@@ -528,15 +597,22 @@
     if (!popup || popup.closed) return;
     const doc = popup.document;
     const input = doc.getElementById("tmOutboundManagerInput");
-    const search = doc.getElementById("tmOutboundManagerSearch");
+    const warehouse = doc.getElementById("tmOutboundManagerWarehouse");
     const cancelMode = doc.getElementById("tmOutboundManagerCancelMode");
+    const failuresOnly = doc.getElementById("tmOutboundManagerFailuresOnly");
     const runButton = doc.getElementById("tmOutboundManagerRunButton");
     const stopButton = doc.getElementById("tmOutboundManagerStopButton");
     const currentMeta = doc.getElementById("tmOutboundManagerCurrentMeta");
 
     if (input && input.value !== state.inputText) input.value = state.inputText;
-    if (search && search.value !== state.searchQuery) search.value = state.searchQuery;
+    if (warehouse) {
+      const nextOptions = buildWarehouseOptionsHtml(state.warehouseOptions, state.selectedWarehouse);
+      if (warehouse.innerHTML !== nextOptions) warehouse.innerHTML = nextOptions;
+      if (warehouse.value !== state.selectedWarehouse) warehouse.value = state.selectedWarehouse;
+      warehouse.disabled = !!state.run.running;
+    }
     if (cancelMode) cancelMode.checked = !!state.cancelMode;
+    if (failuresOnly) failuresOnly.checked = !!state.failuresOnly;
     if (runButton) {
       runButton.disabled = !!state.run.running;
       runButton.textContent = state.run.running ? "실행 중..." : "실행";
@@ -549,8 +625,12 @@
       const parts = [
         '<span class="tm-ui-inline-note">현재 모드</span><strong>' + escapeHtml(state.cancelMode ? "출고취소" : "출고") + "</strong>"
       ];
+      const warehouseLabel = getSelectedWarehouseLabel(state);
+      if (warehouseLabel) {
+        parts.push('<span class="tm-ui-badge">출고창고 · ' + escapeHtml(warehouseLabel) + "</span>");
+      }
       if (state.run.running && state.run.currentInvoice) {
-        parts.push('<span class="tm-ui-badge tm-ui-badge--info">처리 중 · ' + escapeHtml(state.run.currentInvoice) + "</span>");
+        parts.push('<span class="tm-ui-badge tm-ui-badge--info">최근 전송 · ' + escapeHtml(state.run.currentInvoice) + "</span>");
       } else if (state.run.finishedAt) {
         parts.push('<span class="tm-ui-badge">마지막 완료 · ' + escapeHtml(formatDateTime(state.run.finishedAt)) + "</span>");
       }
@@ -569,7 +649,7 @@
       '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">중복 제거</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.duplicatesRemoved || 0) + '</span><span class="tm-ui-kpi__meta">입력 단계에서 제외</span></div>',
       '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">성공</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.successCount || 0) + '</span><span class="tm-ui-kpi__meta">정상 처리</span></div>',
       '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">오류</span><span class="tm-ui-kpi__value" data-tm-tone="danger">' + escapeHtml(summary.errorCount || 0) + '</span><span class="tm-ui-kpi__meta">경고 포함</span></div>',
-      '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">남은 수</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.remainingCount || 0) + '</span><span class="tm-ui-kpi__meta">현재 실행 중 포함</span></div>'
+      '<div class="tm-ui-kpi"><span class="tm-ui-kpi__label">남은 수</span><span class="tm-ui-kpi__value">' + escapeHtml(summary.remainingCount || 0) + '</span><span class="tm-ui-kpi__meta">대기 + 처리중</span></div>'
     ].join("");
   }
 
@@ -583,7 +663,7 @@
     let text = state.run.lastMessage || "준비됨";
     if (state.run.running) {
       className += " tm-ui-message--success";
-      text = "진행 중 · " + text + " · 남은 " + summary.remainingCount + "건";
+      text = "진행 중 · " + text + " · 대기 " + (state.run.queue ? state.run.queue.length : 0) + "건 · 처리중 " + (state.run.inflightCount || 0) + "건";
     } else if (summary.errorCount > 0 || summary.unprocessedCount > 0) {
       className += " tm-ui-message--warning";
       text = (state.run.finishedAt ? "작업 완료" : "대기") + " · " + text;
@@ -599,7 +679,7 @@
     if (!popup || popup.closed) return;
     const container = popup.document.getElementById("tmOutboundManagerTableBody");
     if (!container) return;
-    container.innerHTML = buildResultRowsHtml(filterResults(state.run.results, state.searchQuery));
+    container.innerHTML = buildResultRowsHtml(filterResults(state.run.results, { failuresOnly: state.failuresOnly }));
   }
 
   function renderErrorSummary(state) {
@@ -607,7 +687,7 @@
     if (!popup || popup.closed) return;
     const container = popup.document.getElementById("tmOutboundManagerErrorSummary");
     if (!container) return;
-    const summary = buildErrorSummary(filterResults(state.run.results, state.searchQuery), state.run.unprocessed);
+    const summary = buildErrorSummary(state.run.results, state.run.unprocessed);
     if (!summary.length) {
       container.innerHTML = '<div class="tm-ui-empty">오류 또는 미처리 내역이 없습니다.</div>';
       return;
@@ -651,12 +731,12 @@
     return safeTrim(field.value);
   }
 
-  function getFormSnapshot(pageWin, cancelMode) {
+  function getFormSnapshot(pageWin, cancelMode, selectedWarehouse) {
     const doc = pageWin.document;
     const snapshot = {
       rdnoDate: getFormValue(doc, "RDNO_DATE"),
       inoutstockGbn1: getFormValue(doc, "INOUTSTOCK_GBN1"),
-      inoutstockWah: getFormValue(doc, "INOUTSTOCK_WAH"),
+      inoutstockWah: safeTrim(selectedWarehouse) || getFormValue(doc, "INOUTSTOCK_WAH"),
       locaWahNone: getFormValue(doc, "LOCA_WAH_NONE"),
       locaZoneNone: getFormValue(doc, "LOCA_ZONE_NONE"),
       locaSeqNone: getFormValue(doc, "LOCA_SEQ_NONE"),
@@ -738,6 +818,58 @@
     });
   }
 
+  async function processInvoice(state, formSnapshot, invoiceNumber) {
+    try {
+      const response = await executeOutbound(state.pageWin, formSnapshot, invoiceNumber, state.cancelMode);
+      return state.cancelMode
+        ? classifyCancelResponse(invoiceNumber, response)
+        : classifyOutboundResponse(invoiceNumber, response);
+    } catch (error) {
+      return buildExceptionResult(invoiceNumber, state.cancelMode, error);
+    }
+  }
+
+  function runDispatchQueue(state, formSnapshot) {
+    return new Promise((resolve) => {
+      const active = new Set();
+
+      const finishIfDone = function finishIfDone() {
+        if ((state.run.stopRequested || !state.run.queue.length) && active.size === 0) {
+          resolve();
+        }
+      };
+
+      const dispatchNext = function dispatchNext() {
+        if (state.run.stopRequested || !state.run.queue.length) {
+          finishIfDone();
+          return;
+        }
+
+        const invoiceNumber = state.run.queue.shift();
+        state.run.currentInvoice = invoiceNumber;
+        state.run.inflightCount += 1;
+        state.run.lastMessage = invoiceNumber + " 전송";
+        renderPopup(state);
+
+        let task = null;
+        task = (async () => {
+          const result = await processInvoice(state, formSnapshot, invoiceNumber);
+          state.run.results.unshift(result);
+          state.run.inflightCount = Math.max(0, state.run.inflightCount - 1);
+          state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
+          active.delete(task);
+          renderPopup(state);
+          finishIfDone();
+        })();
+        active.add(task);
+
+        state.pageWin.setTimeout(dispatchNext, MIN_DELAY_MS);
+      };
+
+      dispatchNext();
+    });
+  }
+
   async function runBatch(state) {
     if (state.run.running) return;
 
@@ -750,7 +882,9 @@
 
     let formSnapshot = null;
     try {
-      formSnapshot = getFormSnapshot(state.pageWin, state.cancelMode);
+      syncWarehouseState(state);
+      applyWarehouseSelection(state.pageWin, state.selectedWarehouse);
+      formSnapshot = getFormSnapshot(state.pageWin, state.cancelMode, state.selectedWarehouse);
     } catch (error) {
       state.run.lastMessage = safeTrim(error && error.message) || "실행 조건을 확인하지 못했습니다.";
       renderPopup(state);
@@ -768,33 +902,13 @@
     state.run.startedAt = Date.now();
     renderPopup(state);
 
-    while (state.run.queue.length) {
-      if (state.run.stopRequested) break;
-      const invoiceNumber = state.run.queue.shift();
-      state.run.currentInvoice = invoiceNumber;
-      state.run.lastMessage = invoiceNumber + " 처리 중";
-      renderPopup(state);
-
-      let result = null;
-      try {
-        const response = await executeOutbound(state.pageWin, formSnapshot, invoiceNumber, state.cancelMode);
-        result = state.cancelMode
-          ? classifyCancelResponse(invoiceNumber, response)
-          : classifyOutboundResponse(invoiceNumber, response);
-      } catch (error) {
-        result = buildExceptionResult(invoiceNumber, state.cancelMode, error);
-      }
-
-      state.run.results.unshift(result);
-      state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
-      renderPopup(state);
-      await sleep(MIN_DELAY_MS);
-    }
+    await runDispatchQueue(state, formSnapshot);
 
     state.run.running = false;
     state.run.finishedAt = Date.now();
     state.run.unprocessed = state.run.queue.slice();
     state.run.queue = [];
+    state.run.inflightCount = 0;
     state.run.currentInvoice = "";
 
     if (state.run.stopRequested) {
@@ -864,11 +978,13 @@
     buildErrorSummary,
     buildSummary,
     filterResults,
+    resolveSelectedWarehouse,
     shouldRun,
     run,
     start
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
