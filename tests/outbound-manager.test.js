@@ -116,13 +116,13 @@ test("outbound manager dispatch delay allows continuous refill instead of batch 
   const runState = {
     stopRequested: false,
     queue: ["A", "B", "C"],
-    inflightCount: 3,
+    inflightCount: 0,
   };
 
   assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1000, 1000), 0);
   assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1200, 1000), 200);
   assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: [], inflightCount: 0 }, 1000, 1000), null);
-  assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: ["A"], inflightCount: 6 }, 1000, 1000), null);
+  assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: ["A"], inflightCount: 1 }, 1000, 1000), null);
 });
 
 test("outbound manager dispatch slot consumption enforces a five-per-second cadence", () => {
@@ -141,6 +141,19 @@ test("outbound manager warehouse resolver prefers popup selection then current p
   assert.equal(moduleUnderTest.resolveSelectedWarehouse(options, "1060", "1061"), "1061");
   assert.equal(moduleUnderTest.resolveSelectedWarehouse(options, "1060", "9999"), "1060");
   assert.equal(moduleUnderTest.resolveSelectedWarehouse(options, "", ""), "1060");
+});
+
+test("outbound manager native execution check requires page form, ajax, and action functions", () => {
+  const pageWin = {
+    document: { form1: {} },
+    $: { ajax() {} },
+    go_new() {},
+    go_cancel() {}
+  };
+
+  assert.equal(moduleUnderTest.canUseNativeExecution(pageWin, false), true);
+  assert.equal(moduleUnderTest.canUseNativeExecution(pageWin, true), true);
+  assert.equal(moduleUnderTest.canUseNativeExecution({ document: { form1: {} }, $: { ajax() {} }, go_new() {} }, true), false);
 });
 
 test("outbound manager rows html keeps centered columns", () => {

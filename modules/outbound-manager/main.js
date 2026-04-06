@@ -3,7 +3,7 @@
 
   const MODULE_ID = "outbound-manager";
   const MODULE_NAME = "출고매니저";
-  const MODULE_VERSION = "0.1.6";
+  const MODULE_VERSION = "0.1.7";
   const MATCHES = [
     "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
     "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
@@ -21,7 +21,7 @@
   const POPUP_READY_ATTR = "data-tm-outbound-manager-ready";
   const SESSION_EXPIRED_MARKERS = ["자동 로그아웃 되었습니다", "/home/docs/login.html", "세션종료", "로그인"];
   const DISPATCH_INTERVAL_MS = 200;
-  const MAX_INFLIGHT_REQUESTS = 6;
+  const MAX_INFLIGHT_REQUESTS = 1;
   const RENDER_THROTTLE_MS = 120;
   const SUMMARY_EMPTY = "-";
   const FN_STATUS_MAP = {
@@ -100,6 +100,85 @@
     const readyAt = Math.max(Number(nextDispatchAt) || 0, 0);
     const nowMs = Math.max(Number(nowValue) || 0, 0);
     return Math.max(nowMs, readyAt) + DISPATCH_INTERVAL_MS;
+  }
+
+  function buildNativeAjaxError(message, textStatus, errorThrown) {
+    const parts = [safeTrim(message), safeTrim(textStatus), safeTrim(errorThrown)].filter(Boolean);
+    return new Error(parts.join(" / ") || "요청 중 오류가 발생했습니다.");
+  }
+
+  function canUseNativeExecution(pageWin, cancelMode) {
+    if (!pageWin || !pageWin.document || !pageWin.document.form1) return false;
+    if (typeof pageWin.go_new !== "function") return false;
+    if (cancelMode && typeof pageWin.go_cancel !== "function") return false;
+    const jq = pageWin.jQuery || pageWin.$;
+    return !!(jq && typeof jq.ajax === "function");
+  }
+
+  function captureNativeAjax(pageWin, endpoint, invokeFn) {
+    const jq = pageWin && (pageWin.jQuery || pageWin.$);
+    if (!jq || typeof jq.ajax !== "function") throw new Error("기존 스캔 엔진을 찾지 못했습니다.");
+    const originalAjax = jq.ajax;
+    let captured = null;
+    let capturedError = null;
+
+    jq.ajax = function wrappedAjax(options) {
+      const requestOptions = options && typeof options === "object" ? Object.assign({}, options) : {};
+      const requestUrl = safeTrim(requestOptions.url);
+      const matchesTarget = requestUrl.indexOf(endpoint) !== -1;
+      if (!matchesTarget) {
+        return originalAjax.call(this, requestOptions);
+      }
+
+      const originalSuccess = requestOptions.success;
+      const originalError = requestOptions.error;
+      requestOptions.success = function onSuccess(data) {
+        captured = { url: requestUrl, data: data };
+        if (typeof originalSuccess === "function") return originalSuccess.apply(this, arguments);
+        return undefined;
+      };
+      requestOptions.error = function onError(jqXhr, textStatus, errorThrown) {
+        capturedError = buildNativeAjaxError(
+          jqXhr && (jqXhr.responseText || jqXhr.statusText),
+          textStatus,
+          errorThrown
+        );
+        if (typeof originalError === "function") return originalError.apply(this, arguments);
+        return undefined;
+      };
+      return originalAjax.call(this, requestOptions);
+    };
+
+    try {
+      invokeFn();
+    } catch (error) {
+      capturedError = error instanceof Error ? error : new Error(safeTrim(error && error.message) || "실행 중 오류가 발생했습니다.");
+    } finally {
+      jq.ajax = originalAjax;
+    }
+
+    if (capturedError) throw capturedError;
+    return captured;
+  }
+
+  function applyNativeFormState(pageWin, invoiceNumber, cancelMode, warehouseValue) {
+    const doc = pageWin.document;
+    if (!doc || !doc.form1) throw new Error("출고 화면 폼을 찾지 못했습니다.");
+    const form = doc.form1;
+    if (form.RDNO_NUM) form.RDNO_NUM.value = invoiceNumber;
+    if (form.RDNO_NUM_BEFORE) form.RDNO_NUM_BEFORE.value = "";
+    const cancelCheckbox = doc.getElementById("rdno_cancel");
+    if (cancelCheckbox) cancelCheckbox.checked = !!cancelMode;
+    if (warehouseValue) {
+      const warehouseSelect = doc.getElementById("inoutstock_wah");
+      if (warehouseSelect) warehouseSelect.value = warehouseValue;
+    }
+  }
+
+  function readNativeStatusMessage(pageWin) {
+    const doc = pageWin && pageWin.document;
+    const messageEl = doc && doc.getElementById("msg");
+    return safeTrim(messageEl && (messageEl.textContent || messageEl.innerText || ""));
   }
 
   function isSessionExpiredText(text) {
@@ -829,6 +908,17 @@
   }
 
   async function executeOutbound(pageWin, formSnapshot, invoiceNumber, cancelMode) {
+    if (canUseNativeExecution(pageWin, cancelMode)) {
+      applyNativeFormState(pageWin, invoiceNumber, cancelMode, formSnapshot && formSnapshot.inoutstockWah);
+      const captured = captureNativeAjax(pageWin, cancelMode ? CANCEL_ENDPOINT : SHIP_ENDPOINT, function invokeNativeAction() {
+        if (cancelMode) pageWin.go_cancel();
+        else pageWin.go_new();
+      });
+      if (captured && captured.data) return captured.data;
+      const fallbackMessage = readNativeStatusMessage(pageWin);
+      throw new Error(fallbackMessage || "기존 스캔 엔진 응답을 읽지 못했습니다.");
+    }
+
     if (cancelMode) {
       return fetchJson(pageWin, CANCEL_ENDPOINT, {
         CANCEL_TYPE: "2",
@@ -871,73 +961,28 @@
   }
 
   function runDispatchQueue(state, formSnapshot) {
-    return new Promise((resolve) => {
-      const active = new Set();
-      let tickTimer = 0;
+    return (async () => {
       let nextDispatchAt = Date.now();
+      while (!state.run.stopRequested && state.run.queue.length) {
+        const delay = resolveDispatchDelay(state.run, nextDispatchAt, Date.now());
+        if (delay == null) break;
+        if (delay > 0) await sleep(delay);
 
-      const finishIfDone = function finishIfDone() {
-        if (tickTimer) {
-          state.pageWin.clearTimeout(tickTimer);
-          tickTimer = 0;
-        }
-        if ((state.run.stopRequested || !state.run.queue.length) && active.size === 0) {
-          resolve();
-        }
-      };
-
-      const scheduleTick = function scheduleTick(delay) {
-        const waitMs = Math.max(0, Number(delay) || 0);
-        if (tickTimer && waitMs > 0) return;
-        if (tickTimer) {
-          state.pageWin.clearTimeout(tickTimer);
-          tickTimer = 0;
-        }
-        tickTimer = state.pageWin.setTimeout(() => {
-          tickTimer = 0;
-          pumpQueue();
-        }, waitMs);
-      };
-
-      const dispatchNext = function dispatchNext(nowValue) {
+        const startedAt = Date.now();
         const invoiceNumber = state.run.queue.shift();
-        nextDispatchAt = consumeDispatchSlot(nextDispatchAt, nowValue);
+        nextDispatchAt = consumeDispatchSlot(nextDispatchAt, startedAt);
         state.run.currentInvoice = invoiceNumber;
-        state.run.inflightCount += 1;
+        state.run.inflightCount = 1;
         state.run.lastMessage = invoiceNumber + " 전송";
         scheduleRender(state, false);
 
-        let task = null;
-        task = (async () => {
-          const result = await processInvoice(state, formSnapshot, invoiceNumber);
-          state.run.results.unshift(result);
-          state.run.inflightCount = Math.max(0, state.run.inflightCount - 1);
-          state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
-          active.delete(task);
-          scheduleRender(state, false);
-          pumpQueue();
-        })();
-        active.add(task);
-      };
-
-      const pumpQueue = function pumpQueue() {
-        while (true) {
-          const delay = resolveDispatchDelay(state.run, nextDispatchAt, Date.now());
-          if (delay == null) {
-            finishIfDone();
-            return;
-          }
-          if (delay > 0) {
-            scheduleTick(delay);
-            finishIfDone();
-            return;
-          }
-          dispatchNext(Date.now());
-        }
-      };
-
-      pumpQueue();
-    });
+        const result = await processInvoice(state, formSnapshot, invoiceNumber);
+        state.run.results.unshift(result);
+        state.run.inflightCount = 0;
+        state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
+        scheduleRender(state, false);
+      }
+    })();
   }
 
   async function runBatch(state) {
@@ -1047,8 +1092,10 @@
     buildResultRowsHtml,
     buildErrorSummary,
     buildSummary,
+    canUseNativeExecution,
     consumeDispatchSlot,
     filterResults,
+    readNativeStatusMessage,
     resolveDispatchDelay,
     resolveSelectedWarehouse,
     shouldRun,
@@ -1056,6 +1103,7 @@
     start
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
