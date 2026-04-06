@@ -13,9 +13,9 @@ test("outbound manager exports loader contract", () => {
   assert.equal(typeof moduleUnderTest.start, "function");
 });
 
-test("outbound manager shouldRun only matches site413edit page", () => {
+test("outbound manager shouldRun matches site413edit and ScanWindow wrapper", () => {
   assert.equal(moduleUnderTest.shouldRun({ location: { href: "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp" } }), true);
-  assert.equal(moduleUnderTest.shouldRun({ location: { href: "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp" } }), false);
+  assert.equal(moduleUnderTest.shouldRun({ location: { href: "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp" } }), true);
   assert.equal(moduleUnderTest.shouldRun({ location: { href: "https://example.com/" } }), false);
 });
 
@@ -135,6 +135,10 @@ test("outbound manager registry and meta stay aligned", () => {
   assert.ok(script);
   assert.equal(script.name, meta.name);
   assert.equal(script.metaPath, "modules/outbound-manager/meta.json");
+  assert.deepEqual(script.matches, [
+    "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
+    "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*",
+  ]);
   assert.equal(meta.entry, "modules/outbound-manager/main.js");
   assert.deepEqual((meta.dependencies || []).map((item) => item.id), ["module-ui"]);
 });

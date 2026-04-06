@@ -70,7 +70,8 @@
       "name": "출고매니저",
       "enabledByDefault": true,
       "matches": [
-        "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*"
+        "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
+        "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
       ],
       "metaPath": "modules/outbound-manager/meta.json"
     },

@@ -3,9 +3,13 @@
 
   const MODULE_ID = "outbound-manager";
   const MODULE_NAME = "출고매니저";
-  const MODULE_VERSION = "0.1.2";
-  const MATCHES = ["https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*"];
-  const PAGE_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/jsp\/site\/site413edit\.jsp/i;
+  const MODULE_VERSION = "0.1.3";
+  const MATCHES = [
+    "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
+    "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
+  ];
+  const EDIT_PAGE_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/jsp\/site\/site413edit\.jsp/i;
+  const WRAPPER_PAGE_PATTERN = /^https:\/\/www\.ebut3pl\.co\.kr\/jsp\/com\/ScanWindow\.jsp/i;
   const BASE_ORIGIN = "https://www.ebut3pl.co.kr";
   const PAGE_REFERER = "/jsp/site/site413edit.jsp";
   const SHIP_ENDPOINT = "/site/site413save";
@@ -86,7 +90,31 @@
   }
 
   function shouldRun(win) {
-    return PAGE_PATTERN.test(String(win && win.location && win.location.href || ""));
+    const href = String(win && win.location && win.location.href || "");
+    return EDIT_PAGE_PATTERN.test(href) || WRAPPER_PAGE_PATTERN.test(href);
+  }
+
+  function isEditPageWindow(win) {
+    return EDIT_PAGE_PATTERN.test(String(win && win.location && win.location.href || ""));
+  }
+
+  function isWrapperPageWindow(win) {
+    return WRAPPER_PAGE_PATTERN.test(String(win && win.location && win.location.href || ""));
+  }
+
+  function resolveActionPageWindow(win) {
+    if (!win || !win.document) return null;
+    if (isEditPageWindow(win)) return win;
+    if (!isWrapperPageWindow(win)) return null;
+    try {
+      const frame = win.document.getElementById("site413edit");
+      if (frame && frame.contentWindow && isEditPageWindow(frame.contentWindow)) {
+        return frame.contentWindow;
+      }
+    } catch (error) {
+      return null;
+    }
+    return null;
   }
 
   function createRunState() {
@@ -780,10 +808,43 @@
 
   function start(context) {
     const win = context && context.window ? context.window : root;
+    const loader = context && context.loader ? context.loader : null;
     if (!win || !win.document || !shouldRun(win)) return;
-    if (win.__tmOutboundManagerStarted) return;
-    win.__tmOutboundManagerStarted = true;
-    installActionButton(getPageState(win, context && context.loader ? context.loader : null));
+
+    const startResolvedWindow = function startResolvedWindow(targetWin) {
+      if (!targetWin || !targetWin.document) return false;
+      if (targetWin.__tmOutboundManagerStarted) return true;
+      targetWin.__tmOutboundManagerStarted = true;
+      installActionButton(getPageState(targetWin, loader));
+      return true;
+    };
+
+    if (startResolvedWindow(resolveActionPageWindow(win))) return;
+
+    if (isWrapperPageWindow(win)) {
+      if (win.__tmOutboundManagerWrapperStarted) return;
+      win.__tmOutboundManagerWrapperStarted = true;
+      const retryStart = function retryStart() {
+        if (startResolvedWindow(resolveActionPageWindow(win))) return;
+        win.setTimeout(retryStart, 500);
+      };
+      const wireFrameLoad = function wireFrameLoad() {
+        const frame = win.document.getElementById("site413edit");
+        if (frame && !frame.__tmOutboundManagerLoadBound) {
+          frame.__tmOutboundManagerLoadBound = true;
+          frame.addEventListener("load", retryStart);
+        }
+      };
+      if (win.document.readyState === "loading") {
+        win.document.addEventListener("DOMContentLoaded", () => {
+          wireFrameLoad();
+          retryStart();
+        }, { once: true });
+      } else {
+        wireFrameLoad();
+        retryStart();
+      }
+    }
   }
 
   function run(context) {
@@ -808,5 +869,6 @@
     start
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
