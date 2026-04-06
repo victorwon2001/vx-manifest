@@ -3,7 +3,7 @@
 
   const MODULE_ID = "outbound-manager";
   const MODULE_NAME = "출고매니저";
-  const MODULE_VERSION = "0.1.4";
+  const MODULE_VERSION = "0.1.5";
   const MATCHES = [
     "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
     "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
@@ -20,7 +20,9 @@
   const STATE_KEY = "__tmOutboundManagerState";
   const POPUP_READY_ATTR = "data-tm-outbound-manager-ready";
   const SESSION_EXPIRED_MARKERS = ["자동 로그아웃 되었습니다", "/home/docs/login.html", "세션종료", "로그인"];
-  const MIN_DELAY_MS = 200;
+  const DISPATCH_INTERVAL_MS = 100;
+  const MAX_INFLIGHT_REQUESTS = 6;
+  const RENDER_THROTTLE_MS = 120;
   const SUMMARY_EMPTY = "-";
   const FN_STATUS_MAP = {
     "0": { kind: "success", label: "완료", group: "성공" },
@@ -144,6 +146,7 @@
         popupWin: null,
         buttonInstalled: false,
         installAttempts: 0,
+        renderTimer: 0,
         inputText: "",
         cancelMode: false,
         failuresOnly: false,
@@ -711,6 +714,28 @@
     renderErrorSummary(state);
   }
 
+  function scheduleRender(state, immediate) {
+    if (!state) return;
+    const timerHost = (state.popupWin && !state.popupWin.closed) ? state.popupWin : state.pageWin;
+    if (!timerHost || typeof timerHost.setTimeout !== "function") {
+      renderPopup(state);
+      return;
+    }
+    if (state.renderTimer) {
+      if (!immediate) return;
+      timerHost.clearTimeout(state.renderTimer);
+      state.renderTimer = 0;
+    }
+    if (immediate) {
+      renderPopup(state);
+      return;
+    }
+    state.renderTimer = timerHost.setTimeout(() => {
+      state.renderTimer = 0;
+      renderPopup(state);
+    }, RENDER_THROTTLE_MS);
+  }
+
   function openPopup(state) {
     if (state.popupWin && !state.popupWin.closed) {
       state.popupWin.focus();
@@ -832,16 +857,37 @@
   function runDispatchQueue(state, formSnapshot) {
     return new Promise((resolve) => {
       const active = new Set();
+      let tickTimer = 0;
 
       const finishIfDone = function finishIfDone() {
+        if (tickTimer) {
+          state.pageWin.clearTimeout(tickTimer);
+          tickTimer = 0;
+        }
         if ((state.run.stopRequested || !state.run.queue.length) && active.size === 0) {
           resolve();
         }
       };
 
+      const scheduleTick = function scheduleTick(delay) {
+        if (tickTimer) return;
+        tickTimer = state.pageWin.setTimeout(() => {
+          tickTimer = 0;
+          dispatchNext();
+        }, Math.max(0, Number(delay) || 0));
+      };
+
       const dispatchNext = function dispatchNext() {
-        if (state.run.stopRequested || !state.run.queue.length) {
+        if (state.run.stopRequested) {
           finishIfDone();
+          return;
+        }
+        if (!state.run.queue.length) {
+          finishIfDone();
+          return;
+        }
+        if (active.size >= MAX_INFLIGHT_REQUESTS) {
+          scheduleTick(DISPATCH_INTERVAL_MS);
           return;
         }
 
@@ -849,7 +895,7 @@
         state.run.currentInvoice = invoiceNumber;
         state.run.inflightCount += 1;
         state.run.lastMessage = invoiceNumber + " 전송";
-        renderPopup(state);
+        scheduleRender(state, false);
 
         let task = null;
         task = (async () => {
@@ -858,12 +904,20 @@
           state.run.inflightCount = Math.max(0, state.run.inflightCount - 1);
           state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
           active.delete(task);
-          renderPopup(state);
-          finishIfDone();
+          scheduleRender(state, false);
+          if (!state.run.stopRequested && state.run.queue.length) {
+            scheduleTick(0);
+          } else {
+            finishIfDone();
+          }
         })();
         active.add(task);
 
-        state.pageWin.setTimeout(dispatchNext, MIN_DELAY_MS);
+        if (!state.run.stopRequested && state.run.queue.length) {
+          scheduleTick(DISPATCH_INTERVAL_MS);
+        } else {
+          finishIfDone();
+        }
       };
 
       dispatchNext();
@@ -984,6 +1038,7 @@
     start
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
