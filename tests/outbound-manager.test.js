@@ -120,15 +120,30 @@ test("outbound manager dispatch delay allows continuous refill instead of batch 
   };
 
   assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1000, 1000), 0);
-  assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1200, 1000), 200);
+  assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1100, 1000), 100);
   assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: [], inflightCount: 0 }, 1000, 1000), null);
-  assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: ["A"], inflightCount: 1 }, 1000, 1000), null);
+  assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: ["A"], inflightCount: 10 }, 1000, 1000), null);
 });
 
-test("outbound manager dispatch slot consumption enforces a five-per-second cadence", () => {
-  assert.equal(moduleUnderTest.consumeDispatchSlot(0, 1000), 1200);
-  assert.equal(moduleUnderTest.consumeDispatchSlot(1200, 1100), 1400);
-  assert.equal(moduleUnderTest.consumeDispatchSlot(1200, 1400), 1600);
+test("outbound manager dispatch slot consumption enforces a ten-per-second cadence", () => {
+  assert.equal(moduleUnderTest.consumeDispatchSlot(0, 1000), 1100);
+  assert.equal(moduleUnderTest.consumeDispatchSlot(1100, 1050), 1200);
+  assert.equal(moduleUnderTest.consumeDispatchSlot(1100, 1400), 1500);
+});
+
+test("outbound manager token refill accumulates capacity up to the inflight cap", () => {
+  assert.deepEqual(moduleUnderTest.refillDispatchTokens({ tokens: 0, nextRefillAt: 1000 }, 1000), {
+    tokens: 1,
+    nextRefillAt: 1100
+  });
+  assert.deepEqual(moduleUnderTest.refillDispatchTokens({ tokens: 0, nextRefillAt: 1000 }, 1400), {
+    tokens: 5,
+    nextRefillAt: 1500
+  });
+  assert.deepEqual(moduleUnderTest.refillDispatchTokens({ tokens: 9, nextRefillAt: 1000 }, 1400), {
+    tokens: 10,
+    nextRefillAt: 1500
+  });
 });
 
 test("outbound manager warehouse resolver prefers popup selection then current page value", () => {

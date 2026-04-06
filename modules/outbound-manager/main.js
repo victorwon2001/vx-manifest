@@ -3,7 +3,7 @@
 
   const MODULE_ID = "outbound-manager";
   const MODULE_NAME = "출고매니저";
-  const MODULE_VERSION = "0.1.7";
+  const MODULE_VERSION = "0.1.8";
   const MATCHES = [
     "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
     "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
@@ -20,8 +20,8 @@
   const STATE_KEY = "__tmOutboundManagerState";
   const POPUP_READY_ATTR = "data-tm-outbound-manager-ready";
   const SESSION_EXPIRED_MARKERS = ["자동 로그아웃 되었습니다", "/home/docs/login.html", "세션종료", "로그인"];
-  const DISPATCH_INTERVAL_MS = 200;
-  const MAX_INFLIGHT_REQUESTS = 1;
+  const DISPATCH_INTERVAL_MS = 100;
+  const MAX_INFLIGHT_REQUESTS = 10;
   const RENDER_THROTTLE_MS = 120;
   const SUMMARY_EMPTY = "-";
   const FN_STATUS_MAP = {
@@ -100,6 +100,21 @@
     const readyAt = Math.max(Number(nextDispatchAt) || 0, 0);
     const nowMs = Math.max(Number(nowValue) || 0, 0);
     return Math.max(nowMs, readyAt) + DISPATCH_INTERVAL_MS;
+  }
+
+  function refillDispatchTokens(tokenState, nowValue) {
+    const nowMs = Math.max(Number(nowValue) || 0, 0);
+    let tokens = Math.max(0, Number(tokenState && tokenState.tokens) || 0);
+    let nextRefillAt = Math.max(0, Number(tokenState && tokenState.nextRefillAt) || 0);
+    if (!nextRefillAt) nextRefillAt = nowMs;
+    while (nowMs >= nextRefillAt) {
+      tokens = Math.min(MAX_INFLIGHT_REQUESTS, tokens + 1);
+      nextRefillAt += DISPATCH_INTERVAL_MS;
+    }
+    return {
+      tokens,
+      nextRefillAt
+    };
   }
 
   function buildNativeAjaxError(message, textStatus, errorThrown) {
@@ -907,8 +922,9 @@
     }
   }
 
-  async function executeOutbound(pageWin, formSnapshot, invoiceNumber, cancelMode) {
-    if (canUseNativeExecution(pageWin, cancelMode)) {
+  async function executeOutbound(pageWin, formSnapshot, invoiceNumber, cancelMode, options) {
+    const preferDirect = !!(options && options.preferDirect);
+    if (!preferDirect && canUseNativeExecution(pageWin, cancelMode)) {
       applyNativeFormState(pageWin, invoiceNumber, cancelMode, formSnapshot && formSnapshot.inoutstockWah);
       const captured = captureNativeAjax(pageWin, cancelMode ? CANCEL_ENDPOINT : SHIP_ENDPOINT, function invokeNativeAction() {
         if (cancelMode) pageWin.go_cancel();
@@ -951,7 +967,9 @@
 
   async function processInvoice(state, formSnapshot, invoiceNumber) {
     try {
-      const response = await executeOutbound(state.pageWin, formSnapshot, invoiceNumber, state.cancelMode);
+      const response = await executeOutbound(state.pageWin, formSnapshot, invoiceNumber, state.cancelMode, {
+        preferDirect: true
+      });
       return state.cancelMode
         ? classifyCancelResponse(invoiceNumber, response)
         : classifyOutboundResponse(invoiceNumber, response);
@@ -961,28 +979,101 @@
   }
 
   function runDispatchQueue(state, formSnapshot) {
-    return (async () => {
-      let nextDispatchAt = Date.now();
-      while (!state.run.stopRequested && state.run.queue.length) {
-        const delay = resolveDispatchDelay(state.run, nextDispatchAt, Date.now());
-        if (delay == null) break;
-        if (delay > 0) await sleep(delay);
+    return new Promise((resolve) => {
+      const active = new Set();
+      let tokenState = {
+        tokens: 1,
+        nextRefillAt: Date.now() + DISPATCH_INTERVAL_MS
+      };
+      let tickTimer = 0;
+      let pumping = false;
 
-        const startedAt = Date.now();
-        const invoiceNumber = state.run.queue.shift();
-        nextDispatchAt = consumeDispatchSlot(nextDispatchAt, startedAt);
+      const finishIfDone = function finishIfDone() {
+        if ((state.run.stopRequested || !state.run.queue.length) && active.size === 0) {
+          if (tickTimer) {
+            state.pageWin.clearTimeout(tickTimer);
+            tickTimer = 0;
+          }
+          resolve();
+        }
+      };
+
+      const schedulePump = function schedulePump(delay) {
+        const waitMs = Math.max(0, Number(delay) || 0);
+        if (tickTimer) {
+          state.pageWin.clearTimeout(tickTimer);
+          tickTimer = 0;
+        }
+        tickTimer = state.pageWin.setTimeout(() => {
+          tickTimer = 0;
+          requestPump();
+        }, waitMs);
+      };
+
+      const dispatchOne = function dispatchOne(invoiceNumber) {
         state.run.currentInvoice = invoiceNumber;
-        state.run.inflightCount = 1;
         state.run.lastMessage = invoiceNumber + " 전송";
+        let task = null;
+        task = (async () => {
+          const result = await processInvoice(state, formSnapshot, invoiceNumber);
+          state.run.results.unshift(result);
+          state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
+          active.delete(task);
+          state.run.inflightCount = active.size;
+          scheduleRender(state, false);
+          requestPump();
+        })();
+        active.add(task);
+        state.run.inflightCount = active.size;
         scheduleRender(state, false);
+      };
 
-        const result = await processInvoice(state, formSnapshot, invoiceNumber);
-        state.run.results.unshift(result);
-        state.run.inflightCount = 0;
-        state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
-        scheduleRender(state, false);
-      }
-    })();
+      const pumpQueue = function pumpQueue() {
+        if (pumping) return;
+        pumping = true;
+        try {
+          const nowValue = Date.now();
+          tokenState = refillDispatchTokens(tokenState, nowValue);
+          while (
+            !state.run.stopRequested &&
+            state.run.queue.length &&
+            active.size < MAX_INFLIGHT_REQUESTS &&
+            tokenState.tokens > 0
+          ) {
+            tokenState.tokens -= 1;
+            dispatchOne(state.run.queue.shift());
+          }
+
+          if ((state.run.stopRequested || !state.run.queue.length) && active.size === 0) {
+            finishIfDone();
+            return;
+          }
+
+          if (!state.run.stopRequested && state.run.queue.length && active.size < MAX_INFLIGHT_REQUESTS) {
+            const nextWait = tokenState.tokens > 0 ? 0 : Math.max(0, tokenState.nextRefillAt - Date.now());
+            schedulePump(nextWait);
+          } else {
+            finishIfDone();
+          }
+        } finally {
+          pumping = false;
+        }
+      };
+
+      const requestPump = function requestPump() {
+        if (tickTimer) {
+          state.pageWin.clearTimeout(tickTimer);
+          tickTimer = 0;
+        }
+        if (typeof Promise === "function" && typeof Promise.resolve === "function") {
+          Promise.resolve().then(pumpQueue);
+        } else {
+          pumpQueue();
+        }
+      };
+
+      requestPump();
+    });
   }
 
   async function runBatch(state) {
@@ -1095,6 +1186,7 @@
     canUseNativeExecution,
     consumeDispatchSlot,
     filterResults,
+    refillDispatchTokens,
     readNativeStatusMessage,
     resolveDispatchDelay,
     resolveSelectedWarehouse,
@@ -1103,6 +1195,7 @@
     start
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
