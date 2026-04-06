@@ -66,6 +66,15 @@
       "metaPath": "modules/pattern-analyzer/meta.json"
     },
     {
+      "id": "outbound-manager",
+      "name": "출고매니저",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*"
+      ],
+      "metaPath": "modules/outbound-manager/meta.json"
+    },
+    {
       "id": "inbound-inspection",
       "name": "입고검수",
       "enabledByDefault": true,

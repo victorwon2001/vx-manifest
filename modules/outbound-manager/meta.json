@@ -1,0 +1,17 @@
+﻿{
+    "id":  "outbound-manager",
+    "displayId":  "출고매니저",
+    "name":  "출고매니저",
+    "version":  "0.1.2",
+    "description":  "송장번호 출고 및 출고취소 배치 처리 도구",
+    "entry":  "modules/outbound-manager/main.js",
+    "dependencies":  [
+                         {
+                             "id":  "module-ui",
+                             "version":  "0.4.1",
+                             "path":  "shared/module-ui.js"
+                         }
+                     ],
+    "checksum":  "",
+    "updatedAt":  "2026-04-06 17:17:57"
+}
