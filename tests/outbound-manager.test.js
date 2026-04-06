@@ -112,6 +112,25 @@ test("outbound manager summary counts successes, errors, duplicates, and remaini
   });
 });
 
+test("outbound manager dispatch delay allows continuous refill instead of batch waits", () => {
+  const runState = {
+    stopRequested: false,
+    queue: ["A", "B", "C"],
+    inflightCount: 3,
+  };
+
+  assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1000, 1000), 0);
+  assert.equal(moduleUnderTest.resolveDispatchDelay(runState, 1200, 1000), 200);
+  assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: [], inflightCount: 0 }, 1000, 1000), null);
+  assert.equal(moduleUnderTest.resolveDispatchDelay({ stopRequested: false, queue: ["A"], inflightCount: 6 }, 1000, 1000), null);
+});
+
+test("outbound manager dispatch slot consumption enforces a five-per-second cadence", () => {
+  assert.equal(moduleUnderTest.consumeDispatchSlot(0, 1000), 1200);
+  assert.equal(moduleUnderTest.consumeDispatchSlot(1200, 1100), 1400);
+  assert.equal(moduleUnderTest.consumeDispatchSlot(1200, 1400), 1600);
+});
+
 test("outbound manager warehouse resolver prefers popup selection then current page value", () => {
   const options = [
     { value: "", label: "--출고창고선택--" },

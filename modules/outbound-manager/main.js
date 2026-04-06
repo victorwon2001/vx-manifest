@@ -3,7 +3,7 @@
 
   const MODULE_ID = "outbound-manager";
   const MODULE_NAME = "출고매니저";
-  const MODULE_VERSION = "0.1.5";
+  const MODULE_VERSION = "0.1.6";
   const MATCHES = [
     "https://www.ebut3pl.co.kr/jsp/site/site413edit.jsp*",
     "https://www.ebut3pl.co.kr/jsp/com/ScanWindow.jsp*"
@@ -20,7 +20,7 @@
   const STATE_KEY = "__tmOutboundManagerState";
   const POPUP_READY_ATTR = "data-tm-outbound-manager-ready";
   const SESSION_EXPIRED_MARKERS = ["자동 로그아웃 되었습니다", "/home/docs/login.html", "세션종료", "로그인"];
-  const DISPATCH_INTERVAL_MS = 100;
+  const DISPATCH_INTERVAL_MS = 200;
   const MAX_INFLIGHT_REQUESTS = 6;
   const RENDER_THROTTLE_MS = 120;
   const SUMMARY_EMPTY = "-";
@@ -84,6 +84,22 @@
 
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+  }
+
+  function resolveDispatchDelay(runState, nextDispatchAt, nowValue) {
+    const state = runState && typeof runState === "object" ? runState : {};
+    if (state.stopRequested) return null;
+    if (!Array.isArray(state.queue) || !state.queue.length) return null;
+    if ((Number(state.inflightCount) || 0) >= MAX_INFLIGHT_REQUESTS) return null;
+    const readyAt = Math.max(Number(nextDispatchAt) || 0, 0);
+    const nowMs = Math.max(Number(nowValue) || 0, 0);
+    return Math.max(0, readyAt - nowMs);
+  }
+
+  function consumeDispatchSlot(nextDispatchAt, nowValue) {
+    const readyAt = Math.max(Number(nextDispatchAt) || 0, 0);
+    const nowMs = Math.max(Number(nowValue) || 0, 0);
+    return Math.max(nowMs, readyAt) + DISPATCH_INTERVAL_MS;
   }
 
   function isSessionExpiredText(text) {
@@ -858,6 +874,7 @@
     return new Promise((resolve) => {
       const active = new Set();
       let tickTimer = 0;
+      let nextDispatchAt = Date.now();
 
       const finishIfDone = function finishIfDone() {
         if (tickTimer) {
@@ -870,28 +887,21 @@
       };
 
       const scheduleTick = function scheduleTick(delay) {
-        if (tickTimer) return;
+        const waitMs = Math.max(0, Number(delay) || 0);
+        if (tickTimer && waitMs > 0) return;
+        if (tickTimer) {
+          state.pageWin.clearTimeout(tickTimer);
+          tickTimer = 0;
+        }
         tickTimer = state.pageWin.setTimeout(() => {
           tickTimer = 0;
-          dispatchNext();
-        }, Math.max(0, Number(delay) || 0));
+          pumpQueue();
+        }, waitMs);
       };
 
-      const dispatchNext = function dispatchNext() {
-        if (state.run.stopRequested) {
-          finishIfDone();
-          return;
-        }
-        if (!state.run.queue.length) {
-          finishIfDone();
-          return;
-        }
-        if (active.size >= MAX_INFLIGHT_REQUESTS) {
-          scheduleTick(DISPATCH_INTERVAL_MS);
-          return;
-        }
-
+      const dispatchNext = function dispatchNext(nowValue) {
         const invoiceNumber = state.run.queue.shift();
+        nextDispatchAt = consumeDispatchSlot(nextDispatchAt, nowValue);
         state.run.currentInvoice = invoiceNumber;
         state.run.inflightCount += 1;
         state.run.lastMessage = invoiceNumber + " 전송";
@@ -905,22 +915,28 @@
           state.run.lastMessage = invoiceNumber + " · " + result.resultLabel + " · " + result.message;
           active.delete(task);
           scheduleRender(state, false);
-          if (!state.run.stopRequested && state.run.queue.length) {
-            scheduleTick(0);
-          } else {
-            finishIfDone();
-          }
+          pumpQueue();
         })();
         active.add(task);
+      };
 
-        if (!state.run.stopRequested && state.run.queue.length) {
-          scheduleTick(DISPATCH_INTERVAL_MS);
-        } else {
-          finishIfDone();
+      const pumpQueue = function pumpQueue() {
+        while (true) {
+          const delay = resolveDispatchDelay(state.run, nextDispatchAt, Date.now());
+          if (delay == null) {
+            finishIfDone();
+            return;
+          }
+          if (delay > 0) {
+            scheduleTick(delay);
+            finishIfDone();
+            return;
+          }
+          dispatchNext(Date.now());
         }
       };
 
-      dispatchNext();
+      pumpQueue();
     });
   }
 
@@ -1031,13 +1047,16 @@
     buildResultRowsHtml,
     buildErrorSummary,
     buildSummary,
+    consumeDispatchSlot,
     filterResults,
+    resolveDispatchDelay,
     resolveSelectedWarehouse,
     shouldRun,
     run,
     start
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 
