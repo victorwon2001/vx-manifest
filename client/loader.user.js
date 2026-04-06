@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VX Console
 // @namespace    github.victor.vx.console
-// @version      0.6.1
+// @version      0.6.2
 // @description  원격 구성 기반 모듈 동기화 도구
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/victorwon2001/vx-manifest/main/client/loader.user.js
@@ -634,8 +634,16 @@
     delete statusMap[scriptId];
   }
 
-  function resolvePath(relativePath) {
-    return new URL(String(relativePath || ""), RAW_BASE_URL).toString();
+  function withCacheBust(url, cacheBustToken) {
+    if (!cacheBustToken) return String(url || "");
+    const target = new URL(String(url || ""), RAW_BASE_URL);
+    target.searchParams.set("_tm", String(cacheBustToken));
+    return target.toString();
+  }
+
+  function resolvePath(relativePath, options) {
+    const resolvedUrl = new URL(String(relativePath || ""), RAW_BASE_URL).toString();
+    return withCacheBust(resolvedUrl, options && options.cacheBustToken);
   }
 
   function buildResponseHeadersText(headers) {
@@ -769,7 +777,9 @@
     const preferCache = !options || options.preferCache !== false;
     const cachedCode = getValue(assetKey, "");
     if (preferCache && cachedCode) return String(cachedCode);
-    const assetCode = await fetchText(resolvePath(dependency.path));
+    const assetCode = await fetchText(resolvePath(dependency.path, {
+      cacheBustToken: options && options.cacheBustToken,
+    }));
     setValue(assetKey, assetCode);
     rememberAssetCacheKey(scriptId, assetKey);
     return assetCode;
@@ -813,7 +823,9 @@
     const preferCache = !options || options.preferCache !== false;
     const cachedCode = getValue(keys.code, "");
     if (preferCache && cachedCode) return String(cachedCode);
-    const code = await fetchText(resolvePath(meta.entry));
+    const code = await fetchText(resolvePath(meta.entry, {
+      cacheBustToken: options && options.cacheBustToken,
+    }));
     setValue(keys.code, code);
     const syncedMeta = buildSyncedMeta(script.id, meta, {
       existing: readCachedScriptMeta(script.id),
@@ -830,7 +842,9 @@
   async function loadScriptMeta(script, options) {
     const cachedMeta = readCachedScriptMeta(script.id);
     if ((!options || options.preferCache !== false) && canUseCachedMeta(cachedMeta)) return cachedMeta;
-    const remoteMeta = await fetchJson(resolvePath(script.metaPath));
+    const remoteMeta = await fetchJson(resolvePath(script.metaPath, {
+      cacheBustToken: options && options.cacheBustToken,
+    }));
     const syncedMeta = buildSyncedMeta(script.id, remoteMeta, {
       existing: cachedMeta,
       checkedAt: nowIso(),
@@ -840,10 +854,18 @@
     return syncedMeta;
   }
 
-  async function prewarmScriptBundle(script) {
-    const remoteMeta = await loadScriptMeta(script, { preferCache: false });
-    await prewarmScriptAssets(script, remoteMeta);
-    await loadScriptCode(script, remoteMeta, { preferCache: false });
+  async function prewarmScriptBundle(script, options) {
+    const remoteMeta = await loadScriptMeta(script, {
+      preferCache: false,
+      cacheBustToken: options && options.cacheBustToken,
+    });
+    await prewarmScriptAssets(script, remoteMeta, {
+      cacheBustToken: options && options.cacheBustToken,
+    });
+    await loadScriptCode(script, remoteMeta, {
+      preferCache: false,
+      cacheBustToken: options && options.cacheBustToken,
+    });
     return remoteMeta;
   }
 
@@ -1612,7 +1634,9 @@
   }
 
   async function refreshRemoteMeta(script, options) {
-    const remoteMeta = await fetchJson(resolvePath(script.metaPath));
+    const remoteMeta = await fetchJson(resolvePath(script.metaPath, {
+      cacheBustToken: options && options.cacheBustToken,
+    }));
     const normalizedRemoteMeta = normalizeMetaCacheEntry(script.id, remoteMeta);
     writeRemoteMetaEntry(script.id, normalizedRemoteMeta);
     let status = persistScriptRemoteStatus(script, normalizedRemoteMeta, {
@@ -1622,7 +1646,9 @@
     if (options && options.prewarm) {
       const shouldSync = shouldRefreshCache(readCachedScriptMeta(script.id), normalizedRemoteMeta) || !getValue(buildScriptStorageKeys(script.id).code, "");
       if (shouldSync) {
-        await prewarmScriptBundle(script);
+        await prewarmScriptBundle(script, {
+          cacheBustToken: options && options.cacheBustToken,
+        });
         didPrewarm = true;
       }
     }
@@ -1662,6 +1688,9 @@
     const currentRegistry = readCachedRegistry();
     const force = !!(options && options.force);
     const nowValue = Date.now();
+    const cacheBustToken = options && options.cacheBustToken
+      ? options.cacheBustToken
+      : (force && options && options.waitForLock ? "manual-" + nowValue : "");
     if (!force && !shouldCheckAt(getValue(REGISTRY_CHECKED_AT_KEY, ""), REGISTRY_CHECK_INTERVAL_MS, nowValue)) {
       return {
         registry: currentRegistry,
@@ -1690,7 +1719,7 @@
     }
 
     try {
-      const nextRegistry = await fetchJson(REGISTRY_URL);
+      const nextRegistry = await fetchJson(withCacheBust(REGISTRY_URL, cacheBustToken));
       const diff = diffRegistryScripts(currentRegistry, nextRegistry);
       setValue(REGISTRY_RAW_KEY, JSON.stringify(nextRegistry));
       setValue(REGISTRY_CHECKED_AT_KEY, nowIso());
@@ -1700,24 +1729,26 @@
       });
 
       const scripts = getScriptsFromRegistry(nextRegistry);
-      const addedIdSet = new Set(diff.addedIds);
-      for (const addedId of diff.addedIds) {
-        const addedScript = scripts.find((script) => script.id === addedId);
-        if (!addedScript) continue;
-        const remoteMeta = normalizeMetaCacheEntry(addedScript.id, await fetchJson(resolvePath(addedScript.metaPath)));
-        writeRemoteMetaEntry(addedId, remoteMeta);
-        persistScriptRemoteStatus(addedScript, remoteMeta, {
-          kind: "new",
+        const addedIdSet = new Set(diff.addedIds);
+        for (const addedId of diff.addedIds) {
+          const addedScript = scripts.find((script) => script.id === addedId);
+          if (!addedScript) continue;
+          const remoteMeta = normalizeMetaCacheEntry(addedScript.id, await fetchJson(resolvePath(addedScript.metaPath, {
+            cacheBustToken,
+          })));
+          writeRemoteMetaEntry(addedId, remoteMeta);
+          persistScriptRemoteStatus(addedScript, remoteMeta, {
+            kind: "new",
           notify: true,
         });
       }
 
-      if (options && options.refreshAllMeta) {
-        for (const script of scripts) {
-          if (addedIdSet.has(script.id)) continue;
-          await refreshRemoteMeta(script, { prewarm: false, notify: true });
+        if (options && options.refreshAllMeta) {
+          for (const script of scripts) {
+            if (addedIdSet.has(script.id)) continue;
+            await refreshRemoteMeta(script, { prewarm: false, notify: true, cacheBustToken });
+          }
         }
-      }
 
       return {
         registry: nextRegistry,
@@ -1765,11 +1796,15 @@
 
   async function syncScripts(scope, options) {
     const forceRegistry = !options || options.forceRegistry !== false;
+    const cacheBustToken = options && options.cacheBustToken
+      ? options.cacheBustToken
+      : (forceRegistry && options && options.waitForLock ? "manual-sync-" + Date.now() : "");
     const registryResult = forceRegistry
       ? await refreshRegistryState({
         force: true,
         waitForLock: !!(options && options.waitForLock),
         window: options && options.window,
+        cacheBustToken,
       })
       : {
         registry: readCachedRegistry() || await refreshRegistry({ force: true }),
@@ -1793,12 +1828,13 @@
         ? findMatchingScripts(registry, currentUrl)
         : scripts.filter((script) => script.id === scope));
     let runCount = 0;
-    for (const script of targets) {
-      const refreshResult = await refreshRemoteMeta(script, {
-        prewarm: true,
-        reconcileAfterSync: true,
-        notify: false,
-      });
+      for (const script of targets) {
+        const refreshResult = await refreshRemoteMeta(script, {
+          prewarm: true,
+          reconcileAfterSync: true,
+          notify: false,
+          cacheBustToken,
+        });
       if (findMatchingScripts({ scripts: [script] }, currentUrl).length) {
         await runScript(script, actionWindow, {
           preferCache: true,
@@ -1960,15 +1996,17 @@
     isScriptEnabled,
     matchUrlPattern,
     buildMetaFingerprint,
-    normalizeMetaCacheEntry,
-    readRemoteMetaMap,
-    readRemoteStatusMap,
-    refreshRemoteMeta,
-    refreshRegistry,
-    refreshRegistryState,
-    resolveRemoteStatusKind,
-    shouldCheckAt,
-    shouldRefreshCache,
-    syncScripts,
-  };
-});
+      normalizeMetaCacheEntry,
+      readRemoteMetaMap,
+      readRemoteStatusMap,
+      refreshRemoteMeta,
+      refreshRegistry,
+      refreshRegistryState,
+      resolvePath,
+      resolveRemoteStatusKind,
+      shouldCheckAt,
+      shouldRefreshCache,
+      syncScripts,
+      withCacheBust,
+    };
+  });

@@ -26,6 +26,17 @@ const stockMoveAutomationMeta = require(resolveRepoPath(["../modules/stock-move-
 const orderImportSyncMeta = require(resolveRepoPath(["../modules/order-import-sync/meta.json"]));
 const loaderSource = fs.readFileSync(loaderPath, "utf8");
 
+function stripLoaderCacheBust(url) {
+  const parsed = new URL(String(url));
+  parsed.searchParams.delete("_tm");
+  const query = parsed.searchParams.toString();
+  return parsed.origin + parsed.pathname + (query ? "?" + query : "");
+}
+
+function readLoaderCacheBust(url) {
+  return new URL(String(url)).searchParams.get("_tm");
+}
+
 function createGmEnvironment(overrides) {
   const original = {};
   const names = [
@@ -192,6 +203,15 @@ test("buildScriptStorageKeys keeps script cache names isolated", () => {
   assert.equal(keys.meta, "tm-loader:v1:script:module-a:meta");
   assert.equal(keys.code, "tm-loader:v1:script:module-a:code");
   assert.equal(keys.assets, "tm-loader:v1:script:module-a:assets");
+});
+
+test("resolvePath appends a cache-bust token only when requested", () => {
+  const plain = loader.resolvePath("modules/module-a/meta.json");
+  const busted = loader.resolvePath("modules/module-a/meta.json", { cacheBustToken: "manual-sync-1" });
+
+  assert.equal(plain, loader.RAW_BASE_URL + "modules/module-a/meta.json");
+  assert.equal(stripLoaderCacheBust(busted), plain);
+  assert.equal(readLoaderCacheBust(busted), "manual-sync-1");
 });
 
 test("normalizeMetaCacheEntry keeps full runnable cache metadata", () => {
@@ -651,7 +671,7 @@ test("bootstrap cold start fetches registry, meta and code remotely", async () =
   ]);
   const env = createGmEnvironment({
     GM_xmlhttpRequest(details) {
-      const body = responses.get(details.url);
+      const body = responses.get(stripLoaderCacheBust(details.url));
       if (!body) throw new Error("unexpected URL: " + details.url);
       details.onload({
         status: 200,
@@ -755,6 +775,7 @@ test("readRemote maps lazily migrate legacy blob entries to per-script keys", ()
 });
 
 test("refreshRegistryState refreshes existing module remote meta for manual refresh", async () => {
+  const requestedUrls = [];
   const responses = new Map([
     [
       loader.REGISTRY_URL,
@@ -787,7 +808,8 @@ test("refreshRegistryState refreshes existing module remote meta for manual refr
   ]);
   const env = createGmEnvironment({
     GM_xmlhttpRequest(details) {
-      const body = responses.get(details.url);
+      requestedUrls.push(details.url);
+      const body = responses.get(stripLoaderCacheBust(details.url));
       if (!body) throw new Error("unexpected URL: " + details.url);
       details.onload({
         status: 200,
@@ -826,9 +848,11 @@ test("refreshRegistryState refreshes existing module remote meta for manual refr
     const remoteMetaMap = loader.readRemoteMetaMap();
     const remoteStatusMap = loader.readRemoteStatusMap();
 
-    assert.equal(result.scriptCount, 1);
-    assert.equal(remoteMetaMap["manual-refresh"].version, "0.2.0");
-    assert.equal(remoteStatusMap["manual-refresh"].kind, "update");
+      assert.equal(result.scriptCount, 1);
+      assert.equal(remoteMetaMap["manual-refresh"].version, "0.2.0");
+      assert.equal(remoteStatusMap["manual-refresh"].kind, "update");
+      assert.ok(requestedUrls.some((url) => stripLoaderCacheBust(url) === loader.REGISTRY_URL && readLoaderCacheBust(url)));
+      assert.ok(requestedUrls.some((url) => stripLoaderCacheBust(url) === loader.RAW_BASE_URL + "modules/manual-refresh/meta.json" && readLoaderCacheBust(url)));
   } finally {
     env.restore();
   }
@@ -837,7 +861,7 @@ test("refreshRegistryState refreshes existing module remote meta for manual refr
 test("refreshRegistryState removes deleted modules and local overrides immediately", async () => {
   const env = createGmEnvironment({
     GM_xmlhttpRequest(details) {
-      if (details.url !== loader.REGISTRY_URL) throw new Error("unexpected URL: " + details.url);
+      if (stripLoaderCacheBust(details.url) !== loader.REGISTRY_URL) throw new Error("unexpected URL: " + details.url);
       details.onload({
         status: 200,
         responseText: JSON.stringify({ version: 1, scripts: [] }),
@@ -899,7 +923,8 @@ test("refreshRegistryState removes deleted modules and local overrides immediate
 test("refreshRegistryState waits for registry lock before confirming manual refresh", async () => {
   const env = createGmEnvironment({
     GM_xmlhttpRequest(details) {
-      if (details.url !== loader.REGISTRY_URL) throw new Error("unexpected URL: " + details.url);
+      if (stripLoaderCacheBust(details.url) !== loader.REGISTRY_URL) throw new Error("unexpected URL: " + details.url);
+      assert.ok(readLoaderCacheBust(details.url));
       details.onload({
         status: 200,
         responseText: JSON.stringify({ version: 1, scripts: [] }),
@@ -924,6 +949,7 @@ test("refreshRegistryState waits for registry lock before confirming manual refr
 });
 
 test("syncScripts reconciles checksum-only redeploys to clean after manual sync", async () => {
+  const requestedUrls = [];
   const responses = new Map([
     [
       loader.REGISTRY_URL,
@@ -960,7 +986,8 @@ test("syncScripts reconciles checksum-only redeploys to clean after manual sync"
   ]);
   const env = createGmEnvironment({
     GM_xmlhttpRequest(details) {
-      const body = responses.get(details.url);
+      requestedUrls.push(details.url);
+      const body = responses.get(stripLoaderCacheBust(details.url));
       if (!body) throw new Error("unexpected URL: " + details.url);
       details.onload({
         status: 200,
@@ -1014,6 +1041,9 @@ test("syncScripts reconciles checksum-only redeploys to clean after manual sync"
     assert.equal(fakeWindow.__redeployRuns, 1);
     assert.equal(remoteStatusMap[scriptId].kind, "clean");
     assert.equal(syncedMeta.checksum, "remote-2");
+    assert.ok(requestedUrls.some((url) => stripLoaderCacheBust(url) === loader.REGISTRY_URL && readLoaderCacheBust(url)));
+    assert.ok(requestedUrls.some((url) => stripLoaderCacheBust(url) === loader.RAW_BASE_URL + "modules/redeploy-script/meta.json" && readLoaderCacheBust(url)));
+    assert.ok(requestedUrls.some((url) => stripLoaderCacheBust(url) === loader.RAW_BASE_URL + "modules/redeploy-script/main.js" && readLoaderCacheBust(url)));
   } finally {
     env.restore();
   }
