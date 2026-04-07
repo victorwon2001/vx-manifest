@@ -81,9 +81,9 @@ test("header copy helper extracts standard table column values by index", () => 
 test("header copy helper builds preview rows with centered columns", () => {
   const html = moduleUnderTest.buildRowsHtml(["사과", "배"]);
 
-  assert.match(html, /data-tm-align="center">1/);
   assert.match(html, /data-tm-align="center">사과/);
   assert.match(html, /data-tm-align="center">배/);
+  assert.doesNotMatch(html, />1<\/td>/);
 });
 
 test("header copy helper clipboard text preserves blank rows for spreadsheet paste", () => {

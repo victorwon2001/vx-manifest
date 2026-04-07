@@ -3,7 +3,7 @@
 
   const MODULE_ID = "header-copy-helper";
   const MODULE_NAME = "헤더 복사 도우미";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const STATE_KEY = "__tmHeaderCopyHelperState";
   const STYLE_ID = "tm-header-copy-helper-style";
@@ -187,13 +187,12 @@
   function buildRowsHtml(values) {
     const items = Array.isArray(values) ? values : [];
     if (!items.length) {
-      return '<tr><td colspan="2" class="tm-ui-empty">현재 보이는 행에서 추출할 값이 없습니다.</td></tr>';
+      return '<tr><td colspan="1" class="tm-ui-empty">현재 보이는 행에서 추출할 값이 없습니다.</td></tr>';
     }
-    return items.map((value, index) => {
+    return items.map((value) => {
       const displayValue = value === BLANK_VALUE ? "&nbsp;" : escapeHtml(value);
       return [
         "<tr>",
-        '<td data-tm-align="center">' + String(index + 1) + "</td>",
         '<td data-tm-align="center">' + displayValue + "</td>",
         "</tr>",
       ].join("");
@@ -239,7 +238,6 @@
       '          <table class="tm-ui-table">',
       "            <thead>",
       "              <tr>",
-      '                <th data-tm-align="center">No.</th>',
       '                <th data-tm-align="center">' + label + "</th>",
       "              </tr>",
       "            </thead>",
@@ -274,7 +272,6 @@
       "#" + MODAL_ID + " .tm-header-copy-helper__toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px}",
       "#" + MODAL_ID + " .tm-header-copy-helper__toggle-control{display:inline-flex;align-items:center;gap:8px;color:var(--tm-text)}",
       "#" + MODAL_ID + " .tm-ui-table th,#" + MODAL_ID + " .tm-ui-table td{text-align:center}",
-      "#" + MODAL_ID + " .tm-ui-table th:first-child,#" + MODAL_ID + " .tm-ui-table td:first-child{width:74px}",
       "#" + MODAL_ID + " .tm-ui-table tbody tr:nth-child(even) td{background:rgba(84,96,103,.03)}",
     ].join("");
     doc.head.appendChild(style);
@@ -422,5 +419,6 @@
     BLANK_VALUE,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
