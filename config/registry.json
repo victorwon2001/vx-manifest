@@ -21,6 +21,15 @@
       "metaPath": "modules/inbound-data-viewer/meta.json"
     },
     {
+      "id": "header-copy-helper",
+      "name": "헤더 복사 도우미",
+      "enabledByDefault": true,
+      "matches": [
+        "https://www.ebut3pl.co.kr/*"
+      ],
+      "metaPath": "modules/header-copy-helper/meta.json"
+    },
+    {
       "id": "inbound-helper",
       "name": "입고도우미",
       "enabledByDefault": true,

@@ -1,0 +1,17 @@
+﻿{
+    "id":  "header-copy-helper",
+    "name":  "헤더 복사 도우미",
+    "version":  "0.1.2",
+    "description":  "테이블 헤더 더블클릭으로 현재 보이는 컬럼 값을 복사하는 도구",
+    "entry":  "modules/header-copy-helper/main.js",
+    "dependencies":  [
+                         {
+                             "id":  "module-ui",
+                             "version":  "0.4.1",
+                             "path":  "shared/module-ui.js"
+                         }
+                     ],
+    "checksum":  "",
+    "loaderApiVersion":  2,
+    "updatedAt":  "2026-04-07 16:26:48"
+}
