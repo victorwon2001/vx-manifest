@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-inspection";
   const MODULE_NAME = "입고검수";
-  const MODULE_VERSION = "0.1.3";
+  const MODULE_VERSION = "0.1.4";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const BASE_ORIGIN = "https://www.ebut3pl.co.kr";
   const BASE100_ENDPOINT = "/base/base100main_jdata";
@@ -518,7 +518,7 @@
     const fetchedAt = safeTrim(state.lastFetchedAt || state.fetchedAt);
     const cacheSource = safeTrim(state.cacheSource);
     if (state.loadingPromise && count) {
-      return "마스터 " + count + "건 · " + (cacheSource === "cache" ? "캐시 기준" : "기존 데이터 기준") + " · 백그라운드 갱신 중";
+      return "마스터 " + count + "건 · " + (cacheSource === "cache" ? "캐시 기준" : "기존 데이터 기준") + " · 새로고침 중";
     }
     if (state.loadingPromise) return "상품 마스터를 조회하는 중입니다.";
     if (!count) return "마스터 캐시 없음";
@@ -532,7 +532,6 @@
       loadingPromise: null,
       lastFetchedAt: "",
       cacheSource: "",
-      prefetchStarted: false,
     };
   }
 
@@ -697,6 +696,29 @@
     });
   }
 
+  function loadCachedMasterState(state) {
+    const pageState = resolvePageState(state);
+    const master = resolveMasterState(state);
+    if (!pageState || !master) return { records: [], fetchedAt: "" };
+
+    if (Array.isArray(master.masterCache.records) && master.masterCache.records.length) {
+      return master.masterCache;
+    }
+
+    const cached = readMasterCache(pageState.pageWin, pageState);
+    if (!Array.isArray(cached.records) || !cached.records.length) {
+      return { records: [], fetchedAt: "" };
+    }
+
+    master.masterCache = cached;
+    master.scanIndex = buildScanIndex(cached.records);
+    master.lastFetchedAt = safeTrim(cached.fetchedAt);
+    master.cacheSource = "캐시 기준";
+    refreshEntriesFromMaster(pageState);
+    renderAll(pageState.popupState || state);
+    return cached;
+  }
+
   async function fetchMasterData(state) {
     const pageState = resolvePageState(state);
     const basicCust = "4603";
@@ -799,16 +821,7 @@
       return master.masterCache;
     }
     if (!forceRefresh) {
-      const cached = readMasterCache(pageState.pageWin, pageState);
-      if (Array.isArray(cached.records) && cached.records.length) {
-        master.masterCache = cached;
-        master.scanIndex = buildScanIndex(cached.records);
-        master.lastFetchedAt = safeTrim(cached.fetchedAt);
-        master.cacheSource = "캐시 기준";
-        refreshEntriesFromMaster(pageState);
-        renderAll(pageState.popupState || state);
-        return cached;
-      }
+      return loadCachedMasterState(state);
     }
 
     renderAll(pageState.popupState || state);
@@ -834,6 +847,7 @@
             setStatus(pageState, "상품 마스터 " + masterCache.records.length + "건을 준비했습니다.", "success");
           }
           renderAll(pageState.popupState || state);
+          void processScanQueue(pageState.popupState || pageState);
           return masterCache;
         });
       })
@@ -846,27 +860,6 @@
         renderAll(pageState.popupState || state);
       });
     return master.loadingPromise;
-  }
-
-  function primeMasterState(pageState) {
-    const master = resolveMasterState(pageState);
-    if (!master || master.prefetchStarted) return;
-    master.prefetchStarted = true;
-
-    const cached = readMasterCache(pageState.pageWin, pageState);
-    if (Array.isArray(cached.records) && cached.records.length) {
-      master.masterCache = cached;
-      master.scanIndex = buildScanIndex(cached.records);
-      master.lastFetchedAt = safeTrim(cached.fetchedAt);
-      master.cacheSource = "캐시 기준";
-      refreshEntriesFromMaster(pageState);
-    }
-
-    void ensureMasterLoaded(pageState, true)
-      .catch(() => {
-        renderAll(pageState.popupState || pageState);
-      });
-    renderAll(pageState.popupState || pageState);
   }
 
   function consumeInputValue(state) {
@@ -945,14 +938,22 @@
       focusInput(state);
       return;
     }
-    session.processing = true;
-    const nextItem = session.scanQueue.shift();
-    const code = normalizeScanCode(nextItem && nextItem.code ? nextItem.code : nextItem);
-    const count = Math.max(1, Number(nextItem && nextItem.count) || 1);
-    const scannedAt = Number(nextItem && nextItem.scannedAt) || Date.now();
-    const incrementTotal = Boolean(nextItem && nextItem.incrementTotal);
     try {
       await ensureMasterLoaded(state, false);
+      const hasMaster = Array.isArray(master.masterCache.records) && master.masterCache.records.length;
+      if (!hasMaster) {
+        setStatus(state, "상품 마스터가 없습니다. '마스터 새로고침'을 먼저 실행하세요.", "danger");
+        renderSummary(state);
+        renderMasterMeta(state);
+        focusInput(state);
+        return;
+      }
+      session.processing = true;
+      const nextItem = session.scanQueue.shift();
+      const code = normalizeScanCode(nextItem && nextItem.code ? nextItem.code : nextItem);
+      const count = Math.max(1, Number(nextItem && nextItem.count) || 1);
+      const scannedAt = Number(nextItem && nextItem.scannedAt) || Date.now();
+      const incrementTotal = Boolean(nextItem && nextItem.incrementTotal);
       const candidates = findCandidateRecords(master.scanIndex, code);
       if (!candidates.length) {
         recordUnresolvedScan(state, code, count, scannedAt);
@@ -1082,8 +1083,14 @@
     bindEvents(popupState);
     popupWin.focus();
     focusInput(popupState);
-    primeMasterState(pageState);
-    void processScanQueue(popupState);
+    const cached = loadCachedMasterState(pageState);
+    if (Array.isArray(cached.records) && cached.records.length) {
+      setStatus(pageState, "캐시된 상품 마스터를 불러왔습니다. 필요하면 새로고침 후 스캔하세요.", "success");
+      void processScanQueue(popupState);
+    } else {
+      setStatus(pageState, "상품 마스터가 없습니다. '마스터 새로고침'을 먼저 실행하세요.", "danger");
+    }
+    renderAll(popupState);
   }
 
   function resolveUiWindow(win) {
@@ -1151,7 +1158,6 @@
         openInspectionWindow(pageState);
       },
     });
-    primeMasterState(pageState);
   }
 
   function run(context) {
@@ -1171,12 +1177,15 @@
     applyScanSelection,
     buildRowsHtml,
     buildSummary,
+    loadCachedMasterState,
+    ensureMasterLoaded,
     resolveNavInstallContext,
     shouldRun,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
 

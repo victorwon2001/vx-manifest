@@ -144,6 +144,90 @@ test("inbound inspection start installs nav button next to pattern analyzer with
   assert.equal(typeof installOptions.options.onClick, "function");
 });
 
+test("inbound inspection start does not fetch master on nav pages before manual refresh", () => {
+  let fetchCount = 0;
+  const targetWindow = {
+    location: { href: "https://www.ebut3pl.co.kr/home" },
+    document: {},
+    fetch() {
+      fetchCount += 1;
+      throw new Error("should not fetch");
+    },
+  };
+  let installOptions = null;
+  const navMenu = {
+    resolveNavTargetWindow() {
+      return { win: targetWindow, navMenu: {} };
+    },
+    installNavButton(win, options) {
+      installOptions = { win, options };
+      return { dispose() {} };
+    },
+  };
+  const sourceWindow = {
+    location: { href: "https://www.ebut3pl.co.kr/home" },
+    document: {},
+    __tmNavMenu: navMenu,
+  };
+  targetWindow.__tmNavMenu = navMenu;
+
+  moduleUnderTest.start({ window: sourceWindow, loader: null });
+
+  assert.ok(installOptions);
+  assert.equal(fetchCount, 0);
+});
+
+test("inbound inspection loads cached master without remote fetch until manual refresh", async () => {
+  let fetchCount = 0;
+  const cachedPayload = {
+    fetchedAt: "2026-04-08 12:00:00",
+    records: [
+      { id: "NICN-A", nicn: "NICN-A", name: "상품A", seller: "판매처A", barcodes: ["BC-A"], primaryBarcode: "BC-A" },
+    ],
+  };
+  const pageState = {
+    pageWin: {
+      localStorage: {
+        getItem() {
+          return JSON.stringify(cachedPayload);
+        },
+      },
+      fetch() {
+        fetchCount += 1;
+        throw new Error("should not fetch");
+      },
+    },
+    loader: null,
+    popupState: null,
+    masterState: {
+      masterCache: { records: [], fetchedAt: "" },
+      scanIndex: moduleUnderTest.buildScanIndex([]),
+      loadingPromise: null,
+      lastFetchedAt: "",
+      cacheSource: "",
+    },
+    sessionState: {
+      rows: [],
+      totalScans: 0,
+      lastMissingCode: "",
+      unresolvedScans: {},
+      statusText: "",
+      statusKind: "neutral",
+      scanQueue: [],
+      processing: false,
+      pendingConflict: null,
+      conflictSelections: {},
+    },
+  };
+
+  const cached = await moduleUnderTest.ensureMasterLoaded(pageState, false);
+
+  assert.equal(fetchCount, 0);
+  assert.equal(cached.records.length, 1);
+  assert.equal(pageState.masterState.masterCache.records.length, 1);
+  assert.equal(pageState.masterState.cacheSource, "캐시 기준");
+});
+
 test("inbound inspection does not start prefetch on pages without an accessible nav target", () => {
   let installed = false;
   const navMenu = {
