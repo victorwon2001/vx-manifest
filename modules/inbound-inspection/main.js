@@ -3,7 +3,7 @@
 
   const MODULE_ID = "inbound-inspection";
   const MODULE_NAME = "입고검수";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = ["https://www.ebut3pl.co.kr/*"];
   const BASE_ORIGIN = "https://www.ebut3pl.co.kr";
   const BASE100_ENDPOINT = "/base/base100main_jdata";
@@ -1095,6 +1095,34 @@
     return win;
   }
 
+  function resolveNavInstallContext(win) {
+    const navMenu = getNavMenu(win);
+    if (!navMenu || typeof navMenu.installNavButton !== "function") return null;
+
+    if (typeof navMenu.resolveNavTargetWindow === "function") {
+      const resolved = navMenu.resolveNavTargetWindow(win, { navSelector: NAV_SELECTOR });
+      if (!resolved || !resolved.win || !resolved.win.document || !resolved.navMenu) return null;
+      return {
+        api: navMenu,
+        win: resolved.win,
+        navMenu: resolved.navMenu,
+      };
+    }
+
+    if (win && win.document && typeof win.document.querySelector === "function") {
+      const navContainer = win.document.querySelector(NAV_SELECTOR);
+      if (navContainer) {
+        return {
+          api: navMenu,
+          win,
+          navMenu: navContainer,
+        };
+      }
+    }
+
+    return null;
+  }
+
   function shouldRun(win) {
     return /^https:\/\/www\.ebut3pl\.co\.kr\//i.test(String(win && win.location && win.location.href || ""));
   }
@@ -1102,17 +1130,16 @@
   function start(context) {
     const sourceWin = context && context.window ? context.window : root;
     if (!sourceWin || !sourceWin.document || !shouldRun(sourceWin)) return;
-    const win = resolveUiWindow(sourceWin);
+    const navContext = resolveNavInstallContext(sourceWin);
+    if (!navContext || !navContext.win) return;
+    const win = navContext.win;
     if (!win || !win.document || win.__tmInboundInspectionStarted) return;
     win.__tmInboundInspectionStarted = true;
 
     const loader = context && context.loader ? context.loader : null;
     const pageState = getPageState(win, loader);
-    primeMasterState(pageState);
-    const navMenu = getNavMenu(win);
-    if (!navMenu || typeof navMenu.installNavButton !== "function") return;
 
-    pageState.navInstall = navMenu.installNavButton(win, {
+    pageState.navInstall = navContext.api.installNavButton(win, {
       navSelector: NAV_SELECTOR,
       retryLimit: NAV_RETRY_LIMIT,
       retryDelayMs: NAV_RETRY_DELAY_MS,
@@ -1124,6 +1151,7 @@
         openInspectionWindow(pageState);
       },
     });
+    primeMasterState(pageState);
   }
 
   function run(context) {
@@ -1143,10 +1171,12 @@
     applyScanSelection,
     buildRowsHtml,
     buildSummary,
+    resolveNavInstallContext,
     shouldRun,
     run,
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 

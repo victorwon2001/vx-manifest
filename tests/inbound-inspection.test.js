@@ -119,7 +119,7 @@ test("inbound inspection start installs nav button next to pattern analyzer with
   let installOptions = null;
   const navMenu = {
     resolveNavTargetWindow() {
-      return { win: targetWindow };
+      return { win: targetWindow, navMenu: {} };
     },
     installNavButton(win, options) {
       installOptions = { win, options };
@@ -142,4 +142,28 @@ test("inbound inspection start installs nav button next to pattern analyzer with
   assert.equal(installOptions.options.insertAfterLabel, "패턴분석기");
   assert.equal(installOptions.options.insertBeforeLabel, "상담전용창");
   assert.equal(typeof installOptions.options.onClick, "function");
+});
+
+test("inbound inspection does not start prefetch on pages without an accessible nav target", () => {
+  let installed = false;
+  const navMenu = {
+    resolveNavTargetWindow() {
+      return { win: { document: {} }, navMenu: null };
+    },
+    installNavButton() {
+      installed = true;
+    },
+  };
+  const sourceWindow = {
+    location: { href: "https://www.ebut3pl.co.kr/jsp/base/base100main.jsp" },
+    document: {},
+    __tmNavMenu: navMenu,
+  };
+
+  const resolved = moduleUnderTest.resolveNavInstallContext(sourceWindow);
+  moduleUnderTest.start({ window: sourceWindow, loader: null });
+
+  assert.equal(resolved, null);
+  assert.equal(installed, false);
+  assert.equal(sourceWindow.__tmInboundInspectionStarted, undefined);
 });
