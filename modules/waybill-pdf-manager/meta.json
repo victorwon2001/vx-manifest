@@ -1,0 +1,18 @@
+﻿{
+    "id":  "waybill-pdf-manager",
+    "displayId":  "송장 PDF 매니저",
+    "name":  "송장 PDF 매니저",
+    "version":  "0.1.1",
+    "description":  "송장 PDF를 일괄 병합하는 도구",
+    "entry":  "modules/waybill-pdf-manager/main.js",
+    "dependencies":  [
+                         {
+                             "id":  "pdf-lib",
+                             "version":  "1.17.1",
+                             "path":  "vendor/pdf-lib.min.js"
+                         }
+                     ],
+    "checksum":  "",
+    "loaderApiVersion":  2,
+    "updatedAt":  "2026-04-09 17:01:46"
+}

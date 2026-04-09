@@ -120,5 +120,26 @@
       ],
       "metaPath": "modules/order-import-sync/meta.json"
     }
+    ,
+    {
+      "id": "waybill-pdf-manager",
+      "name": "송장 PDF 매니저",
+      "displayId": "송장 PDF 매니저",
+      "enabledByDefault": true,
+      "matches": [
+        "https://oms.bstage.systems/stan/main.do*"
+      ],
+      "metaPath": "modules/waybill-pdf-manager/meta.json"
+    },
+    {
+      "id": "oms-otp-receiver",
+      "name": "OMS 인증번호 수신기",
+      "displayId": "OMS 인증번호 수신기",
+      "enabledByDefault": true,
+      "matches": [
+        "https://oms.bstage.systems/stan/login.do*"
+      ],
+      "metaPath": "modules/oms-otp-receiver/meta.json"
+    }
   ]
 }
