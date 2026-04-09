@@ -1,9 +1,9 @@
-module.exports = (function (root) {
+﻿module.exports = (function (root) {
   "use strict";
 
   const MODULE_ID = "oms-otp-receiver";
   const MODULE_NAME = "OMS 인증번호 수신기";
-  const MODULE_VERSION = "0.1.0";
+  const MODULE_VERSION = "0.1.1";
   const MATCHES = ["https://oms.bstage.systems/stan/login.do*"];
   const TOPIC = "otp-secret-victor-2026-factory";
   const WS_URL = "wss://ntfy.sh/" + TOPIC + "/ws";
@@ -208,3 +208,4 @@ module.exports = (function (root) {
     start,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+

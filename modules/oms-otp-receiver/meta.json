@@ -1,12 +1,14 @@
-{
-  "id": "oms-otp-receiver",
-  "displayId": "OMS 인증번호 수신기",
-  "name": "OMS 인증번호 수신기",
-  "version": "0.1.0",
-  "description": "OMS 로그인 화면에서 인증번호를 실시간으로 수신하는 도구",
-  "entry": "modules/oms-otp-receiver/main.js",
-  "dependencies": [],
-  "checksum": "",
-  "loaderApiVersion": 2,
-  "updatedAt": "2026-04-09 00:00:00"
+﻿{
+    "id":  "oms-otp-receiver",
+    "displayId":  "OMS 인증번호 수신기",
+    "name":  "OMS 인증번호 수신기",
+    "version":  "0.1.1",
+    "description":  "OMS 로그인 화면에서 인증번호를 실시간으로 수신하는 도구",
+    "entry":  "modules/oms-otp-receiver/main.js",
+    "dependencies":  [
+
+                     ],
+    "checksum":  "",
+    "loaderApiVersion":  2,
+    "updatedAt":  "2026-04-09 17:01:56"
 }
