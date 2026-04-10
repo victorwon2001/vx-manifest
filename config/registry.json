@@ -122,6 +122,17 @@
     }
     ,
     {
+      "id": "oms-scan-history",
+      "name": "OMS 스캔기록",
+      "displayId": "OMS 스캔기록",
+      "enabledByDefault": true,
+      "matches": [
+        "https://oms.bstage.systems/stan/main.do*",
+        "https://oms.bstage.systems/stan/order/orderWaybill.do*"
+      ],
+      "metaPath": "modules/oms-scan-history/meta.json"
+    },
+    {
       "id": "waybill-pdf-manager",
       "name": "송장 PDF 매니저",
       "displayId": "송장 PDF 매니저",
