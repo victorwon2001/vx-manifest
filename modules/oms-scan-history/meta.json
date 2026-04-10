@@ -2,7 +2,7 @@
     "id":  "oms-scan-history",
     "displayId":  "OMS 스캔기록",
     "name":  "OMS 스캔기록",
-    "version":  "0.1.1",
+    "version":  "0.1.2",
     "description":  "OMS Print Popup에 스캔 이력과 중복 재출력 확인을 추가하는 도구",
     "entry":  "modules/oms-scan-history/main.js",
     "dependencies":  [
@@ -10,5 +10,5 @@
                      ],
     "checksum":  "",
     "loaderApiVersion":  2,
-    "updatedAt":  "2026-04-10 13:25:40"
+    "updatedAt":  "2026-04-10 14:24:53"
 }

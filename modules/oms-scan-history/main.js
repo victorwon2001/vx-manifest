@@ -3,7 +3,7 @@
 
   const MODULE_ID = "oms-scan-history";
   const MODULE_NAME = "OMS 스캔기록";
-  const MODULE_VERSION = "0.1.1";
+  const MODULE_VERSION = "0.1.2";
   const MATCHES = [
     "https://oms.bstage.systems/stan/main.do*",
     "https://oms.bstage.systems/stan/order/orderWaybill.do*",
@@ -20,7 +20,6 @@
   const PREVIEW_LIMIT = 10;
   const PAGE_SIZE = 100;
   const PREPARED_REUSE_MS = 500;
-  const PRINT_TIMEOUT_MS = 6000;
   const SEARCH_DEBOUNCE_MS = 140;
 
   function safeTrim(value) {
@@ -420,22 +419,12 @@
       state.lastPrepared = { code: nextCode, at: nowMs };
       return { blocked: true, reason: "duplicate-cancelled" };
     }
-    const row = createPendingHistoryRow(nextCode, nowMs);
+    const row = createHistoryRow(nextCode, "success", "스캔 기록 저장", nowMs);
     appendHistoryRow(state, row);
-    const attempt = {
-      rowId: row.id,
-      code: nextCode,
-      preparedAt: nowMs,
-      finalized: false,
-      timeoutId: state.win.setTimeout(() => {
-        finalizePrintFailureByCode(state, nextCode, "출력 응답을 확인하지 못했습니다.");
-      }, PRINT_TIMEOUT_MS),
-    };
-    state.pendingAttempts.push(attempt);
     state.lastPrepared = { code: nextCode, at: nowMs, rowId: row.id };
-    setStatus(state, "출력 응답을 기다리는 중입니다.");
+    setStatus(state, "스캔 기록을 저장했습니다.");
     scheduleRender(state);
-    return { blocked: false, reused: false, attempt };
+    return { blocked: false, reused: false, row };
   }
 
   function readCurrentPrintCode(doc) {
@@ -805,10 +794,6 @@
     ensureStyles(state.win.document);
     loadHistory(state);
     bindDocumentEvents(state);
-    wrapFetch(state);
-    wrapXhr(state);
-    wrapBlobUrl(state);
-    wrapNativePrint(state);
     renderOrderPage(state);
   }
 
@@ -820,7 +805,7 @@
     state.orderStarted = true;
     const init = () => {
       syncOrderPage(state);
-      state.orderTimer = win.setInterval(() => syncOrderPage(state), 500);
+      state.orderTimer = win.setInterval(() => syncOrderPage(state), 1000);
     };
     if (win.document.body) init();
     else win.addEventListener("DOMContentLoaded", init, { once: true });
@@ -855,7 +840,7 @@
     };
     const init = () => {
       syncFrames();
-      state.shellTimer = win.setInterval(syncFrames, 700);
+      state.shellTimer = win.setInterval(syncFrames, 1200);
     };
     if (win.document.body) init();
     else win.addEventListener("DOMContentLoaded", init, { once: true });
@@ -908,4 +893,5 @@
     version: MODULE_VERSION,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
