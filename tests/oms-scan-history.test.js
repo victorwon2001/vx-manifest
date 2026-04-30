@@ -102,9 +102,35 @@ test("oms scan history paginates records in fixed-size pages", () => {
 });
 
 test("oms scan history prepared scan dedupe keeps the same code inside the reuse window", () => {
-  assert.equal(moduleUnderTest.shouldReusePreparedScan({ code: "A", at: 1000 }, "A", 1300), true);
-  assert.equal(moduleUnderTest.shouldReusePreparedScan({ code: "A", at: 1000 }, "A", 1700), false);
+  assert.equal(moduleUnderTest.shouldReusePreparedScan({ code: "A", at: 1000 }, "A", 5500), true);
+  assert.equal(moduleUnderTest.shouldReusePreparedScan({ code: "A", at: 1000 }, "A", 6501), false);
   assert.equal(moduleUnderTest.shouldReusePreparedScan({ code: "A", at: 1000 }, "B", 1100), false);
+});
+
+test("oms scan history reuses the previous duplicate decision during one scan action", () => {
+  const cancelled = moduleUnderTest.getReusablePreparedScanResult({
+    code: "A",
+    at: 1000,
+    result: { blocked: true, reason: "duplicate-cancelled" },
+  }, "A", 4000);
+
+  assert.deepEqual(cancelled, {
+    blocked: true,
+    reason: "duplicate-cancelled",
+    reused: true,
+  });
+
+  const row = { id: "row-1", code: "A" };
+  const confirmed = moduleUnderTest.getReusablePreparedScanResult({
+    code: "A",
+    at: 1000,
+    result: { blocked: false, row },
+  }, "A", 4000);
+
+  assert.equal(confirmed.blocked, false);
+  assert.equal(confirmed.reused, true);
+  assert.equal(confirmed.row, row);
+  assert.equal(moduleUnderTest.getReusablePreparedScanResult({ code: "A", at: 1000 }, "A", 6501), null);
 });
 
 test("oms scan history detects pdf buffers by magic header", () => {

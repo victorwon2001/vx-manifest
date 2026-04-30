@@ -3,7 +3,7 @@
 
   const MODULE_ID = "oms-scan-history";
   const MODULE_NAME = "OMS 스캔기록";
-  const MODULE_VERSION = "0.1.2";
+  const MODULE_VERSION = "0.1.3";
   const MATCHES = [
     "https://oms.bstage.systems/stan/main.do*",
     "https://oms.bstage.systems/stan/order/orderWaybill.do*",
@@ -19,8 +19,11 @@
   const HISTORY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const PREVIEW_LIMIT = 10;
   const PAGE_SIZE = 100;
-  const PREPARED_REUSE_MS = 500;
+  const PREPARED_REUSE_MS = 5000;
   const SEARCH_DEBOUNCE_MS = 140;
+  const ORDER_SYNC_DEBOUNCE_MS = 120;
+  const ORDER_SYNC_FALLBACK_MS = 3000;
+  const SHELL_SYNC_FALLBACK_MS = 2500;
 
   function safeTrim(value) {
     return String(value == null ? "" : value).replace(/\r/g, "").trim();
@@ -176,6 +179,12 @@
     return Math.abs((Number(nowValue) || Date.now()) - (Number(prepared.at) || 0)) <= PREPARED_REUSE_MS;
   }
 
+  function getReusablePreparedScanResult(lastPrepared, code, nowValue) {
+    if (!shouldReusePreparedScan(lastPrepared, code, nowValue)) return null;
+    const result = lastPrepared && typeof lastPrepared.result === "object" ? lastPrepared.result : null;
+    return Object.assign({}, result || { blocked: false }, { reused: true });
+  }
+
   function isLikelyPdfBuffer(buffer) {
     if (!buffer) return false;
     let bytes = null;
@@ -233,6 +242,7 @@
       "#" + EXTENSION_ID + " .tm-oms-scan-history__table-wrap{max-height:240px;overflow:auto;border:1px solid #dbe2e9;border-radius:12px;background:#fff}",
       "#" + EXTENSION_ID + " table{width:100%;border-collapse:collapse;table-layout:fixed}",
       "#" + EXTENSION_ID + " th,#" + EXTENSION_ID + " td{padding:8px 10px;border-bottom:1px solid #edf1f5;text-align:center;vertical-align:middle;font-size:12px;word-break:break-word}",
+      "#" + EXTENSION_ID + " td,#" + OVERLAY_ID + " .tm-oms-scan-history__panel-table td{user-select:text}",
       "#" + EXTENSION_ID + " thead th{position:sticky;top:0;background:#f9fbfc;z-index:1;font-weight:700}",
       "#" + EXTENSION_ID + " tbody tr:last-child td{border-bottom:none}",
       ".tm-oms-scan-history__status-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;padding:4px 8px;border-radius:999px;font-weight:700;font-size:11px}",
@@ -273,11 +283,14 @@
         statusText: "스캔 대기 중",
         pendingAttempts: [],
         lastPrepared: null,
+        renderVersion: 0,
         renderScheduled: false,
         overlayOpen: false,
         overlayQuery: "",
         overlayPage: 1,
         overlaySearchTimer: 0,
+        orderObserver: null,
+        orderSyncScheduled: false,
         fetchWrapped: false,
         xhrWrapped: false,
         blobWrapped: false,
@@ -289,6 +302,11 @@
     if (storage) win[RUNTIME_KEY].storage = storage;
     win[RUNTIME_KEY].win = win;
     return win[RUNTIME_KEY];
+  }
+
+  function markRenderDirty(state) {
+    if (!state) return;
+    state.renderVersion = (Number(state.renderVersion) || 0) + 1;
   }
 
   function loadHistory(state, forceReload) {
@@ -304,6 +322,7 @@
     state.history = normalizeHistory(state.history);
     state.historyLoaded = true;
     if (state.storage) state.storage.set(HISTORY_STORAGE_KEY, state.history);
+    markRenderDirty(state);
     return state.history;
   }
 
@@ -320,7 +339,10 @@
   }
 
   function setStatus(state, nextText) {
-    state.statusText = safeTrim(nextText) || "스캔 대기 중";
+    const statusText = safeTrim(nextText) || "스캔 대기 중";
+    if (state.statusText === statusText) return;
+    state.statusText = statusText;
+    markRenderDirty(state);
   }
 
   function scheduleRender(state) {
@@ -412,19 +434,20 @@
     if (!nextCode) {
       return { blocked: false, reason: "empty" };
     }
-    if (shouldReusePreparedScan(state.lastPrepared, nextCode, nowMs)) {
-      return { blocked: false, reused: true, attempt: findPendingAttemptByCode(state, nextCode) };
-    }
+    const reused = getReusablePreparedScanResult(state.lastPrepared, nextCode, nowMs);
+    if (reused) return reused;
     if (!handlePreparedDuplicate(state, nextCode)) {
-      state.lastPrepared = { code: nextCode, at: nowMs };
-      return { blocked: true, reason: "duplicate-cancelled" };
+      const result = { blocked: true, reason: "duplicate-cancelled" };
+      state.lastPrepared = { code: nextCode, at: nowMs, result };
+      return result;
     }
     const row = createHistoryRow(nextCode, "success", "스캔 기록 저장", nowMs);
     appendHistoryRow(state, row);
-    state.lastPrepared = { code: nextCode, at: nowMs, rowId: row.id };
+    const result = { blocked: false, reused: false, row };
+    state.lastPrepared = { code: nextCode, at: nowMs, rowId: row.id, result };
     setStatus(state, "스캔 기록을 저장했습니다.");
     scheduleRender(state);
-    return { blocked: false, reused: false, row };
+    return result;
   }
 
   function readCurrentPrintCode(doc) {
@@ -660,7 +683,13 @@
     if (searchInput && searchInput.value !== state.overlayQuery) searchInput.value = state.overlayQuery;
     if (meta) meta.textContent = "최근 7일 " + filtered.length + "건";
     if (pageMeta) pageMeta.textContent = pageData.page + " / " + pageData.totalPages + " 페이지";
-    if (tbody) tbody.innerHTML = buildRowsHtml(pageData.rows);
+    if (tbody) {
+      const rowsHtml = buildRowsHtml(pageData.rows);
+      if (tbody.__tmOmsScanHistoryHtml !== rowsHtml) {
+        tbody.innerHTML = rowsHtml;
+        tbody.__tmOmsScanHistoryHtml = rowsHtml;
+      }
+    }
     const prevButton = overlay.querySelector("[data-action='history-prev']");
     const nextButton = overlay.querySelector("[data-action='history-next']");
     if (prevButton) prevButton.disabled = pageData.page <= 1;
@@ -683,8 +712,17 @@
       if (footer && footer.parentNode === modal) modal.insertBefore(extension, footer);
       else modal.appendChild(extension);
     }
-    const rows = previewHistory(loadHistory(state));
-    extension.innerHTML = [
+    const renderToken = String(Number(state.renderVersion) || 0);
+    if (
+      extension.__tmOmsScanHistoryRenderToken === renderToken
+      && extension.__tmOmsScanHistoryHtml
+      && extension.innerHTML === extension.__tmOmsScanHistoryHtml
+    ) {
+      if (state.overlayOpen) renderOverlay(state);
+      return extension;
+    }
+    const rows = loadHistory(state).slice(0, PREVIEW_LIMIT);
+    const html = [
       '<div class="tm-oms-scan-history__toolbar">',
       '  <div>',
       '    <div class="tm-oms-scan-history__title">최근 스캔 이력</div>',
@@ -702,6 +740,11 @@
       "  </table>",
       "</div>",
     ].join("");
+    if (extension.__tmOmsScanHistoryHtml !== html) {
+      extension.innerHTML = html;
+      extension.__tmOmsScanHistoryHtml = html;
+    }
+    extension.__tmOmsScanHistoryRenderToken = renderToken;
     renderOverlay(state);
     return extension;
   }
@@ -797,6 +840,51 @@
     renderOrderPage(state);
   }
 
+  function getElementFromNode(node) {
+    if (!node) return null;
+    if (node.nodeType === 1) return node;
+    return node.parentElement || null;
+  }
+
+  function isModuleNode(node) {
+    const element = getElementFromNode(node);
+    if (!element) return false;
+    if (element.id === EXTENSION_ID || element.id === OVERLAY_ID) return true;
+    return !!(element.closest && element.closest("#" + EXTENSION_ID + ",#" + OVERLAY_ID));
+  }
+
+  function isModuleOnlyMutation(mutation) {
+    if (!mutation || !isModuleNode(mutation.target)) return false;
+    const nodes = Array.from(mutation.addedNodes || []).concat(Array.from(mutation.removedNodes || []));
+    return nodes.every((node) => !node || isModuleNode(node));
+  }
+
+  function scheduleOrderSync(state, delayMs) {
+    const win = state && state.win;
+    if (!win || state.orderSyncScheduled) return;
+    state.orderSyncScheduled = true;
+    win.setTimeout(() => {
+      state.orderSyncScheduled = false;
+      syncOrderPage(state);
+    }, Number(delayMs) || ORDER_SYNC_DEBOUNCE_MS);
+  }
+
+  function installOrderObserver(state) {
+    const win = state && state.win;
+    const doc = win && win.document;
+    if (!win || !doc || !doc.body || state.orderObserver || typeof win.MutationObserver !== "function") return;
+    state.orderObserver = new win.MutationObserver((mutations) => {
+      const shouldSync = (mutations || []).some((mutation) => !isModuleOnlyMutation(mutation));
+      if (shouldSync) scheduleOrderSync(state, ORDER_SYNC_DEBOUNCE_MS);
+    });
+    state.orderObserver.observe(doc.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+  }
+
   function startOrderPage(context, win) {
     if (!win || !win.document || !isOrderPageWindow(win)) return null;
     const storage = resolveStorage(context, win);
@@ -805,7 +893,8 @@
     state.orderStarted = true;
     const init = () => {
       syncOrderPage(state);
-      state.orderTimer = win.setInterval(() => syncOrderPage(state), 1000);
+      installOrderObserver(state);
+      state.orderTimer = win.setInterval(() => syncOrderPage(state), ORDER_SYNC_FALLBACK_MS);
     };
     if (win.document.body) init();
     else win.addEventListener("DOMContentLoaded", init, { once: true });
@@ -840,7 +929,7 @@
     };
     const init = () => {
       syncFrames();
-      state.shellTimer = win.setInterval(syncFrames, 1200);
+      state.shellTimer = win.setInterval(syncFrames, SHELL_SYNC_FALLBACK_MS);
     };
     if (win.document.body) init();
     else win.addEventListener("DOMContentLoaded", init, { once: true });
@@ -874,6 +963,7 @@
     createHistoryRow,
     createPendingHistoryRow,
     findLatestPrintedHistory,
+    getReusablePreparedScanResult,
     hasPrintedDuplicate,
     id: MODULE_ID,
     isLikelyPdfBuffer,
@@ -893,5 +983,6 @@
     version: MODULE_VERSION,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
 
 
